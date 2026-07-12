@@ -2,6 +2,7 @@ from fastapi import FastAPI
 
 from app.routers import (
     admin,
+    ai,
     cardio,
     dashboard,
     exercises,
@@ -40,6 +41,7 @@ app.include_router(dashboard.router)
 app.include_router(photos.router)
 app.include_router(push.router)
 app.include_router(social.router)
+app.include_router(ai.router)
 
 
 @app.get("/healthz", tags=["infra"])

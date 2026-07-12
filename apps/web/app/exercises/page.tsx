@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import GymVision from "../components/GymVision";
 import { api } from "../lib/api";
 import type { Exercise } from "../lib/types";
 
@@ -20,6 +21,7 @@ export default function ExercisesPage() {
   const [search, setSearch] = useState("");
   const [muscle, setMuscle] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [showVision, setShowVision] = useState(false);
   const [newName, setNewName] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -64,13 +66,23 @@ export default function ExercisesPage() {
     <main className="mx-auto flex max-w-md flex-col gap-4 p-5">
       <div className="flex items-center justify-between pt-2">
         <h1 className="text-2xl font-bold">Övningar</h1>
-        <button
-          onClick={() => setShowForm((v) => !v)}
-          className="rounded-xl bg-sky-600 px-3 py-1.5 text-sm font-semibold text-white"
-        >
-          + Ny övning
-        </button>
+        <div className="flex gap-1.5">
+          <button
+            onClick={() => setShowVision(true)}
+            className="rounded-xl border border-slate-300 px-3 py-1.5 text-sm font-semibold dark:border-slate-700"
+          >
+            📷 Gym-vision
+          </button>
+          <button
+            onClick={() => setShowForm((v) => !v)}
+            className="rounded-xl bg-sky-600 px-3 py-1.5 text-sm font-semibold text-white"
+          >
+            + Ny
+          </button>
+        </div>
       </div>
+
+      {showVision && <GymVision onClose={() => setShowVision(false)} />}
 
       {error && <p className="text-red-600 dark:text-red-400">{error}</p>}
 

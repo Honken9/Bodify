@@ -132,6 +132,8 @@ export default function Home() {
         </button>
       )}
 
+      {me && <ReadinessCard />}
+
       {me && <DashboardSection />}
 
       {recent.length > 0 && (
@@ -182,6 +184,68 @@ export default function Home() {
         </div>
       )}
     </main>
+  );
+}
+
+type Readiness = {
+  status: "green" | "yellow" | "red" | "unknown";
+  factors: { name: string; status: string; detail: string }[];
+  recommendation: string;
+};
+
+const READINESS_STYLE: Record<string, { bg: string; icon: string; label: string }> = {
+  green: {
+    bg: "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950",
+    icon: "🟢",
+    label: "Bra återhämtning",
+  },
+  yellow: {
+    bg: "border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950",
+    icon: "🟡",
+    label: "Lite sliten",
+  },
+  red: {
+    bg: "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950",
+    icon: "🔴",
+    label: "Behöver vila",
+  },
+};
+
+function ReadinessCard() {
+  const [data, setData] = useState<Readiness | null>(null);
+  const [showFactors, setShowFactors] = useState(false);
+
+  useEffect(() => {
+    api<Readiness>("/api/ai/readiness").then(setData).catch(() => {});
+  }, []);
+
+  if (!data || data.status === "unknown") return null;
+  const style = READINESS_STYLE[data.status];
+
+  return (
+    <section className={`rounded-2xl border-2 p-4 ${style.bg}`}>
+      <button
+        className="w-full text-left"
+        onClick={() => setShowFactors((v) => !v)}
+      >
+        <p className="font-bold">
+          {style.icon} Coachen: {style.label}
+        </p>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+          {data.recommendation}
+        </p>
+      </button>
+      {showFactors && (
+        <ul className="mt-2 space-y-0.5 border-t border-black/5 pt-2 text-xs text-slate-500 dark:border-white/10 dark:text-slate-400">
+          {data.factors.map((f) => (
+            <li key={f.name}>
+              {f.status === "green" ? "🟢" : f.status === "yellow" ? "🟡" : "🔴"}{" "}
+              <strong>{f.name}:</strong> {f.detail}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

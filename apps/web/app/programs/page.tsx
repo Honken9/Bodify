@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import GenerateWorkout from "../components/GenerateWorkout";
 import { api } from "../lib/api";
 import { LEVEL_LABELS, type Program, type UserProgram } from "../lib/types";
 
@@ -8,6 +9,7 @@ export default function ProgramsPage() {
   const [programs, setPrograms] = useState<Program[]>([]);
   const [active, setActive] = useState<UserProgram | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [showGenerator, setShowGenerator] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -43,6 +45,21 @@ export default function ProgramsPage() {
         </a>
       </div>
       {error && <p className="text-red-600 dark:text-red-400">{error}</p>}
+
+      <button
+        onClick={() => setShowGenerator(true)}
+        className="rounded-2xl border-2 border-dashed border-sky-300 bg-sky-50 p-4 text-left dark:border-sky-800 dark:bg-sky-950"
+      >
+        <p className="font-bold">✨ Generera ett pass</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Ont om tid eller begränsad utrustning? Låt AI:n sätta ihop dagens
+          pass.
+        </p>
+      </button>
+
+      {showGenerator && (
+        <GenerateWorkout onClose={() => setShowGenerator(false)} />
+      )}
 
       {programs.map((p) => {
         const isActive = active?.program.id === p.id;

@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     # Lagring för uppladdade filer (progressfoton) — volym i Docker
     data_dir: str = "./data"
 
+    # AI (Ollama körs lokalt via docker compose --profile ai)
+    ollama_url: str = "http://ollama:11434"
+    ollama_text_model: str = "llama3.1"
+    ollama_vision_model: str = "qwen2.5vl"
+
     # Web Push (VAPID). Generera nycklar med:
     #   python -c "from py_vapid import Vapid; v=Vapid(); v.generate_keys(); \
     #     print(v.private_pem().decode()); print(v.public_pem().decode())"
