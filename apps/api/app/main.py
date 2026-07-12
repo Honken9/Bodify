@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from app.routers import (
     admin,
     cardio,
+    dashboard,
     exercises,
     food,
     goals,
@@ -10,7 +11,9 @@ from app.routers import (
     me,
     meals,
     metrics,
+    photos,
     programs,
+    push,
     sessions,
     webhooks,
 )
@@ -32,6 +35,9 @@ app.include_router(webhooks.router)
 app.include_router(metrics.router)
 app.include_router(cardio.router)
 app.include_router(goals.router)
+app.include_router(dashboard.router)
+app.include_router(photos.router)
+app.include_router(push.router)
 
 
 @app.get("/healthz", tags=["infra"])

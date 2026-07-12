@@ -132,6 +132,8 @@ export default function Home() {
         </button>
       )}
 
+      {me && <DashboardSection />}
+
       {recent.length > 0 && (
         <section>
           <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
@@ -154,6 +156,142 @@ export default function Home() {
           </ul>
         </section>
       )}
+
+      {me && (
+        <a
+          href="/photos"
+          className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium dark:border-slate-800 dark:bg-slate-900"
+        >
+          📸 Progressfoton — jämför före & efter ›
+        </a>
+      )}
     </main>
+  );
+}
+
+type Dashboard = {
+  period: string;
+  strength_sessions: number;
+  total_volume_kg: number;
+  cardio_sessions: number;
+  cardio_distance_km: number;
+  avg_kcal: number | null;
+  avg_protein_g: number | null;
+  logged_days: number;
+  weight_delta_kg: number | null;
+  active_days: number;
+  activity: { day: string; strength: boolean; cardio: boolean }[];
+};
+
+const PERIOD_LABELS = { week: "Vecka", month: "Månad", year: "År" } as const;
+
+function DashboardSection() {
+  const [period, setPeriod] = useState<keyof typeof PERIOD_LABELS>("week");
+  const [dash, setDash] = useState<Dashboard | null>(null);
+
+  useEffect(() => {
+    api<Dashboard>(`/api/dashboard?period=${period}`)
+      .then(setDash)
+      .catch(() => {});
+  }, [period]);
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex items-center justify-between">
+        <h3 className="font-bold">Din översikt</h3>
+        <div className="flex gap-1">
+          {(Object.keys(PERIOD_LABELS) as (keyof typeof PERIOD_LABELS)[]).map(
+            (p) => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={`rounded-lg px-2 py-1 text-xs font-medium ${
+                  period === p
+                    ? "bg-sky-600 text-white"
+                    : "bg-slate-100 text-slate-500 dark:bg-slate-800"
+                }`}
+              >
+                {PERIOD_LABELS[p]}
+              </button>
+            )
+          )}
+        </div>
+      </div>
+
+      {dash && (
+        <>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Stat
+              label="Styrkepass"
+              value={String(dash.strength_sessions)}
+              sub={`${Math.round(dash.total_volume_kg / 1000)} ton volym`}
+            />
+            <Stat
+              label="Konditionspass"
+              value={String(dash.cardio_sessions)}
+              sub={`${dash.cardio_distance_km} km`}
+            />
+            <Stat
+              label="Kost (snitt/dag)"
+              value={dash.avg_kcal != null ? `${dash.avg_kcal} kcal` : "–"}
+              sub={
+                dash.avg_protein_g != null
+                  ? `${dash.avg_protein_g} g protein · ${dash.logged_days} loggade dagar`
+                  : "inga loggade dagar"
+              }
+            />
+            <Stat
+              label="Vikt"
+              value={
+                dash.weight_delta_kg != null
+                  ? `${dash.weight_delta_kg > 0 ? "+" : ""}${dash.weight_delta_kg} kg`
+                  : "–"
+              }
+              sub={`${dash.active_days} aktiva dagar`}
+            />
+          </div>
+
+          {dash.activity.length > 0 && (
+            <div className="mt-3 flex gap-[3px]">
+              {dash.activity.map((d) => (
+                <div
+                  key={d.day}
+                  title={d.day}
+                  className={`h-6 flex-1 rounded-sm ${
+                    d.strength && d.cardio
+                      ? "bg-emerald-500"
+                      : d.strength
+                        ? "bg-sky-500"
+                        : d.cardio
+                          ? "bg-amber-400"
+                          : "bg-slate-100 dark:bg-slate-800"
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  sub,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+}) {
+  return (
+    <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+      <p className="text-lg font-bold">{value}</p>
+      <p className="truncate text-xs text-slate-500 dark:text-slate-400">{sub}</p>
+    </div>
   );
 }

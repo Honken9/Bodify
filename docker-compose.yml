@@ -27,13 +27,26 @@ services:
   api:
     build: apps/api
     restart: unless-stopped
-    environment:
+    environment: &api-env
       DATABASE_URL: postgresql+asyncpg://bodify:${DB_PASSWORD:-bodify}@db:5432/bodify
       REDIS_URL: redis://redis:6379/0
       CF_TEAM_DOMAIN: ${CF_TEAM_DOMAIN}
       CF_ACCESS_AUD: ${CF_ACCESS_AUD}
       BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
       AUTO_PROVISION_USERS: ${AUTO_PROVISION_USERS:-false}
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
+      DATA_DIR: /srv/data
+      STRAVA_CLIENT_ID: ${STRAVA_CLIENT_ID:-}
+      STRAVA_CLIENT_SECRET: ${STRAVA_CLIENT_SECRET:-}
+      STRAVA_VERIFY_TOKEN: ${STRAVA_VERIFY_TOKEN:-bodify-strava}
+      WITHINGS_CLIENT_ID: ${WITHINGS_CLIENT_ID:-}
+      WITHINGS_CLIENT_SECRET: ${WITHINGS_CLIENT_SECRET:-}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@example.com}
+    volumes:
+      - appdata:/srv/data
     depends_on:
       db:
         condition: service_healthy
@@ -44,9 +57,9 @@ services:
     build: apps/api
     restart: unless-stopped
     command: arq app.workers.main.WorkerSettings
-    environment:
-      DATABASE_URL: postgresql+asyncpg://bodify:${DB_PASSWORD:-bodify}@db:5432/bodify
-      REDIS_URL: redis://redis:6379/0
+    environment: *api-env
+    volumes:
+      - appdata:/srv/data
     depends_on:
       db:
         condition: service_healthy
@@ -92,4 +105,5 @@ services:
 volumes:
   dbdata:
   redisdata:
+  appdata:
   ollama:

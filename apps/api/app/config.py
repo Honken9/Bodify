@@ -34,6 +34,17 @@ class Settings(BaseSettings):
     withings_client_id: str = ""
     withings_client_secret: str = ""
 
+    # Lagring för uppladdade filer (progressfoton) — volym i Docker
+    data_dir: str = "./data"
+
+    # Web Push (VAPID). Generera nycklar med:
+    #   python -c "from py_vapid import Vapid; v=Vapid(); v.generate_keys(); \
+    #     print(v.private_pem().decode()); print(v.public_pem().decode())"
+    # eller `npx web-push generate-vapid-keys` (base64url-formatet).
+    vapid_public_key: str = ""
+    vapid_private_key: str = ""
+    vapid_subject: str = "mailto:admin@example.com"
+
     # Endast lokal utveckling: hoppar över Cloudflare-verifieringen helt
     # och agerar som denna e-postadress. Får ALDRIG sättas i produktion.
     dev_auth_email: str | None = None

@@ -1,3 +1,4 @@
+from app.models.engagement import ProgressPhoto, PushSubscription
 from app.models.health import (
     METRICS,
     BodyMetric,
@@ -28,6 +29,8 @@ __all__ = [
     "Goal",
     "IngestToken",
     "OAuthConnection",
+    "ProgressPhoto",
+    "PushSubscription",
     "SleepSession",
     "MealEntry",
     "MealTemplate",

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Nav from "./components/Nav";
+import ServiceWorkerRegistrar from "./components/ServiceWorkerRegistrar";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -27,6 +28,7 @@ export default function RootLayout({
       <body className="min-h-dvh bg-slate-50 pb-20 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100">
         {children}
         <Nav />
+        <ServiceWorkerRegistrar />
       </body>
     </html>
   );

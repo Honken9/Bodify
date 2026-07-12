@@ -29,6 +29,93 @@ const PROVIDER_META: Record<string, { name: string; blurb: string }> = {
   },
 };
 
+function urlBase64ToUint8Array(base64: string): Uint8Array {
+  const padding = "=".repeat((4 - (base64.length % 4)) % 4);
+  const raw = atob((base64 + padding).replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+}
+
+function PushSection({ onError }: { onError: (m: string) => void }) {
+  const [state, setState] = useState<"unknown" | "on" | "off" | "unsupported">(
+    "unknown"
+  );
+
+  useEffect(() => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      setState("unsupported");
+      return;
+    }
+    navigator.serviceWorker.ready
+      .then((reg) => reg.pushManager.getSubscription())
+      .then((sub) => setState(sub ? "on" : "off"))
+      .catch(() => setState("off"));
+  }, []);
+
+  async function enable() {
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        onError("Notistillstånd nekades i webbläsaren.");
+        return;
+      }
+      const reg = await navigator.serviceWorker.ready;
+      const { key } = await api<{ key: string }>("/api/push/vapid-public-key");
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(key) as BufferSource,
+      });
+      await api("/api/push/subscriptions", {
+        method: "POST",
+        body: JSON.stringify(sub.toJSON()),
+      });
+      setState("on");
+    } catch (e) {
+      onError((e as Error).message);
+    }
+  }
+
+  async function disable() {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      await api("/api/push/subscriptions", {
+        method: "DELETE",
+        body: JSON.stringify(sub.toJSON()),
+      }).catch(() => {});
+      await sub.unsubscribe();
+    }
+    setState("off");
+  }
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      <h2 className="font-bold">Push-notiser</h2>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        Påminnelser, utmaningsuppdateringar och coach-råd direkt till mobilen.
+        På iPhone: lägg först till Bodify på hemskärmen (Dela →
+        &quot;Lägg till på hemskärmen&quot;).
+      </p>
+      {state === "unsupported" ? (
+        <p className="mt-3 text-sm text-amber-600 dark:text-amber-400">
+          Webbläsaren stöder inte push (öppna appen från hemskärmen på iOS).
+        </p>
+      ) : (
+        <button
+          onClick={state === "on" ? disable : enable}
+          disabled={state === "unknown"}
+          className={`mt-3 w-full rounded-xl py-2.5 font-semibold ${
+            state === "on"
+              ? "border border-slate-300 text-slate-600 dark:border-slate-700 dark:text-slate-300"
+              : "bg-sky-600 text-white"
+          }`}
+        >
+          {state === "on" ? "Stäng av push-notiser" : "Aktivera push-notiser"}
+        </button>
+      )}
+    </section>
+  );
+}
+
 export default function SettingsPage() {
   const [status, setStatus] = useState<IntegrationsStatus | null>(null);
   const [newToken, setNewToken] = useState<{
@@ -197,6 +284,8 @@ export default function SettingsPage() {
           Skapa ny token
         </button>
       </section>
+
+      <PushSection onError={setError} />
     </main>
   );
 }
