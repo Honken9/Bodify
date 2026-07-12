@@ -44,6 +44,14 @@ Surfa till ditt hostname och logga in — adressen i `BOOTSTRAP_ADMIN_EMAIL`
 blir admin vid första inloggningen. Med `AUTO_PROVISION_USERS=true` får alla
 vitlistade vänner konto automatiskt vid sin första inloggning.
 
+**Bjuda in testare/vänner:** sätt `CF_API_TOKEN`, `CF_ACCOUNT_ID` och
+`CF_ACCESS_APP_ID` i `.env` (API-token med behörigheten *Access: Apps and
+Policies – Edit*), så kan du vitlista adresser direkt från **Admin →
+Externa testare** i appen. Testaren surfar till adressen, verifierar sin
+e-post via Cloudflares engångskod, och är inne — inga lösenord, inga konton
+att administrera. Utan API-token funkar samma sak manuellt i Zero
+Trust-dashboarden (Access → Applications → din policy → lägg till e-post).
+
 **På mobilen:** öppna sidan i Safari/Chrome → *Lägg till på hemskärmen*.
 Då blir Bodify en fullskärmsapp med kamera (streckkoder, foton) och
 push-notiser (iOS 16.4+).

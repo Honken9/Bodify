@@ -21,6 +21,15 @@ type Overview = {
   connections: Record<string, number>;
 };
 
+type TestersData = {
+  configured: boolean;
+  testers: {
+    email: string;
+    has_logged_in: boolean;
+    display_name: string | null;
+  }[];
+};
+
 export default function AdminPage() {
   const [me, setMe] = useState<Me | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -139,6 +148,8 @@ export default function AdminPage() {
         </ul>
       </section>
 
+      <TestersSection onMessage={setMessage} />
+
       <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
         <h2 className="font-bold">Jobb</h2>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -152,5 +163,120 @@ export default function AdminPage() {
         </button>
       </section>
     </main>
+  );
+}
+
+function TestersSection({ onMessage }: { onMessage: (m: string) => void }) {
+  const [data, setData] = useState<TestersData | null>(null);
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const refresh = useCallback(() => {
+    api<TestersData>("/api/admin/testers").then(setData).catch(() => {});
+  }, []);
+
+  useEffect(refresh, [refresh]);
+
+  async function invite() {
+    setBusy(true);
+    try {
+      await api("/api/admin/testers", {
+        method: "POST",
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      onMessage(
+        `${email.trim()} är vitlistad — de kan logga in direkt på appens adress.`
+      );
+      setEmail("");
+      refresh();
+    } catch (e) {
+      onMessage((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(target: string) {
+    if (!window.confirm(`Ta bort ${target} från vitlistan?`)) return;
+    try {
+      await api(`/api/admin/testers/${encodeURIComponent(target)}`, {
+        method: "DELETE",
+      });
+      refresh();
+    } catch (e) {
+      onMessage((e as Error).message);
+    }
+  }
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <h2 className="font-bold">Externa testare</h2>
+
+      {data && !data.configured && (
+        <div className="mt-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+          <p className="font-semibold">Cloudflare-API:t är inte konfigurerat.</p>
+          <p className="mt-1">
+            Skapa en API-token i Cloudflare med behörigheten{" "}
+            <em>Access: Apps and Policies – Edit</em> och sätt{" "}
+            <code className="rounded bg-black/10 px-1">CF_API_TOKEN</code>,{" "}
+            <code className="rounded bg-black/10 px-1">CF_ACCOUNT_ID</code> och{" "}
+            <code className="rounded bg-black/10 px-1">CF_ACCESS_APP_ID</code>{" "}
+            i .env. Tills dess läggs testare till manuellt i Zero
+            Trust-dashboarden (Access → Applications → din policy).
+          </p>
+        </div>
+      )}
+
+      {data?.configured && (
+        <>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Vitlistade adresser kan logga in direkt — kontot skapas
+            automatiskt vid första inloggningen.
+          </p>
+          <div className="mt-2 flex gap-2">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="testarens e-postadress"
+              className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-transparent px-3 py-2 text-sm dark:border-slate-700"
+            />
+            <button
+              disabled={busy || !email.includes("@")}
+              onClick={invite}
+              className="rounded-xl bg-sky-600 px-4 text-sm font-semibold text-white disabled:opacity-40"
+            >
+              Bjud in
+            </button>
+          </div>
+
+          <ul className="mt-3 divide-y divide-slate-100 dark:divide-slate-800">
+            {data.testers.map((t) => (
+              <li
+                key={t.email}
+                className="flex items-center justify-between py-2"
+              >
+                <div>
+                  <p className="text-sm font-medium">
+                    {t.display_name ?? t.email}
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    {t.display_name ? `${t.email} · ` : ""}
+                    {t.has_logged_in ? "✅ har loggat in" : "⏳ inte inloggad ännu"}
+                  </p>
+                </div>
+                <button
+                  onClick={() => remove(t.email)}
+                  className="px-2 text-slate-400 hover:text-red-500"
+                  aria-label="Ta bort"
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
   );
 }

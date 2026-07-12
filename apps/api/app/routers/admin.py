@@ -1,12 +1,14 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import require_admin
 from app.db import get_session
+from app.integrations import cloudflare
+from app.integrations.cloudflare import CloudflareError, CloudflareNotConfigured
 from app.models import (
     CardioActivity,
     Challenge,
@@ -79,3 +81,70 @@ async def overview(session: AsyncSession = Depends(get_session)) -> dict:
 async def trigger_snapshots(session: AsyncSession = Depends(get_session)) -> dict:
     """Kör snapshot-jobbet manuellt (körs annars nattligt av workern)."""
     return await challenge_service.run_daily_snapshots(session)
+
+
+# ── Externa testare (Cloudflare Access-vitlistan) ─────────────
+
+
+class TesterInvite(BaseModel):
+    email: EmailStr
+
+
+def _cf_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, CloudflareNotConfigured):
+        return HTTPException(503, str(exc))
+    return HTTPException(502, f"Cloudflare-API:t svarade med fel: {exc}")
+
+
+@router.get("/testers")
+async def list_testers(session: AsyncSession = Depends(get_session)) -> dict:
+    """Vitlistade adresser + om de loggat in ännu."""
+    if not cloudflare.is_configured():
+        return {"configured": False, "testers": []}
+    try:
+        emails = await cloudflare.list_allowed_emails()
+    except CloudflareError as exc:
+        raise _cf_error(exc)
+
+    known = {
+        u.email: u
+        for u in await session.scalars(
+            select(User).where(User.email.in_(emails))
+        )
+    }
+    return {
+        "configured": True,
+        "testers": [
+            {
+                "email": email,
+                "has_logged_in": email in known,
+                "display_name": known[email].display_name
+                if email in known
+                else None,
+            }
+            for email in emails
+        ],
+    }
+
+
+@router.post("/testers", status_code=201)
+async def invite_tester(payload: TesterInvite) -> dict:
+    try:
+        emails = await cloudflare.add_email(payload.email)
+    except (CloudflareNotConfigured, CloudflareError) as exc:
+        raise _cf_error(exc)
+    return {"ok": True, "emails": emails}
+
+
+@router.delete("/testers/{email}")
+async def remove_tester(
+    email: str,
+    admin: User = Depends(require_admin),
+) -> dict:
+    if email.lower().strip() == admin.email:
+        raise HTTPException(400, "Du kan inte ta bort din egen åtkomst.")
+    try:
+        emails = await cloudflare.remove_email(email)
+    except (CloudflareNotConfigured, CloudflareError) as exc:
+        raise _cf_error(exc)
+    return {"ok": True, "emails": emails}

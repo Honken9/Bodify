@@ -21,6 +21,14 @@ class Settings(BaseSettings):
     # Kryptering av tokens i vila m.m. — sätt ett långt slumpvärde i drift!
     secret_key: str = "dev-secret-change-me"
 
+    # Cloudflare API — låter admin hantera Access-vitlistan (testare)
+    # direkt från Bodify. Skapa en API-token med behörigheten
+    # "Access: Apps and Policies – Edit" i Cloudflare-dashboarden.
+    cf_api_token: str = ""
+    cf_account_id: str = ""
+    cf_access_app_id: str = ""  # Access-applikationens UUID
+    cf_access_policy_id: str = ""  # valfri — annars väljs första allow-policyn
+
     # Publik bas-URL (för OAuth-redirects och webhooks), t.ex.
     # https://bodify.dindomän.se
     public_base_url: str = "http://localhost:3000"
