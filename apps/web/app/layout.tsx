@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Nav from "./components/Nav";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -23,8 +24,9 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="sv">
-      <body className="min-h-dvh bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100">
+      <body className="min-h-dvh bg-slate-50 pb-20 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100">
         {children}
+        <Nav />
       </body>
     </html>
   );

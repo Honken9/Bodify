@@ -11,8 +11,8 @@ och lokala AI-funktioner. Allt driftat på din egen maskin via Docker.
 | Fas | Innehåll | Status |
 |---|---|---|
 | 0 | Fundament: Docker, Cloudflare Access-auth, databas, worker | ✅ Klar |
-| 1 | Träningsloggbok (program, rullande split, vilotimer) | ⏳ Nästa |
-| 2 | Kost (streckkodsläsare, måltidsmallar) | – |
+| 1 | Träningsloggbok (program, rullande split, vilotimer) | ✅ Klar |
+| 2 | Kost (streckkodsläsare, måltidsmallar) | ⏳ Nästa |
 | 3 | Integrationer (Withings, Strava, Apple Health) | – |
 | 4 | Dashboard & PWA-polish | – |
 | 5 | Socialt & utmaningar | – |

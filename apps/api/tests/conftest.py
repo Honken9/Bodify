@@ -84,3 +84,12 @@ async def known_user(db_session) -> User:
     await db_session.commit()
     await db_session.refresh(user)
     return user
+
+
+@pytest.fixture
+async def other_user(db_session) -> User:
+    user = User(email="anna@example.com", display_name="Anna")
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
