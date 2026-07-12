@@ -36,7 +36,12 @@ export default function ProgramsPage() {
 
   return (
     <main className="mx-auto flex max-w-md flex-col gap-4 p-5">
-      <h1 className="pt-2 text-2xl font-bold">Program</h1>
+      <div className="flex items-center justify-between pt-2">
+        <h1 className="text-2xl font-bold">Program</h1>
+        <a href="/exercises" className="text-sm text-sky-600 dark:text-sky-400">
+          Övningsbibliotek ›
+        </a>
+      </div>
       {error && <p className="text-red-600 dark:text-red-400">{error}</p>}
 
       {programs.map((p) => {

@@ -18,6 +18,22 @@ class Settings(BaseSettings):
     bootstrap_admin_email: str | None = None  # blir admin vid första inloggningen
     auto_provision_users: bool = False  # skapa konto automatiskt för vitlistade
 
+    # Kryptering av tokens i vila m.m. — sätt ett långt slumpvärde i drift!
+    secret_key: str = "dev-secret-change-me"
+
+    # Publik bas-URL (för OAuth-redirects och webhooks), t.ex.
+    # https://bodify.dindomän.se
+    public_base_url: str = "http://localhost:3000"
+
+    # Strava (skapa app på https://www.strava.com/settings/api)
+    strava_client_id: str = ""
+    strava_client_secret: str = ""
+    strava_verify_token: str = "bodify-strava"
+
+    # Withings (skapa app på https://developer.withings.com)
+    withings_client_id: str = ""
+    withings_client_secret: str = ""
+
     # Endast lokal utveckling: hoppar över Cloudflare-verifieringen helt
     # och agerar som denna e-postadress. Får ALDRIG sättas i produktion.
     dev_auth_email: str | None = None

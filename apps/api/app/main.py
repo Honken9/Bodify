@@ -1,6 +1,19 @@
 from fastapi import FastAPI
 
-from app.routers import admin, exercises, food, me, meals, programs, sessions
+from app.routers import (
+    admin,
+    cardio,
+    exercises,
+    food,
+    goals,
+    integrations,
+    me,
+    meals,
+    metrics,
+    programs,
+    sessions,
+    webhooks,
+)
 
 app = FastAPI(title="Bodify API", version="0.1.0")
 
@@ -14,6 +27,11 @@ app.include_router(food.router)
 app.include_router(meals.router)
 app.include_router(meals.templates_router)
 app.include_router(meals.targets_router)
+app.include_router(integrations.router)
+app.include_router(webhooks.router)
+app.include_router(metrics.router)
+app.include_router(cardio.router)
+app.include_router(goals.router)
 
 
 @app.get("/healthz", tags=["infra"])

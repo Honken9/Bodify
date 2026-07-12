@@ -58,13 +58,18 @@ export default function Home() {
 
   return (
     <main className="mx-auto flex max-w-md flex-col gap-5 p-5">
-      <header className="pt-2">
-        <h1 className="text-2xl font-bold">
-          {me ? `Hej ${me.display_name ?? me.email.split("@")[0]}! 👋` : "…"}
-        </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Redo för dagens pass?
-        </p>
+      <header className="flex items-start justify-between pt-2">
+        <div>
+          <h1 className="text-2xl font-bold">
+            {me ? `Hej ${me.display_name ?? me.email.split("@")[0]}! 👋` : "…"}
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Redo för dagens pass?
+          </p>
+        </div>
+        <a href="/settings" className="p-1 text-xl" aria-label="Kopplingar">
+          ⚙️
+        </a>
       </header>
 
       {ongoing && (
