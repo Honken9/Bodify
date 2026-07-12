@@ -1,3 +1,4 @@
+from app.models.nutrition import FoodItem, MealEntry, MealTemplate, NutritionTarget
 from app.models.training import (
     Exercise,
     Program,
@@ -11,6 +12,10 @@ from app.models.user import User
 
 __all__ = [
     "Exercise",
+    "FoodItem",
+    "MealEntry",
+    "MealTemplate",
+    "NutritionTarget",
     "Program",
     "ProgramDay",
     "ProgramDayExercise",

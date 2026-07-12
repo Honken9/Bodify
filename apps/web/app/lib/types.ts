@@ -94,6 +94,65 @@ export type SessionSummary = {
   total_volume_kg: number;
 };
 
+export type FoodItem = {
+  id: string;
+  barcode: string | null;
+  name: string;
+  brand: string | null;
+  source: "off" | "custom";
+  per_100g: {
+    kcal?: number;
+    protein_g?: number;
+    carbs_g?: number;
+    fat_g?: number;
+    fiber_g?: number;
+  };
+};
+
+export type MealEntry = {
+  id: string;
+  eaten_on: string;
+  meal: MealKey;
+  food_item: FoodItem;
+  grams: number;
+  kcal: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+};
+
+export type MealKey = "breakfast" | "lunch" | "dinner" | "snack";
+
+export type MacroTotals = {
+  kcal: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+};
+
+export type NutritionTargets = MacroTotals;
+
+export type DayLog = {
+  day: string;
+  entries: MealEntry[];
+  totals: MacroTotals;
+  targets: NutritionTargets;
+};
+
+export type MealTemplate = {
+  id: string;
+  name: string;
+  items: { food_item_id: string; grams: number }[];
+  foods: FoodItem[];
+};
+
+export const MEAL_LABELS: Record<MealKey, string> = {
+  breakfast: "Frukost",
+  lunch: "Lunch",
+  dinner: "Middag",
+  snack: "Mellanmål",
+};
+
 export const LEVEL_LABELS: Record<Program["level"], string> = {
   beginner: "Nybörjare",
   intermediate: "Medel",
