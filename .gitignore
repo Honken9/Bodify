@@ -1,0 +1,17 @@
+# Miljö & hemligheter
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Node / Next.js
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# Övrigt
+.DS_Store

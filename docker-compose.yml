@@ -1,0 +1,95 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    # Ingen publicerad port som standard — trafiken kommer via Cloudflare
+    # Tunnel. Avkommentera för att nå appen direkt på LAN:
+    # ports:
+    #   - "8080:80"
+    depends_on:
+      - web
+      - api
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+    profiles: ["tunnel"]
+    depends_on:
+      - caddy
+
+  web:
+    build: apps/web
+    restart: unless-stopped
+
+  api:
+    build: apps/api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://bodify:${DB_PASSWORD:-bodify}@db:5432/bodify
+      REDIS_URL: redis://redis:6379/0
+      CF_TEAM_DOMAIN: ${CF_TEAM_DOMAIN}
+      CF_ACCESS_AUD: ${CF_ACCESS_AUD}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      AUTO_PROVISION_USERS: ${AUTO_PROVISION_USERS:-false}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  worker:
+    build: apps/api
+    restart: unless-stopped
+    command: arq app.workers.main.WorkerSettings
+    environment:
+      DATABASE_URL: postgresql+asyncpg://bodify:${DB_PASSWORD:-bodify}@db:5432/bodify
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  db:
+    image: timescale/timescaledb:latest-pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bodify
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-bodify}
+      POSTGRES_DB: bodify
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bodify -d bodify"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    profiles: ["ai"]
+    volumes:
+      - ollama:/root/.ollama
+    # Avkommentera vid NVIDIA-GPU:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+volumes:
+  dbdata:
+  redisdata:
+  ollama:
