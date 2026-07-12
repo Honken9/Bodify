@@ -15,6 +15,7 @@ from app.routers import (
     programs,
     push,
     sessions,
+    social,
     webhooks,
 )
 
@@ -38,6 +39,7 @@ app.include_router(goals.router)
 app.include_router(dashboard.router)
 app.include_router(photos.router)
 app.include_router(push.router)
+app.include_router(social.router)
 
 
 @app.get("/healthz", tags=["infra"])

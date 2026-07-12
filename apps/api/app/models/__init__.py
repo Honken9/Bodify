@@ -9,6 +9,13 @@ from app.models.health import (
     SleepSession,
 )
 from app.models.nutrition import FoodItem, MealEntry, MealTemplate, NutritionTarget
+from app.models.social import (
+    CHALLENGE_METRICS,
+    Challenge,
+    ChallengeParticipant,
+    ChallengeSnapshot,
+    Friendship,
+)
 from app.models.training import (
     Exercise,
     Program,
@@ -21,9 +28,14 @@ from app.models.training import (
 from app.models.user import User
 
 __all__ = [
+    "CHALLENGE_METRICS",
     "METRICS",
     "BodyMetric",
     "CardioActivity",
+    "Challenge",
+    "ChallengeParticipant",
+    "ChallengeSnapshot",
+    "Friendship",
     "Exercise",
     "FoodItem",
     "Goal",

@@ -158,12 +158,28 @@ export default function Home() {
       )}
 
       {me && (
-        <a
-          href="/photos"
-          className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium dark:border-slate-800 dark:bg-slate-900"
-        >
-          📸 Progressfoton — jämför före & efter ›
-        </a>
+        <div className="flex flex-col gap-2">
+          <a
+            href="/social"
+            className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium dark:border-slate-800 dark:bg-slate-900"
+          >
+            🏆 Vänner & utmaningar ›
+          </a>
+          <a
+            href="/photos"
+            className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium dark:border-slate-800 dark:bg-slate-900"
+          >
+            📸 Progressfoton — jämför före & efter ›
+          </a>
+          {me.is_admin && (
+            <a
+              href="/admin"
+              className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium dark:border-slate-800 dark:bg-slate-900"
+            >
+              🛠️ Admin ›
+            </a>
+          )}
+        </div>
       )}
     </main>
   );
