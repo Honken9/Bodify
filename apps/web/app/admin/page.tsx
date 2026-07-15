@@ -51,7 +51,7 @@ export default function AdminPage() {
   if (me && !me.is_admin) {
     return (
       <main className="mx-auto max-w-md p-5">
-        <p className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-slate-500 dark:border-slate-800 dark:bg-slate-900">
+        <p className="rounded-2xl border border-stone-200 bg-white p-6 text-center text-stone-500 dark:border-stone-800 dark:bg-stone-900">
           Den här sidan kräver adminbehörighet.
         </p>
       </main>
@@ -84,7 +84,7 @@ export default function AdminPage() {
     <main className="mx-auto flex max-w-md flex-col gap-4 p-5">
       <h1 className="pt-2 text-2xl font-bold">Admin</h1>
       {message && (
-        <p className="rounded-xl bg-sky-50 p-3 text-sm text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+        <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
           {message}
         </p>
       )}
@@ -108,9 +108,9 @@ export default function AdminPage() {
           ).map(([label, value]) => (
             <div
               key={label}
-              className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"
+              className="rounded-xl border border-stone-200 bg-white p-3 dark:border-stone-800 dark:bg-stone-900"
             >
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                 {label}
               </p>
               <p className="text-lg font-bold">{value}</p>
@@ -119,26 +119,26 @@ export default function AdminPage() {
         </section>
       )}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <section className="rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
         <h2 className="font-bold">Användare</h2>
-        <ul className="mt-2 divide-y divide-slate-100 dark:divide-slate-800">
+        <ul className="mt-2 divide-y divide-stone-100 dark:divide-stone-800">
           {users.map((u) => (
             <li key={u.id} className="flex items-center justify-between py-2">
               <div>
                 <p className="text-sm font-medium">
                   {u.display_name ?? u.email.split("@")[0]}
                   {u.is_admin && (
-                    <span className="ml-2 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+                    <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
                       admin
                     </span>
                   )}
                 </p>
-                <p className="text-xs text-slate-400">{u.email}</p>
+                <p className="text-xs text-stone-400">{u.email}</p>
               </div>
               {me && u.id !== me.id && (
                 <button
                   onClick={() => toggleAdmin(u)}
-                  className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium dark:border-slate-700"
+                  className="rounded-lg border border-stone-300 px-2.5 py-1 text-xs font-medium dark:border-stone-700"
                 >
                   {u.is_admin ? "Ta bort admin" : "Gör till admin"}
                 </button>
@@ -150,14 +150,14 @@ export default function AdminPage() {
 
       <TestersSection onMessage={setMessage} />
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <section className="rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
         <h2 className="font-bold">Jobb</h2>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
           Snapshot-jobbet körs automatiskt varje kväll 20:30 av workern.
         </p>
         <button
           onClick={runSnapshots}
-          className="mt-2 w-full rounded-xl border border-slate-300 py-2.5 text-sm font-semibold dark:border-slate-700"
+          className="mt-2 w-full rounded-xl border border-stone-300 py-2.5 text-sm font-semibold dark:border-stone-700"
         >
           Kör utmanings-snapshots nu
         </button>
@@ -209,7 +209,7 @@ function TestersSection({ onMessage }: { onMessage: (m: string) => void }) {
   }
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+    <section className="rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
       <h2 className="font-bold">Externa testare</h2>
 
       {data && !data.configured && (
@@ -229,7 +229,7 @@ function TestersSection({ onMessage }: { onMessage: (m: string) => void }) {
 
       {data?.configured && (
         <>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
             Vitlistade adresser kan logga in direkt — kontot skapas
             automatiskt vid första inloggningen.
           </p>
@@ -239,18 +239,18 @@ function TestersSection({ onMessage }: { onMessage: (m: string) => void }) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="testarens e-postadress"
-              className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-transparent px-3 py-2 text-sm dark:border-slate-700"
+              className="min-w-0 flex-1 rounded-xl border border-stone-300 bg-transparent px-3 py-2 text-sm dark:border-stone-700"
             />
             <button
               disabled={busy || !email.includes("@")}
               onClick={invite}
-              className="rounded-xl bg-sky-600 px-4 text-sm font-semibold text-white disabled:opacity-40"
+              className="rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white disabled:opacity-40"
             >
               Bjud in
             </button>
           </div>
 
-          <ul className="mt-3 divide-y divide-slate-100 dark:divide-slate-800">
+          <ul className="mt-3 divide-y divide-stone-100 dark:divide-stone-800">
             {data.testers.map((t) => (
               <li
                 key={t.email}
@@ -260,14 +260,14 @@ function TestersSection({ onMessage }: { onMessage: (m: string) => void }) {
                   <p className="text-sm font-medium">
                     {t.display_name ?? t.email}
                   </p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-stone-400">
                     {t.display_name ? `${t.email} · ` : ""}
                     {t.has_logged_in ? "✅ har loggat in" : "⏳ inte inloggad ännu"}
                   </p>
                 </div>
                 <button
                   onClick={() => remove(t.email)}
-                  className="px-2 text-slate-400 hover:text-red-500"
+                  className="px-2 text-stone-400 hover:text-red-500"
                   aria-label="Ta bort"
                 >
                   ✕

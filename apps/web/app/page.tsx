@@ -63,7 +63,7 @@ export default function Home() {
           <h1 className="text-2xl font-bold">
             {me ? `Hej ${me.display_name ?? me.email.split("@")[0]}! 👋` : "…"}
           </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-sm text-stone-500 dark:text-stone-400">
             Redo för dagens pass?
           </p>
         </div>
@@ -78,7 +78,7 @@ export default function Home() {
           className="rounded-2xl border-2 border-amber-400 bg-amber-50 p-5 text-left dark:border-amber-600 dark:bg-amber-950"
         >
           <p className="font-semibold">⏳ Pågående pass</p>
-          <p className="text-sm text-slate-600 dark:text-slate-300">
+          <p className="text-sm text-stone-600 dark:text-stone-300">
             {ongoing.day_name ?? "Fritt pass"} · {ongoing.set_count} set loggade
             — tryck för att fortsätta
           </p>
@@ -86,12 +86,12 @@ export default function Home() {
       )}
 
       {nextDay && !ongoing && (
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+        <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm dark:border-stone-800 dark:bg-stone-900">
+          <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">
             Nästa pass · {active!.program.name}
           </p>
           <h2 className="mt-1 text-xl font-bold">{nextDay.name}</h2>
-          <ul className="mt-3 space-y-1 text-sm text-slate-600 dark:text-slate-300">
+          <ul className="mt-3 space-y-1 text-sm text-stone-600 dark:text-stone-300">
             {nextDay.exercises.map((ex) => (
               <li key={ex.id}>
                 {ex.exercise.name} · {ex.target_sets} × {ex.target_reps}
@@ -101,7 +101,7 @@ export default function Home() {
           <button
             disabled={starting}
             onClick={() => startSession(nextDay.id)}
-            className="mt-4 w-full rounded-xl bg-sky-600 py-3 font-semibold text-white active:bg-sky-700 disabled:opacity-50"
+            className="mt-4 w-full rounded-xl bg-emerald-600 py-3 font-semibold text-white active:bg-emerald-700 disabled:opacity-50"
           >
             {starting ? "Startar…" : "Starta passet"}
           </button>
@@ -109,13 +109,13 @@ export default function Home() {
       )}
 
       {!active && !ongoing && me && (
-        <section className="rounded-2xl border border-dashed border-slate-300 p-5 text-center dark:border-slate-700">
-          <p className="text-slate-600 dark:text-slate-300">
+        <section className="rounded-2xl border border-dashed border-stone-300 p-5 text-center dark:border-stone-700">
+          <p className="text-stone-600 dark:text-stone-300">
             Du har inget aktivt program ännu.
           </p>
           <button
             onClick={() => router.push("/programs")}
-            className="mt-3 rounded-xl bg-sky-600 px-5 py-2 font-semibold text-white"
+            className="mt-3 rounded-xl bg-emerald-600 px-5 py-2 font-semibold text-white"
           >
             Välj program
           </button>
@@ -126,7 +126,7 @@ export default function Home() {
         <button
           disabled={starting}
           onClick={() => startSession(null)}
-          className="rounded-xl border border-slate-300 py-3 font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200"
+          className="rounded-xl border border-stone-300 py-3 font-semibold text-stone-700 dark:border-stone-700 dark:text-stone-200"
         >
           Starta fritt pass
         </button>
@@ -138,19 +138,19 @@ export default function Home() {
 
       {recent.length > 0 && (
         <section>
-          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-400">
             Senaste passen
           </h3>
           <ul className="space-y-2">
             {recent.map((s) => (
               <li
                 key={s.id}
-                className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm dark:border-slate-800 dark:bg-slate-900"
+                className="flex items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm dark:border-stone-800 dark:bg-stone-900"
               >
                 <span className="font-medium">
                   {s.day_name ?? "Fritt pass"}
                 </span>
-                <span className="text-slate-500 dark:text-slate-400">
+                <span className="text-stone-500 dark:text-stone-400">
                   {formatDate(s.started_at)} · {s.set_count} set
                 </span>
               </li>
@@ -163,20 +163,20 @@ export default function Home() {
         <div className="flex flex-col gap-2">
           <a
             href="/social"
-            className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium dark:border-slate-800 dark:bg-slate-900"
+            className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium dark:border-stone-800 dark:bg-stone-900"
           >
             🏆 Vänner & utmaningar ›
           </a>
           <a
             href="/photos"
-            className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium dark:border-slate-800 dark:bg-slate-900"
+            className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium dark:border-stone-800 dark:bg-stone-900"
           >
             📸 Progressfoton — jämför före & efter ›
           </a>
           {me.is_admin && (
             <a
               href="/admin"
-              className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium dark:border-slate-800 dark:bg-slate-900"
+              className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium dark:border-stone-800 dark:bg-stone-900"
             >
               🛠️ Admin ›
             </a>
@@ -231,12 +231,12 @@ function ReadinessCard() {
         <p className="font-bold">
           {style.icon} Coachen: {style.label}
         </p>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+        <p className="mt-1 text-sm text-stone-600 dark:text-stone-300">
           {data.recommendation}
         </p>
       </button>
       {showFactors && (
-        <ul className="mt-2 space-y-0.5 border-t border-black/5 pt-2 text-xs text-slate-500 dark:border-white/10 dark:text-slate-400">
+        <ul className="mt-2 space-y-0.5 border-t border-black/5 pt-2 text-xs text-stone-500 dark:border-white/10 dark:text-stone-400">
           {data.factors.map((f) => (
             <li key={f.name}>
               {f.status === "green" ? "🟢" : f.status === "yellow" ? "🟡" : "🔴"}{" "}
@@ -276,7 +276,7 @@ function DashboardSection() {
   }, [period]);
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+    <section className="rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
       <div className="flex items-center justify-between">
         <h3 className="font-bold">Din översikt</h3>
         <div className="flex gap-1">
@@ -287,8 +287,8 @@ function DashboardSection() {
                 onClick={() => setPeriod(p)}
                 className={`rounded-lg px-2 py-1 text-xs font-medium ${
                   period === p
-                    ? "bg-sky-600 text-white"
-                    : "bg-slate-100 text-slate-500 dark:bg-slate-800"
+                    ? "bg-emerald-600 text-white"
+                    : "bg-stone-100 text-stone-500 dark:bg-stone-800"
                 }`}
               >
                 {PERIOD_LABELS[p]}
@@ -339,12 +339,12 @@ function DashboardSection() {
                   title={d.day}
                   className={`h-6 flex-1 rounded-sm ${
                     d.strength && d.cardio
-                      ? "bg-emerald-500"
+                      ? "bg-emerald-700"
                       : d.strength
-                        ? "bg-sky-500"
+                        ? "bg-emerald-500"
                         : d.cardio
-                          ? "bg-amber-400"
-                          : "bg-slate-100 dark:bg-slate-800"
+                          ? "bg-lime-400"
+                          : "bg-stone-100 dark:bg-stone-800"
                   }`}
                 />
               ))}
@@ -366,12 +366,12 @@ function Stat({
   sub: string;
 }) {
   return (
-    <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+    <div className="rounded-xl bg-stone-50 p-3 dark:bg-stone-800/60">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-400">
         {label}
       </p>
       <p className="text-lg font-bold">{value}</p>
-      <p className="truncate text-xs text-slate-500 dark:text-slate-400">{sub}</p>
+      <p className="truncate text-xs text-stone-500 dark:text-stone-400">{sub}</p>
     </div>
   );
 }

@@ -70,8 +70,8 @@ export default function HistoryPage() {
             onClick={() => setTab(key)}
             className={`flex-1 rounded-lg py-2 text-sm font-semibold ${
               tab === key
-                ? "bg-sky-600 text-white"
-                : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                ? "bg-emerald-600 text-white"
+                : "bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300"
             }`}
           >
             {label}
@@ -82,7 +82,7 @@ export default function HistoryPage() {
       {tab === "strength" && (
         <>
           {sessions.length === 0 && !error && (
-            <p className="py-8 text-center text-sm text-slate-400">
+            <p className="py-8 text-center text-sm text-stone-400">
               Inga pass loggade ännu — dags att köra! 💪
             </p>
           )}
@@ -91,7 +91,7 @@ export default function HistoryPage() {
               <li key={s.id}>
                 <Link
                   href={`/workout/${s.id}`}
-                  className="block rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900"
+                  className="block rounded-xl border border-stone-200 bg-white px-4 py-3 dark:border-stone-800 dark:bg-stone-900"
                 >
                   <div className="flex items-center justify-between">
                     <p className="font-semibold">
@@ -102,16 +102,16 @@ export default function HistoryPage() {
                         </span>
                       )}
                     </p>
-                    <span className="text-sm text-slate-500 dark:text-slate-400">
+                    <span className="text-sm text-stone-500 dark:text-stone-400">
                       {formatDate(s.started_at)}
                     </span>
                   </div>
-                  <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+                  <p className="mt-0.5 text-sm text-stone-500 dark:text-stone-400">
                     {s.program_name ? `${s.program_name} · ` : ""}
                     {s.set_count} set · {Math.round(s.total_volume_kg)} kg volym
                   </p>
                   {s.notes && (
-                    <p className="mt-1 text-sm italic text-slate-400">
+                    <p className="mt-1 text-sm italic text-stone-400">
                       {s.notes}
                     </p>
                   )}
@@ -125,7 +125,7 @@ export default function HistoryPage() {
       {tab === "cardio" && (
         <>
           {cardio.length === 0 && (
-            <p className="py-8 text-center text-sm text-slate-400">
+            <p className="py-8 text-center text-sm text-stone-400">
               Inga konditionspass ännu. Koppla Strava eller Apple Health under
               ⚙️ Kopplingar så dyker de upp här automatiskt.
             </p>
@@ -134,17 +134,17 @@ export default function HistoryPage() {
             {cardio.map((a) => (
               <li
                 key={a.id}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900"
+                className="rounded-xl border border-stone-200 bg-white px-4 py-3 dark:border-stone-800 dark:bg-stone-900"
               >
                 <div className="flex items-center justify-between">
                   <p className="font-semibold">
                     {TYPE_ICONS[a.type] ?? "🏅"} {a.name ?? a.type}
                   </p>
-                  <span className="text-sm text-slate-500 dark:text-slate-400">
+                  <span className="text-sm text-stone-500 dark:text-stone-400">
                     {formatDate(a.started_at)}
                   </span>
                 </div>
-                <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+                <p className="mt-0.5 text-sm text-stone-500 dark:text-stone-400">
                   {a.distance_m
                     ? `${(a.distance_m / 1000).toFixed(2)} km · `
                     : ""}
@@ -154,7 +154,7 @@ export default function HistoryPage() {
                     : ""}
                   {a.avg_hr ? ` · ${Math.round(a.avg_hr)} bpm` : ""}
                 </p>
-                <p className="mt-0.5 text-xs text-slate-400">
+                <p className="mt-0.5 text-xs text-stone-400">
                   via{" "}
                   {a.source === "strava"
                     ? "Strava"

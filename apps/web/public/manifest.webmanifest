@@ -1,11 +1,11 @@
 {
-  "name": "Bodify",
-  "short_name": "Bodify",
+  "name": "Shapiqo",
+  "short_name": "Shapiqo",
   "description": "Din self-hostade plattform för kost och träning",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#052e16",
+  "theme_color": "#052e16",
   "icons": [
     {
       "src": "/icon.svg",

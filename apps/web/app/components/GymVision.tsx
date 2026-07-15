@@ -40,24 +40,24 @@ export default function GymVision({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <div
-        className="max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-5 dark:bg-slate-900"
+        className="max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-5 dark:bg-stone-900"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-lg font-bold">📷 Gym-vision</h3>
-          <button onClick={onClose} className="p-1 text-slate-400">
+          <button onClick={onClose} className="p-1 text-stone-400">
             ✕
           </button>
         </div>
 
-        <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">
-          Fota gymmets utrustning så föreslår Bodify övningar du kan köra där.
+        <p className="mb-3 text-sm text-stone-500 dark:text-stone-400">
+          Fota gymmets utrustning så föreslår Shapiqo övningar du kan köra där.
         </p>
 
         <button
           disabled={busy}
           onClick={() => fileRef.current?.click()}
-          className="w-full rounded-xl bg-sky-600 py-3 font-semibold text-white disabled:opacity-50"
+          className="w-full rounded-xl bg-emerald-600 py-3 font-semibold text-white disabled:opacity-50"
         >
           {busy ? "Analyserar…" : "Ta / välj foto"}
         </button>
@@ -83,7 +83,7 @@ export default function GymVision({ onClose }: { onClose: () => void }) {
         {result && (
           <div className="mt-4">
             {result.equipment.length === 0 ? (
-              <p className="text-center text-sm text-slate-400">
+              <p className="text-center text-sm text-stone-400">
                 Ingen utrustning kändes igen — prova ett tydligare foto.
               </p>
             ) : (
@@ -98,11 +98,11 @@ export default function GymVision({ onClose }: { onClose: () => void }) {
                     </span>
                   ))}
                 </div>
-                <ul className="mt-3 divide-y divide-slate-100 dark:divide-slate-800">
+                <ul className="mt-3 divide-y divide-stone-100 dark:divide-stone-800">
                   {result.exercises.map((e) => (
                     <li key={e.id} className="py-2">
                       <p className="text-sm font-medium">{e.name}</p>
-                      <p className="text-xs capitalize text-slate-400">
+                      <p className="text-xs capitalize text-stone-400">
                         {e.muscle_groups.join(" · ")}
                       </p>
                     </li>

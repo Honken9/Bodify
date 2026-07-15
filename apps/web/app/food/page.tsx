@@ -64,13 +64,13 @@ export default function FoodPage() {
         <h1 className="text-2xl font-bold">Kost</h1>
         <button
           onClick={() => setEditTargets(true)}
-          className="text-sm text-sky-600 dark:text-sky-400"
+          className="text-sm text-emerald-600 dark:text-emerald-400"
         >
           Mål ⚙️
         </button>
       </div>
 
-      <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-2 py-1.5 dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex items-center justify-between rounded-xl border border-stone-200 bg-white px-2 py-1.5 dark:border-stone-800 dark:bg-stone-900">
         <button onClick={() => setDay(shiftDay(day, -1))} className="p-2 text-lg">
           ‹
         </button>
@@ -100,13 +100,13 @@ export default function FoodPage() {
 
       {log && (
         <>
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+          <section className="rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
             <MacroBar
               label="Kalorier"
               value={log.totals.kcal}
               target={log.targets.kcal}
               unit="kcal"
-              color="bg-sky-500"
+              color="bg-emerald-500"
             />
             <div className="mt-3 grid grid-cols-3 gap-3">
               <MacroBar
@@ -114,7 +114,7 @@ export default function FoodPage() {
                 value={log.totals.protein_g}
                 target={log.targets.protein_g}
                 unit="g"
-                color="bg-emerald-500"
+                color="bg-lime-500"
                 compact
               />
               <MacroBar
@@ -196,7 +196,7 @@ function MacroBar({
     <div>
       <div className="flex items-baseline justify-between">
         <span
-          className={`font-medium ${compact ? "text-xs" : "text-sm"} text-slate-500 dark:text-slate-400`}
+          className={`font-medium ${compact ? "text-xs" : "text-sm"} text-stone-500 dark:text-stone-400`}
         >
           {label}
         </span>
@@ -206,11 +206,11 @@ function MacroBar({
           </span>
         )}
       </div>
-      <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+      <div className="mt-1 h-2 overflow-hidden rounded-full bg-stone-100 dark:bg-stone-800">
         <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
       {compact && (
-        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+        <p className="mt-0.5 text-xs text-stone-500 dark:text-stone-400">
           {Math.round(value)}/{target} {unit}
         </p>
       )}
@@ -233,17 +233,17 @@ function MealSection({
 }) {
   const kcal = Math.round(entries.reduce((sum, e) => sum + e.kcal, 0));
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+    <section className="rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
       <div className="flex items-center justify-between">
         <h2 className="font-bold">{MEAL_LABELS[meal]}</h2>
         <div className="flex items-center gap-3">
           {entries.length > 0 && (
             <>
-              <span className="text-sm text-slate-400">{kcal} kcal</span>
+              <span className="text-sm text-stone-400">{kcal} kcal</span>
               <button
                 onClick={onSaveTemplate}
                 title="Spara som mall"
-                className="text-sm text-slate-400"
+                className="text-sm text-stone-400"
               >
                 💾
               </button>
@@ -251,31 +251,31 @@ function MealSection({
           )}
           <button
             onClick={onAdd}
-            className="rounded-lg bg-sky-600 px-2.5 py-1 text-sm font-bold text-white"
+            className="rounded-lg bg-emerald-600 px-2.5 py-1 text-sm font-bold text-white"
           >
             +
           </button>
         </div>
       </div>
       {entries.length > 0 && (
-        <ul className="mt-2 divide-y divide-slate-100 dark:divide-slate-800">
+        <ul className="mt-2 divide-y divide-stone-100 dark:divide-stone-800">
           {entries.map((e) => (
             <li key={e.id} className="flex items-center justify-between py-2">
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">
                   {e.food_item.name}
                   {e.food_item.brand && (
-                    <span className="text-slate-400"> · {e.food_item.brand}</span>
+                    <span className="text-stone-400"> · {e.food_item.brand}</span>
                   )}
                 </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-stone-500 dark:text-stone-400">
                   {Math.round(e.grams)} g · {Math.round(e.kcal)} kcal ·{" "}
                   {Math.round(e.protein_g)} g protein
                 </p>
               </div>
               <button
                 onClick={() => onRemove(e.id)}
-                className="px-2 text-slate-400 hover:text-red-500"
+                className="px-2 text-stone-400 hover:text-red-500"
                 aria-label="Ta bort"
               >
                 ✕
@@ -326,7 +326,7 @@ function TargetsEditor({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-t-3xl bg-white p-5 dark:bg-slate-900"
+        className="w-full max-w-md rounded-t-3xl bg-white p-5 dark:bg-stone-900"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="mb-4 text-lg font-bold">Dagliga mål</h3>
@@ -341,7 +341,7 @@ function TargetsEditor({
             <button
               key={label}
               onClick={() => setForm({ ...preset })}
-              className="flex-1 rounded-lg bg-slate-100 py-2 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+              className="flex-1 rounded-lg bg-stone-100 py-2 text-xs font-semibold text-stone-600 dark:bg-stone-800 dark:text-stone-300"
             >
               {label}
             </button>
@@ -350,7 +350,7 @@ function TargetsEditor({
         <div className="space-y-3">
           {fields.map(({ key, label }) => (
             <label key={key} className="block">
-              <span className="text-sm text-slate-500 dark:text-slate-400">
+              <span className="text-sm text-stone-500 dark:text-stone-400">
                 {label}
               </span>
               <input
@@ -359,7 +359,7 @@ function TargetsEditor({
                 onChange={(e) =>
                   setForm({ ...form, [key]: Number(e.target.value) || 0 })
                 }
-                className="mt-1 w-full rounded-xl border border-slate-300 bg-transparent px-4 py-2.5 dark:border-slate-700"
+                className="mt-1 w-full rounded-xl border border-stone-300 bg-transparent px-4 py-2.5 dark:border-stone-700"
               />
             </label>
           ))}
@@ -367,7 +367,7 @@ function TargetsEditor({
         <button
           disabled={saving}
           onClick={save}
-          className="mt-4 w-full rounded-xl bg-sky-600 py-3 font-semibold text-white disabled:opacity-50"
+          className="mt-4 w-full rounded-xl bg-emerald-600 py-3 font-semibold text-white disabled:opacity-50"
         >
           Spara mål
         </button>

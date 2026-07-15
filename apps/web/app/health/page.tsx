@@ -72,7 +72,7 @@ export default function HealthPage() {
         <h1 className="text-2xl font-bold">Hälsa</h1>
         <button
           onClick={() => setShowManual(true)}
-          className="text-sm text-sky-600 dark:text-sky-400"
+          className="text-sm text-emerald-600 dark:text-emerald-400"
         >
           + Mätning
         </button>
@@ -93,16 +93,16 @@ export default function HealthPage() {
               onClick={() => setSelected(key)}
               className={`rounded-xl border p-2.5 text-left ${
                 selected === key
-                  ? "border-sky-400 bg-sky-50 dark:border-sky-600 dark:bg-sky-950"
-                  : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+                  ? "border-emerald-400 bg-emerald-50 dark:border-emerald-600 dark:bg-emerald-950"
+                  : "border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900"
               }`}
             >
-              <p className="truncate text-[10px] font-medium uppercase tracking-wide text-slate-400">
+              <p className="truncate text-[10px] font-medium uppercase tracking-wide text-stone-400">
                 {m.label}
               </p>
               <p className="text-sm font-bold">
                 {v ? v.value.toFixed(m.decimals) : "–"}
-                <span className="ml-0.5 text-[10px] font-normal text-slate-400">
+                <span className="ml-0.5 text-[10px] font-normal text-stone-400">
                   {m.unit}
                 </span>
               </p>
@@ -111,7 +111,7 @@ export default function HealthPage() {
         })}
       </div>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <section className="rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
         <div className="mb-2 flex items-center justify-between">
           <h2 className="font-bold">{meta?.label}</h2>
           <div className="flex gap-1">
@@ -121,8 +121,8 @@ export default function HealthPage() {
                 onClick={() => setDays(d)}
                 className={`rounded-lg px-2 py-1 text-xs font-medium ${
                   days === d
-                    ? "bg-sky-600 text-white"
-                    : "bg-slate-100 text-slate-500 dark:bg-slate-800"
+                    ? "bg-emerald-600 text-white"
+                    : "bg-stone-100 text-stone-500 dark:bg-stone-800"
                 }`}
               >
                 {d === 365 ? "1 år" : `${d} d`}
@@ -141,18 +141,18 @@ export default function HealthPage() {
 
       <section>
         <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-stone-400">
             Mål
           </h3>
           <button
             onClick={() => setShowGoalForm(true)}
-            className="text-sm text-sky-600 dark:text-sky-400"
+            className="text-sm text-emerald-600 dark:text-emerald-400"
           >
             + Nytt mål
           </button>
         </div>
         {goals.length === 0 && (
-          <p className="rounded-xl border border-dashed border-slate-300 p-4 text-center text-sm text-slate-400 dark:border-slate-700">
+          <p className="rounded-xl border border-dashed border-stone-300 p-4 text-center text-sm text-stone-400 dark:border-stone-700">
             Inga mål ännu — t.ex. &quot;10 km på 45 min&quot; eller &quot;11 %
             kroppsfett&quot;.
           </p>
@@ -161,7 +161,7 @@ export default function HealthPage() {
           {goals.map((g) => (
             <li
               key={g.id}
-              className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
+              className="rounded-xl border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900"
             >
               <div className="flex items-center justify-between">
                 <p className="font-semibold">
@@ -173,18 +173,18 @@ export default function HealthPage() {
                     await api(`/api/goals/${g.id}`, { method: "DELETE" });
                     refresh();
                   }}
-                  className="px-1 text-slate-400"
+                  className="px-1 text-stone-400"
                 >
                   ✕
                 </button>
               </div>
-              <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-stone-100 dark:bg-stone-800">
                 <div
-                  className={`h-full ${g.achieved_at ? "bg-emerald-500" : "bg-sky-500"}`}
+                  className={`h-full ${g.achieved_at ? "bg-emerald-500" : "bg-emerald-500"}`}
                   style={{ width: `${Math.round(g.progress * 100)}%` }}
                 />
               </div>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
                 {Math.round(g.progress * 100)} %
                 {g.kind === "body_metric" &&
                   g.current.current_value != null &&
@@ -246,12 +246,12 @@ function Sheet({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-t-3xl bg-white p-5 dark:bg-slate-900"
+        className="w-full max-w-md rounded-t-3xl bg-white p-5 dark:bg-stone-900"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-lg font-bold">{title}</h3>
-          <button onClick={onClose} className="p-1 text-slate-400">
+          <button onClick={onClose} className="p-1 text-stone-400">
             ✕
           </button>
         </div>
@@ -320,7 +320,7 @@ function GoalForm({
   }
 
   const inputCls =
-    "w-full rounded-xl border border-slate-300 bg-transparent px-4 py-2.5 dark:border-slate-700";
+    "w-full rounded-xl border border-stone-300 bg-transparent px-4 py-2.5 dark:border-stone-700";
 
   return (
     <Sheet title="Nytt mål" onClose={onClose}>
@@ -337,8 +337,8 @@ function GoalForm({
             onClick={() => setKind(k)}
             className={`flex-1 rounded-lg py-2 text-xs font-semibold ${
               kind === k
-                ? "bg-sky-600 text-white"
-                : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                ? "bg-emerald-600 text-white"
+                : "bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300"
             }`}
           >
             {label}
@@ -372,7 +372,7 @@ function GoalForm({
       {kind === "pace_distance" && (
         <div className="flex gap-2">
           <label className="flex-1">
-            <span className="text-xs text-slate-400">Distans (km)</span>
+            <span className="text-xs text-stone-400">Distans (km)</span>
             <input
               inputMode="decimal"
               value={distanceKm}
@@ -381,7 +381,7 @@ function GoalForm({
             />
           </label>
           <label className="flex-1">
-            <span className="text-xs text-slate-400">Tid (minuter)</span>
+            <span className="text-xs text-stone-400">Tid (minuter)</span>
             <input
               inputMode="numeric"
               value={minutes}
@@ -393,7 +393,7 @@ function GoalForm({
       )}
       {kind === "frequency" && (
         <label className="block">
-          <span className="text-xs text-slate-400">Pass per vecka</span>
+          <span className="text-xs text-stone-400">Pass per vecka</span>
           <input
             inputMode="numeric"
             value={perWeek}
@@ -406,7 +406,7 @@ function GoalForm({
       <button
         disabled={saving || (kind === "body_metric" && !value)}
         onClick={save}
-        className="mt-4 w-full rounded-xl bg-sky-600 py-3 font-semibold text-white disabled:opacity-40"
+        className="mt-4 w-full rounded-xl bg-emerald-600 py-3 font-semibold text-white disabled:opacity-40"
       >
         Skapa mål
       </button>
@@ -444,7 +444,7 @@ function ManualMetricForm({
         <select
           value={metric}
           onChange={(e) => setMetric(e.target.value)}
-          className="w-full rounded-xl border border-slate-300 bg-transparent px-4 py-2.5 dark:border-slate-700"
+          className="w-full rounded-xl border border-stone-300 bg-transparent px-4 py-2.5 dark:border-stone-700"
         >
           {Object.entries(METRIC_META).map(([key, m]) => (
             <option key={key} value={key}>
@@ -458,12 +458,12 @@ function ManualMetricForm({
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder="Värde"
-          className="w-full rounded-xl border border-slate-300 bg-transparent px-4 py-2.5 dark:border-slate-700"
+          className="w-full rounded-xl border border-stone-300 bg-transparent px-4 py-2.5 dark:border-stone-700"
         />
         <button
           disabled={saving || !value}
           onClick={save}
-          className="w-full rounded-xl bg-sky-600 py-3 font-semibold text-white disabled:opacity-40"
+          className="w-full rounded-xl bg-emerald-600 py-3 font-semibold text-white disabled:opacity-40"
         >
           Spara
         </button>

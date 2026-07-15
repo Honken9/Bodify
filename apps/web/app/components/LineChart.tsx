@@ -15,7 +15,7 @@ export default function LineChart({
 }) {
   if (data.length === 0) {
     return (
-      <p className="py-10 text-center text-sm text-slate-400">
+      <p className="py-10 text-center text-sm text-stone-400">
         Ingen data ännu.
       </p>
     );
@@ -58,7 +58,7 @@ export default function LineChart({
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
-      className="w-full text-sky-500"
+      className="w-full text-emerald-500"
       role="img"
     >
       {yTicks.map((v) => {
@@ -70,14 +70,14 @@ export default function LineChart({
               x2={width - pad.right}
               y1={y}
               y2={y}
-              className="stroke-slate-200 dark:stroke-slate-800"
+              className="stroke-stone-200 dark:stroke-stone-800"
               strokeWidth="1"
             />
             <text
               x={pad.left - 4}
               y={y + 3}
               textAnchor="end"
-              className="fill-slate-400 text-[9px]"
+              className="fill-stone-400 text-[9px]"
             >
               {v.toFixed(ySpan < 5 ? 1 : 0)}
             </text>
@@ -106,7 +106,7 @@ export default function LineChart({
       <text
         x={pad.left}
         y={height - 4}
-        className="fill-slate-400 text-[9px]"
+        className="fill-stone-400 text-[9px]"
       >
         {fmt.format(first)}
       </text>
@@ -114,12 +114,12 @@ export default function LineChart({
         x={width - pad.right}
         y={height - 4}
         textAnchor="end"
-        className="fill-slate-400 text-[9px]"
+        className="fill-stone-400 text-[9px]"
       >
         {fmt.format(last)}
       </text>
       {unit && (
-        <text x={width - pad.right} y={pad.top + 2} textAnchor="end" className="fill-slate-400 text-[9px]">
+        <text x={width - pad.right} y={pad.top + 2} textAnchor="end" className="fill-stone-400 text-[9px]">
           {unit}
         </text>
       )}

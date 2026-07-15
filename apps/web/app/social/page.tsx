@@ -120,7 +120,7 @@ export default function SocialPage() {
         </p>
       )}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <section className="rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
         <h2 className="font-bold">Vänner</h2>
         <div className="mt-2 flex gap-2">
           <input
@@ -128,12 +128,12 @@ export default function SocialPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="väns e-postadress"
-            className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-transparent px-3 py-2 text-sm dark:border-slate-700"
+            className="min-w-0 flex-1 rounded-xl border border-stone-300 bg-transparent px-3 py-2 text-sm dark:border-stone-700"
           />
           <button
             disabled={!email.includes("@")}
             onClick={addFriend}
-            className="rounded-xl bg-sky-600 px-4 text-sm font-semibold text-white disabled:opacity-40"
+            className="rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white disabled:opacity-40"
           >
             Lägg till
           </button>
@@ -163,16 +163,16 @@ export default function SocialPage() {
               className="flex items-center justify-between py-1 text-sm"
             >
               <span className="font-medium">👤 {f.name}</span>
-              <span className="text-xs text-slate-400">{f.email}</span>
+              <span className="text-xs text-stone-400">{f.email}</span>
             </li>
           ))}
           {friends && friends.friends.length === 0 && (
-            <p className="mt-2 text-sm text-slate-400">
+            <p className="mt-2 text-sm text-stone-400">
               Inga vänner ännu — bjud in med e-postadressen de loggar in med.
             </p>
           )}
           {friends?.outgoing.map((f) => (
-            <li key={f.friendship_id} className="py-1 text-sm text-slate-400">
+            <li key={f.friendship_id} className="py-1 text-sm text-stone-400">
               ⏳ {f.name} (väntar på svar)
             </li>
           ))}
@@ -181,19 +181,19 @@ export default function SocialPage() {
 
       <section>
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-stone-400">
             Utmaningar
           </h2>
           <button
             onClick={() => setShowCreate(true)}
-            className="text-sm text-sky-600 dark:text-sky-400"
+            className="text-sm text-emerald-600 dark:text-emerald-400"
           >
             + Ny utmaning
           </button>
         </div>
 
         {challenges.length === 0 && (
-          <p className="rounded-xl border border-dashed border-slate-300 p-4 text-center text-sm text-slate-400 dark:border-slate-700">
+          <p className="rounded-xl border border-dashed border-stone-300 p-4 text-center text-sm text-stone-400 dark:border-stone-700">
             Skapa en utmaning och bjud in vännerna — flest pass, mest
             viktnedgång eller störst fettnedgång. 🏆
           </p>
@@ -203,7 +203,7 @@ export default function SocialPage() {
           {challenges.map((c) => (
             <li
               key={c.id}
-              className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
+              className="rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900"
             >
               <button
                 className="w-full text-left"
@@ -214,11 +214,11 @@ export default function SocialPage() {
                     {c.active ? "🔥 " : ""}
                     {c.name}
                   </p>
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-stone-400">
                     {c.participant_count} deltagare
                   </span>
                 </div>
-                <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+                <p className="mt-0.5 text-sm text-stone-500 dark:text-stone-400">
                   {c.metric_label} · {c.starts_on} → {c.ends_on}
                 </p>
               </button>
@@ -226,14 +226,14 @@ export default function SocialPage() {
               {!c.is_participant && (
                 <button
                   onClick={() => join(c.id)}
-                  className="mt-2 w-full rounded-xl bg-sky-600 py-2 text-sm font-semibold text-white"
+                  className="mt-2 w-full rounded-xl bg-emerald-600 py-2 text-sm font-semibold text-white"
                 >
                   Gå med
                 </button>
               )}
 
               {expanded === c.id && detail?.leaderboard && (
-                <ol className="mt-3 space-y-1 border-t border-slate-100 pt-3 dark:border-slate-800">
+                <ol className="mt-3 space-y-1 border-t border-stone-100 pt-3 dark:border-stone-800">
                   {detail.leaderboard.map((row) => (
                     <li
                       key={row.user_id}
@@ -297,7 +297,7 @@ function CreateChallenge({
   const [saving, setSaving] = useState(false);
 
   const inputCls =
-    "w-full rounded-xl border border-slate-300 bg-transparent px-4 py-2.5 dark:border-slate-700";
+    "w-full rounded-xl border border-stone-300 bg-transparent px-4 py-2.5 dark:border-stone-700";
 
   async function save() {
     setSaving(true);
@@ -326,7 +326,7 @@ function CreateChallenge({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-t-3xl bg-white p-5 dark:bg-slate-900"
+        className="w-full max-w-md rounded-t-3xl bg-white p-5 dark:bg-stone-900"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="mb-3 text-lg font-bold">Ny utmaning</h3>
@@ -351,7 +351,7 @@ function CreateChallenge({
           </select>
           <div className="flex gap-2">
             <label className="flex-1">
-              <span className="text-xs text-slate-400">Start</span>
+              <span className="text-xs text-stone-400">Start</span>
               <input
                 type="date"
                 value={start}
@@ -360,7 +360,7 @@ function CreateChallenge({
               />
             </label>
             <label className="flex-1">
-              <span className="text-xs text-slate-400">Slut</span>
+              <span className="text-xs text-stone-400">Slut</span>
               <input
                 type="date"
                 value={end}
@@ -372,7 +372,7 @@ function CreateChallenge({
           <button
             disabled={saving || !name.trim()}
             onClick={save}
-            className="w-full rounded-xl bg-sky-600 py-3 font-semibold text-white disabled:opacity-40"
+            className="w-full rounded-xl bg-emerald-600 py-3 font-semibold text-white disabled:opacity-40"
           >
             Skapa utmaning
           </button>
