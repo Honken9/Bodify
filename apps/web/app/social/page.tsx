@@ -16,6 +16,7 @@ type Challenge = {
   participant_count: number;
   is_participant: boolean;
   is_creator: boolean;
+  invited: boolean;
   active: boolean;
   leaderboard?: LeaderboardRow[];
 };
@@ -106,6 +107,23 @@ export default function SocialPage() {
       if (expanded === challengeId) {
         api<Challenge>(`/api/social/challenges/${challengeId}`).then(setDetail);
       }
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  async function invite(challengeId: string) {
+    const inviteEmail = window.prompt(
+      "Vem vill du bjuda in? Ange e-postadressen personen loggar in med:"
+    );
+    if (!inviteEmail?.includes("@")) return;
+    setError(null);
+    try {
+      await api(`/api/social/challenges/${challengeId}/invite`, {
+        method: "POST",
+        body: JSON.stringify({ email: inviteEmail.trim() }),
+      });
+      window.alert(`Inbjudan skickad till ${inviteEmail.trim()}! 🏆`);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -223,12 +241,27 @@ export default function SocialPage() {
                 </p>
               </button>
 
+              {c.invited && !c.is_participant && (
+                <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                  🎟 Du är inbjuden till den här utmaningen!
+                </p>
+              )}
+
               {!c.is_participant && (
                 <button
                   onClick={() => join(c.id)}
                   className="mt-2 w-full rounded-xl bg-emerald-600 py-2 text-sm font-semibold text-white"
                 >
                   Gå med
+                </button>
+              )}
+
+              {c.is_participant && (
+                <button
+                  onClick={() => invite(c.id)}
+                  className="mt-2 w-full rounded-xl border border-emerald-300 py-2 text-sm font-semibold text-emerald-700 dark:border-emerald-800 dark:text-emerald-400"
+                >
+                  ➕ Bjud in till utmaningen
                 </button>
               )}
 

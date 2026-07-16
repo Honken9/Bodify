@@ -12,6 +12,7 @@ from app.models.nutrition import FoodItem, MealEntry, MealTemplate, NutritionTar
 from app.models.social import (
     CHALLENGE_METRICS,
     Challenge,
+    ChallengeInvite,
     ChallengeParticipant,
     ChallengeSnapshot,
     Friendship,
@@ -33,6 +34,7 @@ __all__ = [
     "BodyMetric",
     "CardioActivity",
     "Challenge",
+    "ChallengeInvite",
     "ChallengeParticipant",
     "ChallengeSnapshot",
     "Friendship",

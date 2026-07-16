@@ -35,6 +35,44 @@ class AdminUserUpdate(BaseModel):
     is_admin: bool
 
 
+class AdminUserCreate(BaseModel):
+    email: EmailStr
+    display_name: str | None = None
+    is_admin: bool = False
+
+
+@router.post("/users", status_code=201)
+async def create_user(
+    payload: AdminUserCreate,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Skapa användare direkt — och vitlista i Cloudflare om API:t är satt."""
+    email = payload.email.lower().strip()
+    existing = await session.scalar(select(User).where(User.email == email))
+    if existing is not None:
+        raise HTTPException(409, "Användaren finns redan.")
+
+    user = User(
+        email=email,
+        display_name=(payload.display_name or "").strip() or None,
+        is_admin=payload.is_admin,
+    )
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+
+    whitelisted = False
+    if cloudflare.is_configured():
+        try:
+            await cloudflare.add_email(email)
+            whitelisted = True
+        except CloudflareError:
+            pass  # kontot är skapat; vitlistan får göras manuellt
+
+    return {"user": UserOut.model_validate(user).model_dump(mode="json"),
+            "whitelisted": whitelisted}
+
+
 @router.patch("/users/{user_id}", response_model=UserOut)
 async def update_user(
     user_id: uuid.UUID,
@@ -51,6 +89,45 @@ async def update_user(
     await session.commit()
     await session.refresh(user)
     return user
+
+
+@router.delete("/users/{user_id}")
+async def delete_user(
+    user_id: uuid.UUID,
+    admin: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Radera användaren och ALL dess data (kaskad), städa fotofiler,
+    och ta bort adressen ur Cloudflare-vitlistan om API:t är satt."""
+    user = await session.get(User, user_id)
+    if user is None:
+        raise HTTPException(404, "Användaren finns inte.")
+    if user.id == admin.id:
+        raise HTTPException(400, "Du kan inte radera dig själv.")
+
+    from pathlib import Path
+
+    from app.models import ProgressPhoto
+
+    photos = await session.scalars(
+        select(ProgressPhoto).where(ProgressPhoto.user_id == user.id)
+    )
+    for photo in photos:
+        Path(photo.file_path).unlink(missing_ok=True)
+
+    email = user.email
+    await session.delete(user)
+    await session.commit()
+
+    whitelist_removed = False
+    if cloudflare.is_configured():
+        try:
+            await cloudflare.remove_email(email)
+            whitelist_removed = True
+        except CloudflareError:
+            pass
+
+    return {"ok": True, "whitelist_removed": whitelist_removed}
 
 
 @router.get("/overview")

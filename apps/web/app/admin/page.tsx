@@ -119,34 +119,13 @@ export default function AdminPage() {
         </section>
       )}
 
-      <section className="rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
-        <h2 className="font-bold">Användare</h2>
-        <ul className="mt-2 divide-y divide-stone-100 dark:divide-stone-800">
-          {users.map((u) => (
-            <li key={u.id} className="flex items-center justify-between py-2">
-              <div>
-                <p className="text-sm font-medium">
-                  {u.display_name ?? u.email.split("@")[0]}
-                  {u.is_admin && (
-                    <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                      admin
-                    </span>
-                  )}
-                </p>
-                <p className="text-xs text-stone-400">{u.email}</p>
-              </div>
-              {me && u.id !== me.id && (
-                <button
-                  onClick={() => toggleAdmin(u)}
-                  className="rounded-lg border border-stone-300 px-2.5 py-1 text-xs font-medium dark:border-stone-700"
-                >
-                  {u.is_admin ? "Ta bort admin" : "Gör till admin"}
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      </section>
+      <UsersSection
+        users={users}
+        meId={me?.id ?? null}
+        onToggleAdmin={toggleAdmin}
+        onChanged={refresh}
+        onMessage={setMessage}
+      />
 
       <TestersSection onMessage={setMessage} />
 
@@ -163,6 +142,133 @@ export default function AdminPage() {
         </button>
       </section>
     </main>
+  );
+}
+
+function UsersSection({
+  users,
+  meId,
+  onToggleAdmin,
+  onChanged,
+  onMessage,
+}: {
+  users: AdminUser[];
+  meId: string | null;
+  onToggleAdmin: (u: AdminUser) => void;
+  onChanged: () => void;
+  onMessage: (m: string) => void;
+}) {
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function createUser() {
+    setBusy(true);
+    try {
+      const result = await api<{ whitelisted: boolean }>("/api/admin/users", {
+        method: "POST",
+        body: JSON.stringify({
+          email: email.trim(),
+          display_name: name.trim() || null,
+        }),
+      });
+      onMessage(
+        result.whitelisted
+          ? `${email.trim()} tillagd och vitlistad — kan logga in direkt.`
+          : `${email.trim()} tillagd. Obs: lägg även till adressen i ` +
+              `Cloudflare-vitlistan (eller konfigurera CF-API:t) så hen ` +
+              `kommer förbi inloggningen.`
+      );
+      setEmail("");
+      setName("");
+      onChanged();
+    } catch (e) {
+      onMessage((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeUser(u: AdminUser) {
+    if (
+      !window.confirm(
+        `Radera ${u.email}?\n\nALL användarens data försvinner: pass, ` +
+          `kostloggar, mätningar, foton och utmaningsresultat. ` +
+          `Detta går inte att ångra.`
+      )
+    )
+      return;
+    try {
+      await api(`/api/admin/users/${u.id}`, { method: "DELETE" });
+      onMessage(`${u.email} raderad.`);
+      onChanged();
+    } catch (e) {
+      onMessage((e as Error).message);
+    }
+  }
+
+  return (
+    <section className="rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
+      <h2 className="font-bold">Användare</h2>
+
+      <div className="mt-2 flex gap-2">
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="e-postadress"
+          className="min-w-0 flex-[3] rounded-xl border border-stone-300 bg-transparent px-3 py-2 text-sm dark:border-stone-700"
+        />
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="namn (valfritt)"
+          className="min-w-0 flex-[2] rounded-xl border border-stone-300 bg-transparent px-3 py-2 text-sm dark:border-stone-700"
+        />
+        <button
+          disabled={busy || !email.includes("@")}
+          onClick={createUser}
+          className="rounded-xl bg-emerald-600 px-3 text-sm font-semibold text-white disabled:opacity-40"
+        >
+          +
+        </button>
+      </div>
+
+      <ul className="mt-2 divide-y divide-stone-100 dark:divide-stone-800">
+        {users.map((u) => (
+          <li key={u.id} className="flex items-center justify-between py-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">
+                {u.display_name ?? u.email.split("@")[0]}
+                {u.is_admin && (
+                  <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                    admin
+                  </span>
+                )}
+              </p>
+              <p className="truncate text-xs text-stone-400">{u.email}</p>
+            </div>
+            {meId && u.id !== meId && (
+              <div className="flex shrink-0 gap-1.5">
+                <button
+                  onClick={() => onToggleAdmin(u)}
+                  className="rounded-lg border border-stone-300 px-2 py-1 text-xs font-medium dark:border-stone-700"
+                >
+                  {u.is_admin ? "Ta bort admin" : "Gör admin"}
+                </button>
+                <button
+                  onClick={() => removeUser(u)}
+                  className="rounded-lg border border-red-200 px-2 py-1 text-xs font-medium text-red-600 dark:border-red-900 dark:text-red-400"
+                  aria-label={`Radera ${u.email}`}
+                >
+                  🗑
+                </button>
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

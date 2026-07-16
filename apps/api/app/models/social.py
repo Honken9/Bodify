@@ -84,6 +84,28 @@ class ChallengeParticipant(Base):
     challenge: Mapped[Challenge] = relationship(back_populates="participants")
 
 
+class ChallengeInvite(Base):
+    """Inbjudan till en utmaning — låter vem som helst i utmaningen bjuda
+    in andra användare, som då kan gå med utan att vara vän med skaparen."""
+
+    __tablename__ = "challenge_invites"
+    __table_args__ = (UniqueConstraint("challenge_id", "user_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    challenge_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("challenges.id", ondelete="CASCADE"), index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    invited_by: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 class ChallengeSnapshot(Base):
     """Nattligt jobb sparar dagens värde per deltagare — driver leaderboard-
     historik och 'vän gick om dig'-notiser."""

@@ -12,6 +12,7 @@ from app.db import get_session
 from app.models import (
     CHALLENGE_METRICS,
     Challenge,
+    ChallengeInvite,
     ChallengeParticipant,
     Friendship,
     User,
@@ -177,7 +178,9 @@ METRIC_LABELS = {
 }
 
 
-def _challenge_out(challenge: Challenge, me: User) -> dict:
+def _challenge_out(
+    challenge: Challenge, me: User, invited: bool = False
+) -> dict:
     return {
         "id": str(challenge.id),
         "name": challenge.name,
@@ -190,8 +193,20 @@ def _challenge_out(challenge: Challenge, me: User) -> dict:
             p.user_id == me.id for p in challenge.participants
         ),
         "is_creator": challenge.creator_id == me.id,
+        "invited": invited,
         "active": challenge.starts_on <= date.today() <= challenge.ends_on,
     }
+
+
+async def _invite_for(
+    db: AsyncSession, challenge_id: uuid.UUID, user_id: uuid.UUID
+) -> ChallengeInvite | None:
+    return await db.scalar(
+        select(ChallengeInvite).where(
+            ChallengeInvite.challenge_id == challenge_id,
+            ChallengeInvite.user_id == user_id,
+        )
+    )
 
 
 @router.get("/challenges")
@@ -210,19 +225,30 @@ async def list_challenges(
             )
         )
     }
+    invited_ids = {
+        row
+        for row in await db.scalars(
+            select(ChallengeInvite.challenge_id).where(
+                ChallengeInvite.user_id == user.id
+            )
+        )
+    }
+    reachable = joined_ids | invited_ids
     rows = list(
         await db.scalars(
             select(Challenge)
             .where(
                 or_(
                     Challenge.creator_id.in_(visible_creators),
-                    Challenge.id.in_(joined_ids) if joined_ids else False,
+                    Challenge.id.in_(reachable) if reachable else False,
                 )
             )
             .order_by(Challenge.ends_on.desc())
         )
     )
-    return [_challenge_out(c, user) for c in rows]
+    return [
+        _challenge_out(c, user, invited=c.id in invited_ids) for c in rows
+    ]
 
 
 @router.post("/challenges", status_code=201)
@@ -269,9 +295,16 @@ async def join_challenge(
     if challenge is None:
         raise HTTPException(404, "Utmaningen finns inte.")
 
+    invite = await _invite_for(db, challenge.id, user.id)
     friend_ids = await _friend_ids(db, user)
-    if challenge.creator_id != user.id and challenge.creator_id not in friend_ids:
-        raise HTTPException(403, "Du kan bara gå med i vänners utmaningar.")
+    if (
+        challenge.creator_id != user.id
+        and challenge.creator_id not in friend_ids
+        and invite is None
+    ):
+        raise HTTPException(
+            403, "Du kan bara gå med i vänners utmaningar eller via inbjudan."
+        )
     if any(p.user_id == user.id for p in challenge.participants):
         raise HTTPException(409, "Du är redan med.")
 
@@ -289,6 +322,8 @@ async def join_challenge(
             challenge_id=challenge.id, user_id=user.id, baseline=baseline
         )
     )
+    if invite is not None:
+        await db.delete(invite)  # inbjudan förbrukad
     await db.commit()
     await push.send_to_user(
         db,
@@ -311,14 +346,69 @@ async def challenge_detail(
         raise HTTPException(404, "Utmaningen finns inte.")
     friend_ids = await _friend_ids(db, user)
     is_participant = any(p.user_id == user.id for p in challenge.participants)
-    if not is_participant and challenge.creator_id not in friend_ids | {user.id}:
+    invite = await _invite_for(db, challenge.id, user.id)
+    if (
+        not is_participant
+        and invite is None
+        and challenge.creator_id not in friend_ids | {user.id}
+    ):
         raise HTTPException(404, "Utmaningen finns inte.")
 
     board = await challenge_service.leaderboard(db, challenge)
     return {
-        **_challenge_out(challenge, user),
+        **_challenge_out(challenge, user, invited=invite is not None),
         "leaderboard": board,
     }
+
+
+class InviteRequest(BaseModel):
+    email: str = Field(max_length=320)
+
+
+@router.post("/challenges/{challenge_id}/invite", status_code=201)
+async def invite_to_challenge(
+    challenge_id: uuid.UUID,
+    payload: InviteRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    """Bjud in en annan användare — alla deltagare i utmaningen kan bjuda in,
+    och den inbjudna behöver inte vara vän med skaparen."""
+    challenge = await db.get(Challenge, challenge_id)
+    if challenge is None:
+        raise HTTPException(404, "Utmaningen finns inte.")
+    if not any(p.user_id == user.id for p in challenge.participants):
+        raise HTTPException(403, "Bara deltagare kan bjuda in.")
+
+    target = await db.scalar(
+        select(User).where(User.email == payload.email.lower().strip())
+    )
+    if target is None:
+        raise HTTPException(
+            404,
+            "Ingen användare med den adressen — be personen logga in en "
+            "första gång (adressen måste vara vitlistad).",
+        )
+    if any(p.user_id == target.id for p in challenge.participants):
+        raise HTTPException(409, "Personen är redan med i utmaningen.")
+    if await _invite_for(db, challenge.id, target.id) is not None:
+        return {"ok": True, "already_invited": True}
+
+    db.add(
+        ChallengeInvite(
+            challenge_id=challenge.id, user_id=target.id, invited_by=user.id
+        )
+    )
+    await db.commit()
+    await push.send_to_user(
+        db,
+        target.id,
+        "Inbjudan till utmaning 🏆",
+        f"{user.display_name or user.email} har bjudit in dig till "
+        f"\"{challenge.name}\" — häng på!",
+        url="/social",
+    )
+    return {"ok": True}
 
 
 @router.delete("/challenges/{challenge_id}", status_code=204)

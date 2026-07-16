@@ -123,13 +123,17 @@ async def test_dashboard_aggregates(client, make_token, known_user):
     )
 
     # Vikt i början och slutet av perioden
+    from datetime import timedelta
+
     await client.post(
         "/api/metrics",
         headers=headers,
         json={
             "metric": "weight",
             "value": 84.0,
-            "measured_at": "2026-07-08T06:00:00Z",
+            "measured_at": (
+                datetime.now(timezone.utc) - timedelta(days=5)
+            ).isoformat(),
         },
     )
     await client.post(
