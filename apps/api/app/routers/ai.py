@@ -232,6 +232,78 @@ async def accept_generated_workout(
     return {"program_day_id": str(day.id)}
 
 
+# ── Måltidsfoto: identifiera livsmedel + näringsdata ─────────
+
+
+class _LLMFoodItem(BaseModel):
+    name: str = Field(max_length=120)
+    grams: float = Field(gt=0, le=3000)
+    kcal_per_100g: float = Field(ge=0, le=900)
+    protein_g_per_100g: float = Field(ge=0, le=100)
+    carbs_g_per_100g: float = Field(ge=0, le=100)
+    fat_g_per_100g: float = Field(ge=0, le=100)
+
+
+class _LLMMeal(BaseModel):
+    items: list[_LLMFoodItem] = Field(min_length=1, max_length=15)
+
+
+@router.post("/meal-vision")
+async def meal_vision(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """Fota måltiden → identifierade livsmedel med uppskattad mängd och
+    näringsvärden. Uppskattningar — användaren justerar innan loggning."""
+    if (file.content_type or "") not in ("image/jpeg", "image/png", "image/webp"):
+        raise HTTPException(400, "Skicka ett foto (JPEG/PNG/WebP).")
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(413, "Bilden är för stor (max 10 MB).")
+
+    prompt = (
+        "Du är en noggrann nutritionist. Titta på fotot av måltiden. "
+        "Identifiera varje enskilt livsmedel/komponent på tallriken, "
+        "uppskatta mängden i gram (tänk på tallrikens storlek som referens) "
+        "och ange typiska näringsvärden per 100 gram. Svenska namn. "
+        "Svara med strikt JSON, inget annat:\n"
+        '{"items": [{"name": "Grillad kycklingfilé", "grams": 150, '
+        '"kcal_per_100g": 110, "protein_g_per_100g": 23, '
+        '"carbs_g_per_100g": 0, "fat_g_per_100g": 2}]}'
+    )
+    try:
+        raw = await ollama.chat(
+            prompt,
+            images_b64=[base64.b64encode(content).decode()],
+            json_format=True,
+        )
+        meal = _LLMMeal.model_validate(json.loads(raw))
+    except AIUnavailable as exc:
+        raise HTTPException(
+            503,
+            "AI-tjänsten är inte igång. Starta Ollama: "
+            "docker compose --profile ai up -d ollama",
+        ) from exc
+    except (json.JSONDecodeError, ValidationError) as exc:
+        logger.warning("Ogiltigt måltidssvar från AI: %s", exc)
+        raise HTTPException(502, "AI:n kunde inte tolka fotot — försök igen.")
+
+    items = [
+        {
+            "name": item.name[:120],
+            "grams": round(item.grams),
+            "per_100g": {
+                "kcal": round(item.kcal_per_100g, 1),
+                "protein_g": round(item.protein_g_per_100g, 1),
+                "carbs_g": round(item.carbs_g_per_100g, 1),
+                "fat_g": round(item.fat_g_per_100g, 1),
+            },
+        }
+        for item in meal.items
+    ]
+    return {"items": items}
+
+
 # ── Gym-vision ────────────────────────────────────────────────
 
 

@@ -19,6 +19,7 @@ from app.schemas_nutrition import (
     MealTemplateOut,
     NutritionTargetOut,
     NutritionTargetUpdate,
+    PhotoLog,
     TemplateApply,
     TemplateFromMeal,
 )
@@ -158,6 +159,52 @@ async def add_entry(
         .execution_options(populate_existing=True)
     )
     return entry
+
+
+@router.post("/photo-log", response_model=list[MealEntryOut])
+async def photo_log(
+    payload: PhotoLog,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> list[MealEntry]:
+    """Logga en AI-analyserad (och användarjusterad) måltid från foto.
+
+    Varje identifierat livsmedel blir ett eget livsmedel i användarens
+    bibliotek (återanvänds vid samma namn), så det även går att söka
+    fram och logga manuellt nästa gång."""
+    entries = []
+    for item in payload.items:
+        name = item.name.strip()[:120]
+        food = await db.scalar(
+            select(FoodItem).where(
+                FoodItem.created_by == user.id,
+                FoodItem.source == "custom",
+                FoodItem.name == name,
+            )
+        )
+        if food is None:
+            food = FoodItem(
+                name=name,
+                source="custom",
+                per_100g=item.per_100g.model_dump(),
+                created_by=user.id,
+            )
+            db.add(food)
+            await db.flush()
+        entries.append(
+            await _create_entry(
+                user, db, payload.eaten_on, payload.meal, food, item.grams
+            )
+        )
+    await db.commit()
+    ids = [e.id for e in entries]
+    return list(
+        await db.scalars(
+            select(MealEntry)
+            .where(MealEntry.id.in_(ids))
+            .execution_options(populate_existing=True)
+        )
+    )
 
 
 @router.delete("/{entry_id}", status_code=204)

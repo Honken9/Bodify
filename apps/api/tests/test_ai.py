@@ -134,6 +134,109 @@ async def test_gym_vision_maps_equipment(
     assert "Hantelrodd" not in names  # kräver hantlar
 
 
+MEAL_PHOTO_RESPONSE = {
+    "items": [
+        {
+            "name": "Grillad kycklingfilé",
+            "grams": 150,
+            "kcal_per_100g": 110,
+            "protein_g_per_100g": 23,
+            "carbs_g_per_100g": 0,
+            "fat_g_per_100g": 2,
+        },
+        {
+            "name": "Jasminris kokt",
+            "grams": 200,
+            "kcal_per_100g": 130,
+            "protein_g_per_100g": 2.7,
+            "carbs_g_per_100g": 28,
+            "fat_g_per_100g": 0.3,
+        },
+    ]
+}
+
+
+async def test_meal_vision_returns_items(client, make_token, known_user, monkeypatch):
+    async def fake_chat(prompt, **kwargs):
+        assert kwargs.get("images_b64")
+        return json.dumps(MEAL_PHOTO_RESPONSE)
+
+    monkeypatch.setattr(ollama, "chat", fake_chat)
+    resp = await client.post(
+        "/api/ai/meal-vision",
+        headers=auth(make_token),
+        files={"file": ("mat.jpg", io.BytesIO(b"fake-jpeg"), "image/jpeg")},
+    )
+    assert resp.status_code == 200
+    items = resp.json()["items"]
+    assert items[0]["name"] == "Grillad kycklingfilé"
+    assert items[0]["grams"] == 150
+    assert items[0]["per_100g"]["kcal"] == 110
+
+
+async def test_meal_vision_ollama_down(client, make_token, known_user, monkeypatch):
+    async def fake_chat(prompt, **kwargs):
+        raise ollama.AIUnavailable("nere")
+
+    monkeypatch.setattr(ollama, "chat", fake_chat)
+    resp = await client.post(
+        "/api/ai/meal-vision",
+        headers=auth(make_token),
+        files={"file": ("mat.jpg", io.BytesIO(b"fake-jpeg"), "image/jpeg")},
+    )
+    assert resp.status_code == 503
+
+
+async def test_photo_log_creates_entries_and_reuses_foods(
+    client, make_token, known_user, monkeypatch
+):
+    from app.integrations import openfoodfacts
+
+    async def no_remote(query, limit=10):
+        return []
+
+    monkeypatch.setattr(openfoodfacts, "search_products", no_remote)
+    payload = {
+        "eaten_on": "2026-07-16",
+        "meal": "lunch",
+        "items": [
+            {
+                "name": "Grillad kycklingfilé",
+                "grams": 150,
+                "per_100g": {"kcal": 110, "protein_g": 23, "carbs_g": 0, "fat_g": 2},
+            },
+            {
+                "name": "Jasminris kokt",
+                "grams": 200,
+                "per_100g": {"kcal": 130, "protein_g": 2.7, "carbs_g": 28, "fat_g": 0.3},
+            },
+        ],
+    }
+    resp = await client.post(
+        "/api/meals/photo-log", headers=auth(make_token), json=payload
+    )
+    assert resp.status_code == 200
+    entries = resp.json()
+    # 150 g × 110 kcal/100 g = 165 kcal; 200 g × 130 = 260 kcal
+    by_name = {e["food_item"]["name"]: e for e in entries}
+    assert by_name["Grillad kycklingfilé"]["kcal"] == 165.0
+    assert by_name["Grillad kycklingfilé"]["protein_g"] == 34.5
+    assert by_name["Jasminris kokt"]["kcal"] == 260.0
+
+    # Dagstotalen stämmer
+    day = (
+        await client.get("/api/meals?day=2026-07-16", headers=auth(make_token))
+    ).json()
+    assert day["totals"]["kcal"] == 425.0
+
+    # Samma rätt igen → livsmedlen återanvänds (inga dubbletter i biblioteket)
+    await client.post("/api/meals/photo-log", headers=auth(make_token), json=payload)
+    foods = (
+        await client.get("/api/food/search?q=kycklingfilé", headers=auth(make_token))
+    ).json()
+    assert len(foods) == 1
+
+
 async def test_readiness_no_data(client, make_token, known_user):
     result = (
         await client.get("/api/ai/readiness", headers=auth(make_token))

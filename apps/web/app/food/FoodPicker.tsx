@@ -13,7 +13,7 @@ const BarcodeScanner = dynamic(() => import("../components/BarcodeScanner"), {
 });
 import type { FoodItem, MealKey, MealTemplate } from "../lib/types";
 
-type Tab = "search" | "scan" | "templates" | "new";
+type Tab = "search" | "scan" | "photo" | "templates" | "new";
 
 export default function FoodPicker({
   day,
@@ -76,8 +76,9 @@ export default function FoodPicker({
               {(
                 [
                   ["search", "🔍 Sök"],
-                  ["scan", "📷 Skanna"],
-                  ["templates", "📄 Mallar"],
+                  ["scan", "📷 Kod"],
+                  ["photo", "🍽 Fota mat"],
+                  ["templates", "📄 Mall"],
                   ["new", "＋ Eget"],
                 ] as [Tab, string][]
               ).map(([key, label]) => (
@@ -99,6 +100,14 @@ export default function FoodPicker({
               {tab === "search" && <SearchTab onPick={setSelected} />}
               {tab === "scan" && (
                 <ScanTab onPick={setSelected} onError={onError} />
+              )}
+              {tab === "photo" && (
+                <MealPhotoTab
+                  day={day}
+                  meal={meal}
+                  onLogged={onLogged}
+                  onError={onError}
+                />
               )}
               {tab === "templates" && (
                 <TemplatesTab
@@ -258,6 +267,186 @@ function ScanTab({
         </p>
       )}
       <BarcodeScanner onDetected={handleDetected} onError={onError} />
+    </div>
+  );
+}
+
+type AnalyzedItem = {
+  name: string;
+  grams: number;
+  per_100g: {
+    kcal: number;
+    protein_g: number;
+    carbs_g: number;
+    fat_g: number;
+  };
+};
+
+function MealPhotoTab({
+  day,
+  meal,
+  onLogged,
+  onError,
+}: {
+  day: string;
+  meal: MealKey;
+  onLogged: () => void;
+  onError: (msg: string) => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [items, setItems] = useState<AnalyzedItem[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  async function analyze(file: File) {
+    setBusy("Analyserar fotot…");
+    setItems(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/ai/meal-vision", {
+        method: "POST",
+        body: form,
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.detail ?? `Fel ${res.status}`);
+      setItems(body.items);
+    } catch (e) {
+      onError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function update(index: number, patch: Partial<AnalyzedItem>) {
+    setItems((prev) =>
+      prev ? prev.map((it, i) => (i === index ? { ...it, ...patch } : it)) : prev
+    );
+  }
+
+  function remove(index: number) {
+    setItems((prev) => (prev ? prev.filter((_, i) => i !== index) : prev));
+  }
+
+  const kcalOf = (it: AnalyzedItem) =>
+    Math.round((it.per_100g.kcal * it.grams) / 100);
+  const totalKcal = (items ?? []).reduce((sum, it) => sum + kcalOf(it), 0);
+  const totalProtein = Math.round(
+    (items ?? []).reduce(
+      (sum, it) => sum + (it.per_100g.protein_g * it.grams) / 100,
+      0
+    )
+  );
+
+  async function logAll() {
+    if (!items || items.length === 0) return;
+    setBusy("Loggar måltiden…");
+    try {
+      await api("/api/meals/photo-log", {
+        method: "POST",
+        body: JSON.stringify({ eaten_on: day, meal, items }),
+      });
+      onLogged();
+    } catch (e) {
+      onError((e as Error).message);
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div>
+      {!items && (
+        <p className="mb-3 text-sm text-muted dark:text-faint">
+          Fota tallriken så identifierar Shapiqo livsmedlen, uppskattar
+          mängderna och räknar ut kalorier och makron.
+        </p>
+      )}
+
+      <button
+        disabled={!!busy}
+        onClick={() => fileRef.current?.click()}
+        className={`w-full rounded-xl py-3 font-semibold disabled:opacity-50 ${
+          items
+            ? "border border-line-strong text-muted dark:border-stone-700 dark:text-stone-300"
+            : "bg-sage text-white"
+        }`}
+      >
+        {busy ?? (items ? "Ta nytt foto" : "🍽 Fota måltiden")}
+      </button>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) analyze(f);
+          e.target.value = "";
+        }}
+      />
+
+      {items && (
+        <div className="mt-3">
+          <p className="mb-2 rounded-lg bg-sand px-3 py-2 text-xs text-sand-ink dark:bg-amber-950 dark:text-amber-200">
+            AI-uppskattning — justera namn och gram innan du loggar.
+          </p>
+
+          {items.length === 0 && (
+            <p className="py-4 text-center text-sm text-faint">
+              Inga livsmedel kvar — ta ett nytt foto.
+            </p>
+          )}
+
+          <ul className="space-y-2">
+            {items.map((it, i) => (
+              <li key={i} className="flex items-center gap-2">
+                <input
+                  value={it.name}
+                  onChange={(e) => update(i, { name: e.target.value })}
+                  className="min-w-0 flex-1 rounded-lg border border-line-strong bg-transparent px-2.5 py-2 text-sm dark:border-stone-700"
+                />
+                <input
+                  inputMode="numeric"
+                  value={it.grams}
+                  onChange={(e) =>
+                    update(i, { grams: Number(e.target.value) || 0 })
+                  }
+                  className="w-16 rounded-lg border border-line-strong bg-transparent px-1 py-2 text-center text-sm dark:border-stone-700"
+                />
+                <span className="w-6 text-xs text-faint">g</span>
+                <span className="w-14 text-right text-xs font-semibold tabular-nums">
+                  {kcalOf(it)} kcal
+                </span>
+                <button
+                  onClick={() => remove(i)}
+                  className="px-1 text-faint hover:text-red-500"
+                  aria-label="Ta bort"
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          {items.length > 0 && (
+            <>
+              <div className="mt-3 flex items-center justify-between rounded-xl bg-cream-deep px-3 py-2 text-sm dark:bg-stone-800/60">
+                <span className="font-semibold">Totalt</span>
+                <span className="font-bold">
+                  {totalKcal} kcal · {totalProtein} g protein
+                </span>
+              </div>
+              <button
+                disabled={!!busy || items.some((it) => it.grams <= 0)}
+                onClick={logAll}
+                className="mt-3 w-full rounded-xl bg-sage py-3 font-semibold text-white disabled:opacity-40"
+              >
+                {busy ?? `Logga måltiden (${totalKcal} kcal)`}
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

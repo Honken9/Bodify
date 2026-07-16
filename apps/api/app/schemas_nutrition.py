@@ -117,3 +117,21 @@ class TemplateFromMeal(BaseModel):
 class TemplateApply(BaseModel):
     eaten_on: date
     meal: str = Field(pattern="^(breakfast|lunch|dinner|snack)$")
+
+
+# ── Måltidsfoto (AI) ─────────────────────────────────────────
+
+
+class PhotoFoodItem(BaseModel):
+    """Ett identifierat livsmedel från ett måltidsfoto — justerbart av
+    användaren innan loggning."""
+
+    name: str = Field(min_length=1, max_length=120)
+    grams: float = Field(gt=0, le=3000)
+    per_100g: Per100g
+
+
+class PhotoLog(BaseModel):
+    eaten_on: date
+    meal: str = Field(pattern="^(breakfast|lunch|dinner|snack)$")
+    items: list[PhotoFoodItem] = Field(min_length=1, max_length=15)
