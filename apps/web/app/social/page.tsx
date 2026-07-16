@@ -130,7 +130,7 @@ export default function SocialPage() {
   }
 
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-4 p-5">
+    <main className="mx-auto flex max-w-md flex-col desktop:max-w-4xl gap-4 p-5">
       <h1 className="pt-2 text-2xl font-bold">Socialt</h1>
       {error && (
         <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
@@ -217,7 +217,7 @@ export default function SocialPage() {
           </p>
         )}
 
-        <ul className="space-y-2">
+        <ul className="space-y-2 desktop:grid desktop:grid-cols-2 desktop:gap-3 desktop:space-y-0">
           {challenges.map((c) => (
             <li
               key={c.id}

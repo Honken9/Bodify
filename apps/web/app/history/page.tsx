@@ -54,7 +54,7 @@ export default function HistoryPage() {
   }, []);
 
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-4 p-5">
+    <main className="mx-auto flex max-w-md flex-col desktop:max-w-4xl gap-4 p-5">
       <h1 className="pt-2 text-2xl font-bold">Historik</h1>
       {error && <p className="text-red-600 dark:text-red-400">{error}</p>}
 
@@ -86,7 +86,7 @@ export default function HistoryPage() {
               Inga pass loggade ännu — dags att köra! 💪
             </p>
           )}
-          <ul className="space-y-2">
+          <ul className="space-y-2 desktop:grid desktop:grid-cols-2 desktop:gap-3 desktop:space-y-0">
             {sessions.map((s) => (
               <li key={s.id}>
                 <Link
@@ -130,7 +130,7 @@ export default function HistoryPage() {
               ⚙️ Kopplingar så dyker de upp här automatiskt.
             </p>
           )}
-          <ul className="space-y-2">
+          <ul className="space-y-2 desktop:grid desktop:grid-cols-2 desktop:gap-3 desktop:space-y-0">
             {cardio.map((a) => (
               <li
                 key={a.id}

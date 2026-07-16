@@ -99,7 +99,7 @@ export default function WorkoutPage() {
   }
 
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-4 p-5 pb-32">
+    <main className="mx-auto flex max-w-md flex-col desktop:max-w-4xl gap-4 p-5 pb-32">
       <header className="pt-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-faint">
           {detail.program_name ?? "Eget pass"} · {formatDate(detail.started_at)}
@@ -108,6 +108,7 @@ export default function WorkoutPage() {
         <h1 className="text-2xl font-bold">{detail.day_name ?? "Fritt pass"}</h1>
       </header>
 
+      <div className="flex flex-col gap-4 desktop:grid desktop:grid-cols-2 desktop:items-start">
       {detail.plan.map((plan) => (
         <ExerciseCard
           key={plan.exercise.id}
@@ -120,6 +121,7 @@ export default function WorkoutPage() {
           onError={setError}
         />
       ))}
+      </div>
 
       {!readOnly && (
         <>

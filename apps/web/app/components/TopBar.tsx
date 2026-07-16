@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import type { Me } from "../lib/types";
+import { useLayoutMode } from "./LayoutMode";
 
 function initialsOf(me: Me): string {
   const source = me.display_name?.trim() || me.email;
@@ -15,6 +16,7 @@ function initialsOf(me: Me): string {
 
 export default function TopBar() {
   const [initials, setInitials] = useState<string | null>(null);
+  const { resolved, wideScreen, setMode } = useLayoutMode();
 
   useEffect(() => {
     api<Me>("/api/me")
@@ -23,20 +25,31 @@ export default function TopBar() {
   }, []);
 
   return (
-    <header className="mx-auto flex w-full max-w-md items-center justify-between px-5 pt-4">
+    <header className="mx-auto flex w-full max-w-md items-center justify-between px-5 pt-4 desktop:hidden">
       <a
         href="/"
         className="text-[15px] font-bold lowercase tracking-wide text-sage"
       >
         shapiqo
       </a>
-      <a
-        href="/settings"
-        aria-label="Inställningar & kopplingar"
-        className="flex h-8 w-8 items-center justify-center rounded-full bg-shell text-[11px] font-semibold text-sand-ink dark:bg-stone-800 dark:text-stone-300"
-      >
-        {initials ?? "•"}
-      </a>
+      <div className="flex items-center gap-2">
+        {wideScreen && resolved === "mobile" && (
+          <button
+            onClick={() => setMode("desktop")}
+            className="rounded-full bg-shell px-3 py-1.5 text-xs font-semibold text-muted dark:bg-stone-800 dark:text-stone-300"
+            title="Bredare layout med sidomeny"
+          >
+            🖥️ Helskärmsläge
+          </button>
+        )}
+        <a
+          href="/settings"
+          aria-label="Inställningar & kopplingar"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-shell text-[11px] font-semibold text-sand-ink dark:bg-stone-800 dark:text-stone-300"
+        >
+          {initials ?? "•"}
+        </a>
+      </div>
     </header>
   );
 }

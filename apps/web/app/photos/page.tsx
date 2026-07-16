@@ -64,7 +64,7 @@ export default function PhotosPage() {
   }
 
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-4 p-5">
+    <main className="mx-auto flex max-w-md flex-col desktop:max-w-4xl gap-4 p-5">
       <h1 className="pt-2 text-2xl font-bold">Progressfoton</h1>
       {error && (
         <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
@@ -154,7 +154,7 @@ export default function PhotosPage() {
         </p>
       )}
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-2 desktop:grid-cols-6">
         {photos.map((p) => {
           const selected = compare.some((c) => c.id === p.id);
           return (

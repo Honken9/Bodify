@@ -63,7 +63,7 @@ export default function ExercisesPage() {
   }
 
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-4 p-5">
+    <main className="mx-auto flex max-w-md flex-col desktop:max-w-4xl gap-4 p-5">
       <div className="flex items-center justify-between pt-2">
         <h1 className="text-2xl font-bold">Övningar</h1>
         <div className="flex gap-1.5">
@@ -126,7 +126,7 @@ export default function ExercisesPage() {
         ))}
       </div>
 
-      <ul className="space-y-2">
+      <ul className="space-y-2 desktop:grid desktop:grid-cols-2 desktop:gap-3 desktop:space-y-0">
         {filtered.map((e) => (
           <li
             key={e.id}

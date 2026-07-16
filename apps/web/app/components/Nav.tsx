@@ -15,7 +15,7 @@ export default function Nav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 backdrop-blur dark:border-stone-800 dark:bg-stone-900/95">
+    <nav className="desktop:hidden fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 backdrop-blur dark:border-stone-800 dark:bg-stone-900/95">
       <div className="mx-auto flex max-w-md pb-[env(safe-area-inset-bottom)]">
         {TABS.map((tab) => {
           const active =

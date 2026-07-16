@@ -81,7 +81,7 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-4 p-5">
+    <main className="mx-auto flex max-w-md flex-col desktop:max-w-4xl gap-4 p-5">
       <h1 className="pt-2 text-2xl font-bold">Admin</h1>
       {message && (
         <p className="rounded-xl bg-sage-soft p-3 text-sm text-sage-deep dark:bg-emerald-950 dark:text-emerald-300">

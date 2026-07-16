@@ -67,7 +67,7 @@ export default function HealthPage() {
   );
 
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-4 p-5">
+    <main className="mx-auto flex max-w-md flex-col desktop:max-w-4xl gap-4 p-5">
       <div className="flex items-center justify-between pt-2">
         <h1 className="text-2xl font-bold">Hälsa</h1>
         <button
@@ -84,7 +84,7 @@ export default function HealthPage() {
         </p>
       )}
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-2 desktop:grid-cols-5">
         {Object.entries(METRIC_META).map(([key, m]) => {
           const v = latest[key];
           return (

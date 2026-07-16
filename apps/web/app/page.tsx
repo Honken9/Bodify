@@ -57,8 +57,8 @@ export default function Home() {
   }
 
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-5 p-5">
-      <header>
+    <main className="mx-auto flex max-w-md flex-col desktop:max-w-4xl desktop:grid desktop:grid-cols-2 desktop:items-start gap-5 p-5">
+      <header className="desktop:col-span-2">
         <h1 className="text-[22px] font-bold tracking-tight">
           {me ? `Hej ${me.display_name ?? me.email.split("@")[0]}! 👋` : "…"}
         </h1>
@@ -70,7 +70,7 @@ export default function Home() {
       {ongoing && (
         <button
           onClick={() => router.push(`/workout/${ongoing.id}`)}
-          className="flex items-center gap-3 rounded-2xl bg-sand p-4 text-left dark:bg-amber-950"
+          className="flex items-center gap-3 rounded-2xl bg-sand p-4 text-left desktop:col-span-2 dark:bg-amber-950"
         >
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sand-strong text-[15px] font-bold text-sand-ink">
             ▸
@@ -300,7 +300,7 @@ function DashboardSection() {
 
       {dash && (
         <>
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="mt-3 grid grid-cols-2 gap-2 desktop:grid-cols-4">
             <Stat
               label="Styrkepass"
               value={String(dash.strength_sessions)}

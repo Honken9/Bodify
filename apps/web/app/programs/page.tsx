@@ -37,7 +37,7 @@ export default function ProgramsPage() {
   }
 
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-4 p-5">
+    <main className="mx-auto flex max-w-md flex-col desktop:max-w-4xl gap-4 p-5">
       <div className="flex items-center justify-between pt-2">
         <h1 className="text-2xl font-bold">Program</h1>
         <a href="/exercises" className="text-sm text-sage dark:text-emerald-400">

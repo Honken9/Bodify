@@ -59,7 +59,7 @@ export default function FoodPage() {
   const isToday = day === isoDate(new Date());
 
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-4 p-5">
+    <main className="mx-auto flex max-w-md flex-col desktop:max-w-4xl gap-4 p-5">
       <div className="flex items-center justify-between pt-2">
         <h1 className="text-2xl font-bold">Kost</h1>
         <button
@@ -136,6 +136,7 @@ export default function FoodPage() {
             </div>
           </section>
 
+          <div className="flex flex-col gap-4 desktop:grid desktop:grid-cols-2 desktop:items-start">
           {(Object.keys(MEAL_LABELS) as MealKey[]).map((meal) => (
             <MealSection
               key={meal}
@@ -146,6 +147,7 @@ export default function FoodPage() {
               onSaveTemplate={() => saveAsTemplate(meal)}
             />
           ))}
+          </div>
         </>
       )}
 

@@ -41,3 +41,7 @@
 :root {
   color-scheme: light dark;
 }
+
+/* Layoutläge: html[data-layout="desktop"] aktiverar desktop:-varianten.
+   Sätts av LayoutModeProvider (auto efter skärmbredd, eller manuellt val). */
+@custom-variant desktop (&:where([data-layout="desktop"], [data-layout="desktop"] *));
