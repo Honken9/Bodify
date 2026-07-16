@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api, formatDate, formatWeight } from "../../lib/api";
-import RestTimer from "../../components/RestTimer";
+import WorkoutHUD from "../../components/WorkoutHUD";
 import type {
   Exercise,
   SessionDetail,
@@ -98,9 +98,36 @@ export default function WorkoutPage() {
     );
   }
 
+  // Aktuell övning: första i planen som inte nått sitt målantal set
+  const setCounts = new Map<string, number>();
+  for (const s of detail.sets) {
+    if (!s.is_warmup) {
+      setCounts.set(s.exercise_id, (setCounts.get(s.exercise_id) ?? 0) + 1);
+    }
+  }
+  const currentIdx = detail.plan.findIndex(
+    (p) => (setCounts.get(p.exercise.id) ?? 0) < (p.target_sets ?? 3)
+  );
+  const current = currentIdx >= 0 ? detail.plan[currentIdx] : null;
+
   return (
     <main className="mx-auto flex max-w-md flex-col desktop:max-w-4xl gap-4 p-5 pb-32">
-      <header className="pt-2">
+      {!readOnly && detail.plan.length > 0 && (
+        <WorkoutHUD
+          startedAt={detail.started_at}
+          exerciseName={current?.exercise.name ?? null}
+          exerciseIndex={current ? currentIdx + 1 : 0}
+          exerciseTotal={detail.plan.length}
+          setsDone={current ? (setCounts.get(current.exercise.id) ?? 0) : 0}
+          targetSets={current?.target_sets ?? null}
+          targetReps={current?.target_reps ?? null}
+          restSeconds={restSeconds}
+          restKey={restKey}
+          onRestDone={() => setRestSeconds(null)}
+        />
+      )}
+
+      <header className={detail.plan.length > 0 && !readOnly ? "" : "pt-2"}>
         <p className="text-xs font-semibold uppercase tracking-wide text-faint">
           {detail.program_name ?? "Eget pass"} · {formatDate(detail.started_at)}
           {readOnly && " · Avslutat"}
@@ -146,14 +173,6 @@ export default function WorkoutPage() {
           exclude={detail.plan.map((p) => p.exercise.id)}
           onPick={addExercise}
           onClose={() => setShowPicker(false)}
-        />
-      )}
-
-      {restSeconds !== null && (
-        <RestTimer
-          key={restKey}
-          seconds={restSeconds}
-          onDone={() => setRestSeconds(null)}
         />
       )}
     </main>
