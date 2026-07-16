@@ -14,6 +14,25 @@ BASE_URL = "https://world.openfoodfacts.org"
 _HEADERS = {"User-Agent": "Bodify/0.1 (self-hosted; +https://github.com/Honken9/Bodify)"}
 
 
+# OFF lagrar *_100g i gram (SI) — konvertera till våra enheter.
+# (off-nyckel, vår nyckel, faktor från gram)
+_MICRO_MAP = [
+    ("salt_100g", "salt_g", 1),
+    ("sugars_100g", "sugar_g", 1),
+    ("saturated-fat_100g", "saturated_fat_g", 1),
+    ("vitamin-a_100g", "vitamin_a_ug", 1e6),
+    ("vitamin-c_100g", "vitamin_c_mg", 1e3),
+    ("vitamin-d_100g", "vitamin_d_ug", 1e6),
+    ("vitamin-b12_100g", "vitamin_b12_ug", 1e6),
+    ("folates_100g", "folate_ug", 1e6),
+    ("calcium_100g", "calcium_mg", 1e3),
+    ("iron_100g", "iron_mg", 1e3),
+    ("magnesium_100g", "magnesium_mg", 1e3),
+    ("potassium_100g", "potassium_mg", 1e3),
+    ("zinc_100g", "zinc_mg", 1e3),
+]
+
+
 def _normalize(product: dict) -> dict | None:
     nutriments = product.get("nutriments") or {}
     name = product.get("product_name_sv") or product.get("product_name")
@@ -31,17 +50,32 @@ def _normalize(product: dict) -> dict | None:
         kj = _num("energy_100g")  # vissa produkter har bara kJ
         kcal = round(kj / 4.184, 1) if kj else 0.0
 
+    per_100g = {
+        "kcal": kcal,
+        "protein_g": _num("proteins_100g"),
+        "carbs_g": _num("carbohydrates_100g"),
+        "fat_g": _num("fat_100g"),
+        "fiber_g": _num("fiber_100g"),
+    }
+
+    # Mikronäringsämnen tas bara med när källdata finns — aldrig nollor
+    # som skulle kunna misstas för uppmätt frånvaro.
+    for off_key, our_key, factor in _MICRO_MAP:
+        raw = nutriments.get(off_key)
+        if raw in (None, ""):
+            continue
+        try:
+            value = float(raw) * factor
+        except (TypeError, ValueError):
+            continue
+        if value > 0:
+            per_100g[our_key] = round(value, 2)
+
     return {
         "barcode": product.get("code"),
         "name": name[:200],
         "brand": (product.get("brands") or "").split(",")[0].strip()[:120] or None,
-        "per_100g": {
-            "kcal": kcal,
-            "protein_g": _num("proteins_100g"),
-            "carbs_g": _num("carbohydrates_100g"),
-            "fat_g": _num("fat_100g"),
-            "fiber_g": _num("fiber_100g"),
-        },
+        "per_100g": per_100g,
     }
 
 

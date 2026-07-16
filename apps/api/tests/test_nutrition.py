@@ -207,6 +207,89 @@ async def test_summary_groups_by_day(client, make_token, known_user, mock_off):
     assert row["entry_count"] == 2
 
 
+def test_off_normalize_extracts_micros():
+    from app.integrations.openfoodfacts import _normalize
+
+    product = {
+        "code": "7310000000001",
+        "product_name": "Mellanmjölk",
+        "nutriments": {
+            "energy-kcal_100g": 47,
+            "proteins_100g": 3.5,
+            "carbohydrates_100g": 4.9,
+            "fat_100g": 1.5,
+            "fiber_100g": 0,
+            "salt_100g": 0.1,
+            "sugars_100g": 4.9,
+            "saturated-fat_100g": 1.0,
+            "calcium_100g": 0.12,  # gram → 120 mg
+            "vitamin-d_100g": 1e-6,  # gram → 1 µg
+            "vitamin-c_100g": 0.012,  # gram → 12 mg
+            "iron_100g": 0.0007,  # gram → 0.7 mg
+        },
+    }
+    per = _normalize(product)["per_100g"]
+    assert per["calcium_mg"] == 120
+    assert per["vitamin_d_ug"] == 1
+    assert per["vitamin_c_mg"] == 12
+    assert per["iron_mg"] == 0.7
+    assert per["salt_g"] == 0.1
+    assert per["sugar_g"] == 4.9
+    assert per["saturated_fat_g"] == 1.0
+    # Zink saknades i källan → ska INTE finnas (ingen falsk nolla)
+    assert "zinc_mg" not in per
+
+
+async def test_day_micros_with_rdi_percent(
+    client, make_token, known_user, db_session
+):
+    from app.models import FoodItem
+
+    milk = FoodItem(
+        name="Berikad mjölk",
+        source="custom",
+        created_by=known_user.id,
+        per_100g={
+            "kcal": 47,
+            "protein_g": 3.5,
+            "carbs_g": 4.9,
+            "fat_g": 1.5,
+            "calcium_mg": 120,
+            "vitamin_d_ug": 1.0,
+            "salt_g": 0.1,
+        },
+    )
+    db_session.add(milk)
+    await db_session.commit()
+
+    await client.post(
+        "/api/meals",
+        headers=auth(make_token),
+        json={
+            "eaten_on": "2026-07-16",
+            "meal": "breakfast",
+            "food_item_id": str(milk.id),
+            "grams": 500,
+        },
+    )
+    day = (
+        await client.get("/api/meals?day=2026-07-16", headers=auth(make_token))
+    ).json()
+    micros = {m["key"]: m for m in day["micros"]}
+
+    # 500 g × 120 mg/100 g = 600 mg kalcium; RDI 950 → 63 %
+    assert micros["calcium_mg"]["amount"] == 600.0
+    assert micros["calcium_mg"]["percent"] == 63
+    assert micros["calcium_mg"]["kind"] == "rdi"
+    # 5 µg D-vitamin av 10 → 50 %
+    assert micros["vitamin_d_ug"]["percent"] == 50
+    # Salt är en maxgräns: 0.5 g av 6 → 8 %
+    assert micros["salt_g"]["kind"] == "max"
+    assert micros["salt_g"]["percent"] == 8
+    # Järn saknar källdata → ska inte visas alls
+    assert "iron_mg" not in micros
+
+
 async def test_meal_isolation(
     client, make_token, known_user, other_user, mock_off
 ):

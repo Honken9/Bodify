@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import get_current_user
 from app.db import get_session
 from app.models import FoodItem, MealEntry, MealTemplate, NutritionTarget, User
+from app.nutrition_rdi import NUTRIENTS
 from app.schemas_nutrition import (
     DayLog,
     DaySummary,
@@ -17,6 +18,7 @@ from app.schemas_nutrition import (
     MealEntryOut,
     MealTemplateCreate,
     MealTemplateOut,
+    MicroOut,
     NutritionTargetOut,
     NutritionTargetUpdate,
     PhotoLog,
@@ -99,12 +101,42 @@ async def day_log(
         carbs_g=round(sum(float(e.carbs_g) for e in entries), 1),
         fat_g=round(sum(float(e.fat_g) for e in entries), 1),
     )
+
+    # Mikronäringsämnen + % av RDI — beräknas ur livsmedlens källdata.
+    # Bara ämnen där minst ett loggat livsmedel HAR data tas med, så att
+    # saknad data aldrig ser ut som ett uppmätt nollintag.
+    micro_totals: dict[str, float] = {}
+    for entry in entries:
+        per = entry.food_item.per_100g or {}
+        factor = float(entry.grams) / 100.0
+        for nutrient in NUTRIENTS:
+            value = per.get(nutrient["key"])
+            if value is None:
+                continue
+            micro_totals[nutrient["key"]] = micro_totals.get(
+                nutrient["key"], 0.0
+            ) + float(value) * factor
+    micros = [
+        MicroOut(
+            key=n["key"],
+            label=n["label"],
+            unit=n["unit"],
+            amount=round(micro_totals[n["key"]], 1),
+            rdi=n["rdi"],
+            percent=round(micro_totals[n["key"]] / n["rdi"] * 100),
+            kind=n["kind"],
+        )
+        for n in NUTRIENTS
+        if n["key"] in micro_totals
+    ]
+
     targets = await _get_targets(user, db)
     return DayLog(
         day=day,
         entries=[MealEntryOut.model_validate(e) for e in entries],
         totals=totals,
         targets=NutritionTargetOut.model_validate(targets),
+        micros=micros,
     )
 
 

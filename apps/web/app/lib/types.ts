@@ -132,11 +132,22 @@ export type MacroTotals = {
 
 export type NutritionTargets = MacroTotals;
 
+export type Micro = {
+  key: string;
+  label: string;
+  unit: string;
+  amount: number;
+  rdi: number;
+  percent: number;
+  kind: "rdi" | "max";
+};
+
 export type DayLog = {
   day: string;
   entries: MealEntry[];
   totals: MacroTotals;
   targets: NutritionTargets;
+  micros: Micro[];
 };
 
 export type MealTemplate = {

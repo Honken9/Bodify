@@ -75,11 +75,26 @@ class NutritionTargetUpdate(BaseModel):
     fat_g: int = Field(ge=0, le=500)
 
 
+class MicroOut(BaseModel):
+    """Ett näringsämne för dagen, med % av referensvärdet (RDI/maxgräns).
+
+    Visas bara när minst ett loggat livsmedel har källdata för ämnet."""
+
+    key: str
+    label: str
+    unit: str
+    amount: float
+    rdi: float
+    percent: int
+    kind: str  # rdi = nå upp till, max = håll dig under
+
+
 class DayLog(BaseModel):
     day: date
     entries: list[MealEntryOut]
     totals: MacroTotals
     targets: NutritionTargetOut
+    micros: list[MicroOut] = []
 
 
 class DaySummary(BaseModel):

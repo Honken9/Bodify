@@ -136,6 +136,8 @@ export default function FoodPage() {
             </div>
           </section>
 
+          {log.micros.length > 0 && <MicrosSection micros={log.micros} />}
+
           <div className="flex flex-col gap-4 desktop:grid desktop:grid-cols-2 desktop:items-start">
           {(Object.keys(MEAL_LABELS) as MealKey[]).map((meal) => (
             <MealSection
@@ -217,6 +219,81 @@ function MacroBar({
         </p>
       )}
     </div>
+  );
+}
+
+function MicrosSection({ micros }: { micros: import("../lib/types").Micro[] }) {
+  const [open, setOpen] = useState(false);
+  const lowCount = micros.filter(
+    (m) => m.kind === "rdi" && m.percent < 50
+  ).length;
+  const overCount = micros.filter(
+    (m) => m.kind === "max" && m.percent > 100
+  ).length;
+
+  return (
+    <section className="rounded-2xl border border-line bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
+      <button
+        className="flex w-full items-center justify-between"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <h2 className="font-bold">Vitaminer & mineraler</h2>
+        <span className="text-xs text-muted">
+          {micros.length} ämnen
+          {overCount > 0 && ` · ⚠️ ${overCount} över gräns`}
+          {open ? " ▴" : " ▾"}
+        </span>
+      </button>
+
+      {open && (
+        <>
+          <div className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 desktop:grid-cols-2">
+            {micros.map((m) => {
+              const over = m.kind === "max" && m.percent > 100;
+              const bar =
+                m.kind === "max"
+                  ? over
+                    ? "bg-red-400"
+                    : "bg-sand-strong"
+                  : "bg-sage";
+              return (
+                <div key={m.key}>
+                  <div className="flex items-baseline justify-between text-xs">
+                    <span className="font-medium text-muted dark:text-faint">
+                      {m.label}
+                      {m.kind === "max" && (
+                        <span className="ml-1 text-[10px] text-faint">
+                          (max)
+                        </span>
+                      )}
+                    </span>
+                    <span
+                      className={`font-semibold tabular-nums ${
+                        over ? "text-red-600 dark:text-red-400" : ""
+                      }`}
+                    >
+                      {m.amount} {m.unit} · {m.percent} %
+                    </span>
+                  </div>
+                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-shell dark:bg-stone-800">
+                    <div
+                      className={`h-full ${bar}`}
+                      style={{ width: `${Math.min(100, m.percent)}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-3 text-[11px] leading-snug text-faint">
+            % av referensvärde för vuxna (NNR 2023). Visar bara ämnen där
+            livsmedlens källdata finns — streckkodsvaror ger mest.
+            {lowCount > 0 &&
+              " Lågt värde kan bero på att data saknas för vissa livsmedel."}
+          </p>
+        </>
+      )}
+    </section>
   );
 }
 
