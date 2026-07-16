@@ -76,7 +76,7 @@ export default function PhotosPage() {
         <select
           value={pose}
           onChange={(e) => setPose(e.target.value)}
-          className="rounded-xl border border-stone-300 bg-transparent px-3 py-2.5 text-sm dark:border-stone-700"
+          className="rounded-xl border border-line-strong bg-transparent px-3 py-2.5 text-sm dark:border-stone-700"
         >
           {Object.entries(POSE_LABELS).map(([key, label]) => (
             <option key={key} value={key}>
@@ -87,7 +87,7 @@ export default function PhotosPage() {
         <button
           disabled={uploading}
           onClick={() => fileRef.current?.click()}
-          className="flex-1 rounded-xl bg-emerald-600 py-2.5 font-semibold text-white disabled:opacity-50"
+          className="flex-1 rounded-xl bg-sage py-2.5 font-semibold text-white disabled:opacity-50"
         >
           {uploading ? "Laddar upp…" : "📸 Ta / välj foto"}
         </button>
@@ -106,12 +106,12 @@ export default function PhotosPage() {
       </div>
 
       {compare.length === 2 && (
-        <section className="rounded-2xl border-2 border-emerald-400 bg-white p-3 dark:border-emerald-600 dark:bg-stone-900">
+        <section className="rounded-2xl border-2 border-sage bg-white p-3 dark:border-emerald-600 dark:bg-stone-900">
           <div className="mb-2 flex items-center justify-between">
             <h2 className="font-bold">Före / efter</h2>
             <button
               onClick={() => setCompare([])}
-              className="text-sm text-stone-400"
+              className="text-sm text-faint"
             >
               Stäng ✕
             </button>
@@ -131,7 +131,7 @@ export default function PhotosPage() {
                     alt={POSE_LABELS[p.pose]}
                     className="aspect-[3/4] w-full rounded-xl object-cover"
                   />
-                  <figcaption className="mt-1 text-center text-xs text-stone-500">
+                  <figcaption className="mt-1 text-center text-xs text-muted">
                     {i === 0 ? "Före · " : "Efter · "}
                     {formatDate(p.taken_at)}
                   </figcaption>
@@ -142,14 +142,14 @@ export default function PhotosPage() {
       )}
 
       {photos.length === 0 && (
-        <p className="py-8 text-center text-sm text-stone-400">
+        <p className="py-8 text-center text-sm text-faint">
           Inga foton ännu. Ta ett första referensfoto idag — du kommer tacka
           dig själv om tre månader. 📈
         </p>
       )}
 
       {photos.length > 0 && (
-        <p className="text-xs text-stone-400">
+        <p className="text-xs text-faint">
           Tryck på två foton för att jämföra före/efter.
         </p>
       )}
@@ -162,7 +162,7 @@ export default function PhotosPage() {
               <button
                 onClick={() => toggleCompare(p)}
                 className={`block w-full overflow-hidden rounded-xl ${
-                  selected ? "ring-4 ring-emerald-500" : ""
+                  selected ? "ring-4 ring-sage" : ""
                 }`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -172,7 +172,7 @@ export default function PhotosPage() {
                   className="aspect-[3/4] w-full object-cover"
                 />
               </button>
-              <p className="mt-0.5 text-center text-[10px] text-stone-400">
+              <p className="mt-0.5 text-center text-[10px] text-faint">
                 {formatDate(p.taken_at)} · {POSE_LABELS[p.pose]}
               </p>
               <button

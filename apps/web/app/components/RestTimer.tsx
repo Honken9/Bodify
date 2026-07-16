@@ -57,7 +57,7 @@ export default function RestTimer({
 
   return (
     <div className="fixed inset-x-0 bottom-14 z-50 mx-auto max-w-md px-4 pb-2">
-      <div className="flex items-center justify-between rounded-2xl bg-stone-900 px-5 py-3 text-white shadow-lg dark:bg-stone-100 dark:text-stone-900">
+      <div className="flex items-center justify-between rounded-2xl bg-ink px-5 py-3 text-white shadow-lg dark:bg-shell dark:text-stone-900">
         <span className="text-sm font-medium">Vila</span>
         <span className="font-mono text-2xl font-bold tabular-nums">
           {mm}:{ss}

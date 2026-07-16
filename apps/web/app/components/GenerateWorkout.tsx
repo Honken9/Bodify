@@ -90,7 +90,7 @@ export default function GenerateWorkout({ onClose }: { onClose: () => void }) {
       >
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-lg font-bold">✨ Generera pass</h3>
-          <button onClick={onClose} className="p-1 text-stone-400">
+          <button onClick={onClose} className="p-1 text-faint">
             ✕
           </button>
         </div>
@@ -104,7 +104,7 @@ export default function GenerateWorkout({ onClose }: { onClose: () => void }) {
         {!plan ? (
           <div className="space-y-4">
             <div>
-              <p className="mb-1.5 text-sm font-medium text-stone-500 dark:text-stone-400">
+              <p className="mb-1.5 text-sm font-medium text-muted dark:text-faint">
                 Hur mycket tid har du?
               </p>
               <div className="flex gap-1.5">
@@ -114,8 +114,8 @@ export default function GenerateWorkout({ onClose }: { onClose: () => void }) {
                     onClick={() => setMinutes(m)}
                     className={`flex-1 rounded-lg py-2 text-sm font-semibold ${
                       minutes === m
-                        ? "bg-emerald-600 text-white"
-                        : "bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300"
+                        ? "bg-sage text-white"
+                        : "bg-shell text-muted dark:bg-stone-800 dark:text-stone-300"
                     }`}
                   >
                     {m}
@@ -125,7 +125,7 @@ export default function GenerateWorkout({ onClose }: { onClose: () => void }) {
             </div>
 
             <div>
-              <p className="mb-1.5 text-sm font-medium text-stone-500 dark:text-stone-400">
+              <p className="mb-1.5 text-sm font-medium text-muted dark:text-faint">
                 Tillgänglig utrustning
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -135,8 +135,8 @@ export default function GenerateWorkout({ onClose }: { onClose: () => void }) {
                     onClick={() => toggle(eq)}
                     className={`rounded-full px-3 py-1.5 text-xs font-medium capitalize ${
                       equipment.includes(eq)
-                        ? "bg-emerald-600 text-white"
-                        : "bg-stone-100 text-stone-500 dark:bg-stone-800"
+                        ? "bg-sage text-white"
+                        : "bg-shell text-muted dark:bg-stone-800"
                     }`}
                   >
                     {eq}
@@ -149,13 +149,13 @@ export default function GenerateWorkout({ onClose }: { onClose: () => void }) {
               value={focus}
               onChange={(e) => setFocus(e.target.value)}
               placeholder="Fokus (valfritt), t.ex. ben & säte"
-              className="w-full rounded-xl border border-stone-300 bg-transparent px-4 py-2.5 dark:border-stone-700"
+              className="w-full rounded-xl border border-line-strong bg-transparent px-4 py-2.5 dark:border-stone-700"
             />
 
             <button
               disabled={!!busy || equipment.length === 0}
               onClick={generate}
-              className="w-full rounded-xl bg-emerald-600 py-3 font-semibold text-white disabled:opacity-50"
+              className="w-full rounded-xl bg-sage py-3 font-semibold text-white disabled:opacity-50"
             >
               {busy ?? "Generera"}
             </button>
@@ -167,10 +167,10 @@ export default function GenerateWorkout({ onClose }: { onClose: () => void }) {
               {plan.exercises.map((e) => (
                 <li
                   key={e.exercise_id}
-                  className="flex items-center justify-between rounded-lg bg-stone-50 px-3 py-2 text-sm dark:bg-stone-800/60"
+                  className="flex items-center justify-between rounded-lg bg-cream-deep px-3 py-2 text-sm dark:bg-stone-800/60"
                 >
                   <span className="font-medium">{e.name}</span>
-                  <span className="text-stone-500 dark:text-stone-400">
+                  <span className="text-muted dark:text-faint">
                     {e.sets} × {e.reps} · vila {e.rest_seconds} s
                   </span>
                 </li>
@@ -179,14 +179,14 @@ export default function GenerateWorkout({ onClose }: { onClose: () => void }) {
             <div className="mt-4 flex gap-2">
               <button
                 onClick={() => setPlan(null)}
-                className="flex-1 rounded-xl border border-stone-300 py-3 font-semibold text-stone-600 dark:border-stone-700 dark:text-stone-300"
+                className="flex-1 rounded-xl border border-line-strong py-3 font-semibold text-muted dark:border-stone-700 dark:text-stone-300"
               >
                 Gör om
               </button>
               <button
                 disabled={!!busy}
                 onClick={startPlan}
-                className="flex-1 rounded-xl bg-emerald-600 py-3 font-semibold text-white disabled:opacity-50"
+                className="flex-1 rounded-xl bg-sage py-3 font-semibold text-white disabled:opacity-50"
               >
                 {busy ?? "Kör passet ▶"}
               </button>

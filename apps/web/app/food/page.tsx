@@ -64,13 +64,13 @@ export default function FoodPage() {
         <h1 className="text-2xl font-bold">Kost</h1>
         <button
           onClick={() => setEditTargets(true)}
-          className="text-sm text-emerald-600 dark:text-emerald-400"
+          className="text-sm text-sage dark:text-emerald-400"
         >
           Mål ⚙️
         </button>
       </div>
 
-      <div className="flex items-center justify-between rounded-xl border border-stone-200 bg-white px-2 py-1.5 dark:border-stone-800 dark:bg-stone-900">
+      <div className="flex items-center justify-between rounded-xl border border-line bg-white px-2 py-1.5 dark:border-stone-800 dark:bg-stone-900">
         <button onClick={() => setDay(shiftDay(day, -1))} className="p-2 text-lg">
           ‹
         </button>
@@ -100,13 +100,13 @@ export default function FoodPage() {
 
       {log && (
         <>
-          <section className="rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
+          <section className="rounded-2xl border border-line bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
             <MacroBar
               label="Kalorier"
               value={log.totals.kcal}
               target={log.targets.kcal}
               unit="kcal"
-              color="bg-emerald-500"
+              color="bg-sage"
             />
             <div className="mt-3 grid grid-cols-3 gap-3">
               <MacroBar
@@ -114,7 +114,7 @@ export default function FoodPage() {
                 value={log.totals.protein_g}
                 target={log.targets.protein_g}
                 unit="g"
-                color="bg-lime-500"
+                color="bg-sage"
                 compact
               />
               <MacroBar
@@ -122,7 +122,7 @@ export default function FoodPage() {
                 value={log.totals.carbs_g}
                 target={log.targets.carbs_g}
                 unit="g"
-                color="bg-amber-500"
+                color="bg-carb"
                 compact
               />
               <MacroBar
@@ -130,7 +130,7 @@ export default function FoodPage() {
                 value={log.totals.fat_g}
                 target={log.targets.fat_g}
                 unit="g"
-                color="bg-rose-400"
+                color="bg-fat"
                 compact
               />
             </div>
@@ -196,7 +196,7 @@ function MacroBar({
     <div>
       <div className="flex items-baseline justify-between">
         <span
-          className={`font-medium ${compact ? "text-xs" : "text-sm"} text-stone-500 dark:text-stone-400`}
+          className={`font-medium ${compact ? "text-xs" : "text-sm"} text-muted dark:text-faint`}
         >
           {label}
         </span>
@@ -206,11 +206,11 @@ function MacroBar({
           </span>
         )}
       </div>
-      <div className="mt-1 h-2 overflow-hidden rounded-full bg-stone-100 dark:bg-stone-800">
+      <div className="mt-1 h-2 overflow-hidden rounded-full bg-shell dark:bg-stone-800">
         <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
       {compact && (
-        <p className="mt-0.5 text-xs text-stone-500 dark:text-stone-400">
+        <p className="mt-0.5 text-xs text-muted dark:text-faint">
           {Math.round(value)}/{target} {unit}
         </p>
       )}
@@ -233,17 +233,17 @@ function MealSection({
 }) {
   const kcal = Math.round(entries.reduce((sum, e) => sum + e.kcal, 0));
   return (
-    <section className="rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
+    <section className="rounded-2xl border border-line bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
       <div className="flex items-center justify-between">
         <h2 className="font-bold">{MEAL_LABELS[meal]}</h2>
         <div className="flex items-center gap-3">
           {entries.length > 0 && (
             <>
-              <span className="text-sm text-stone-400">{kcal} kcal</span>
+              <span className="text-sm text-faint">{kcal} kcal</span>
               <button
                 onClick={onSaveTemplate}
                 title="Spara som mall"
-                className="text-sm text-stone-400"
+                className="text-sm text-faint"
               >
                 💾
               </button>
@@ -251,31 +251,31 @@ function MealSection({
           )}
           <button
             onClick={onAdd}
-            className="rounded-lg bg-emerald-600 px-2.5 py-1 text-sm font-bold text-white"
+            className="rounded-lg bg-sage px-2.5 py-1 text-sm font-bold text-white"
           >
             +
           </button>
         </div>
       </div>
       {entries.length > 0 && (
-        <ul className="mt-2 divide-y divide-stone-100 dark:divide-stone-800">
+        <ul className="mt-2 divide-y divide-line dark:divide-stone-800">
           {entries.map((e) => (
             <li key={e.id} className="flex items-center justify-between py-2">
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">
                   {e.food_item.name}
                   {e.food_item.brand && (
-                    <span className="text-stone-400"> · {e.food_item.brand}</span>
+                    <span className="text-faint"> · {e.food_item.brand}</span>
                   )}
                 </p>
-                <p className="text-xs text-stone-500 dark:text-stone-400">
+                <p className="text-xs text-muted dark:text-faint">
                   {Math.round(e.grams)} g · {Math.round(e.kcal)} kcal ·{" "}
                   {Math.round(e.protein_g)} g protein
                 </p>
               </div>
               <button
                 onClick={() => onRemove(e.id)}
-                className="px-2 text-stone-400 hover:text-red-500"
+                className="px-2 text-faint hover:text-red-500"
                 aria-label="Ta bort"
               >
                 ✕
@@ -341,7 +341,7 @@ function TargetsEditor({
             <button
               key={label}
               onClick={() => setForm({ ...preset })}
-              className="flex-1 rounded-lg bg-stone-100 py-2 text-xs font-semibold text-stone-600 dark:bg-stone-800 dark:text-stone-300"
+              className="flex-1 rounded-lg bg-shell py-2 text-xs font-semibold text-muted dark:bg-stone-800 dark:text-stone-300"
             >
               {label}
             </button>
@@ -350,7 +350,7 @@ function TargetsEditor({
         <div className="space-y-3">
           {fields.map(({ key, label }) => (
             <label key={key} className="block">
-              <span className="text-sm text-stone-500 dark:text-stone-400">
+              <span className="text-sm text-muted dark:text-faint">
                 {label}
               </span>
               <input
@@ -359,7 +359,7 @@ function TargetsEditor({
                 onChange={(e) =>
                   setForm({ ...form, [key]: Number(e.target.value) || 0 })
                 }
-                className="mt-1 w-full rounded-xl border border-stone-300 bg-transparent px-4 py-2.5 dark:border-stone-700"
+                className="mt-1 w-full rounded-xl border border-line-strong bg-transparent px-4 py-2.5 dark:border-stone-700"
               />
             </label>
           ))}
@@ -367,7 +367,7 @@ function TargetsEditor({
         <button
           disabled={saving}
           onClick={save}
-          className="mt-4 w-full rounded-xl bg-emerald-600 py-3 font-semibold text-white disabled:opacity-50"
+          className="mt-4 w-full rounded-xl bg-sage py-3 font-semibold text-white disabled:opacity-50"
         >
           Spara mål
         </button>

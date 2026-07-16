@@ -45,19 +45,19 @@ export default function GymVision({ onClose }: { onClose: () => void }) {
       >
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-lg font-bold">📷 Gym-vision</h3>
-          <button onClick={onClose} className="p-1 text-stone-400">
+          <button onClick={onClose} className="p-1 text-faint">
             ✕
           </button>
         </div>
 
-        <p className="mb-3 text-sm text-stone-500 dark:text-stone-400">
+        <p className="mb-3 text-sm text-muted dark:text-faint">
           Fota gymmets utrustning så föreslår Shapiqo övningar du kan köra där.
         </p>
 
         <button
           disabled={busy}
           onClick={() => fileRef.current?.click()}
-          className="w-full rounded-xl bg-emerald-600 py-3 font-semibold text-white disabled:opacity-50"
+          className="w-full rounded-xl bg-sage py-3 font-semibold text-white disabled:opacity-50"
         >
           {busy ? "Analyserar…" : "Ta / välj foto"}
         </button>
@@ -83,7 +83,7 @@ export default function GymVision({ onClose }: { onClose: () => void }) {
         {result && (
           <div className="mt-4">
             {result.equipment.length === 0 ? (
-              <p className="text-center text-sm text-stone-400">
+              <p className="text-center text-sm text-faint">
                 Ingen utrustning kändes igen — prova ett tydligare foto.
               </p>
             ) : (
@@ -92,17 +92,17 @@ export default function GymVision({ onClose }: { onClose: () => void }) {
                   {result.equipment.map((eq) => (
                     <span
                       key={eq}
-                      className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold capitalize text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                      className="rounded-full bg-sage-soft px-3 py-1 text-xs font-semibold capitalize text-sage-deep dark:bg-emerald-950 dark:text-emerald-300"
                     >
                       ✓ {eq}
                     </span>
                   ))}
                 </div>
-                <ul className="mt-3 divide-y divide-stone-100 dark:divide-stone-800">
+                <ul className="mt-3 divide-y divide-line dark:divide-stone-800">
                   {result.exercises.map((e) => (
                     <li key={e.id} className="py-2">
                       <p className="text-sm font-medium">{e.name}</p>
-                      <p className="text-xs capitalize text-stone-400">
+                      <p className="text-xs capitalize text-faint">
                         {e.muscle_groups.join(" · ")}
                       </p>
                     </li>

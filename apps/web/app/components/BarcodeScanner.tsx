@@ -50,11 +50,11 @@ export default function BarcodeScanner({
     <div>
       <div id={containerId} className="overflow-hidden rounded-xl" />
       {starting && (
-        <p className="py-6 text-center text-sm text-stone-400">
+        <p className="py-6 text-center text-sm text-faint">
           Startar kameran…
         </p>
       )}
-      <p className="mt-2 text-center text-xs text-stone-400">
+      <p className="mt-2 text-center text-xs text-faint">
         Rikta kameran mot streckkoden
       </p>
     </div>

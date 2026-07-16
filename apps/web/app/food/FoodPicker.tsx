@@ -8,7 +8,7 @@ import { api } from "../lib/api";
 const BarcodeScanner = dynamic(() => import("../components/BarcodeScanner"), {
   ssr: false,
   loading: () => (
-    <p className="py-6 text-center text-sm text-stone-400">Laddar skannern…</p>
+    <p className="py-6 text-center text-sm text-faint">Laddar skannern…</p>
   ),
 });
 import type { FoodItem, MealKey, MealTemplate } from "../lib/types";
@@ -59,7 +59,7 @@ export default function FoodPicker({
       >
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-lg font-bold">Lägg till livsmedel</h3>
-          <button onClick={onClose} className="p-1 text-stone-400">
+          <button onClick={onClose} className="p-1 text-faint">
             ✕
           </button>
         </div>
@@ -86,8 +86,8 @@ export default function FoodPicker({
                   onClick={() => setTab(key)}
                   className={`flex-1 rounded-lg py-2 text-xs font-semibold ${
                     tab === key
-                      ? "bg-emerald-600 text-white"
-                      : "bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300"
+                      ? "bg-sage text-white"
+                      : "bg-shell text-muted dark:bg-stone-800 dark:text-stone-300"
                   }`}
                 >
                   {label}
@@ -136,21 +136,21 @@ function GramsForm({
 
   return (
     <div>
-      <button onClick={onBack} className="mb-2 text-sm text-emerald-600">
+      <button onClick={onBack} className="mb-2 text-sm text-sage">
         ‹ Tillbaka
       </button>
       <p className="font-semibold">{food.name}</p>
-      {food.brand && <p className="text-sm text-stone-400">{food.brand}</p>}
+      {food.brand && <p className="text-sm text-faint">{food.brand}</p>}
       <div className="mt-3 flex items-center gap-3">
         <input
           autoFocus
           inputMode="numeric"
           value={grams}
           onChange={(e) => setGrams(e.target.value)}
-          className="w-28 rounded-xl border border-stone-300 bg-transparent px-4 py-2.5 text-center text-lg font-semibold dark:border-stone-700"
+          className="w-28 rounded-xl border border-line-strong bg-transparent px-4 py-2.5 text-center text-lg font-semibold dark:border-stone-700"
         />
-        <span className="text-stone-500">gram</span>
-        <span className="ml-auto text-sm text-stone-500">
+        <span className="text-muted">gram</span>
+        <span className="ml-auto text-sm text-muted">
           {kcal} kcal · {protein} g protein
         </span>
       </div>
@@ -159,7 +159,7 @@ function GramsForm({
           <button
             key={v}
             onClick={() => setGrams(String(v))}
-            className="flex-1 rounded-lg bg-stone-100 py-1.5 text-xs font-medium dark:bg-stone-800"
+            className="flex-1 rounded-lg bg-shell py-1.5 text-xs font-medium dark:bg-stone-800"
           >
             {v} g
           </button>
@@ -168,7 +168,7 @@ function GramsForm({
       <button
         disabled={g <= 0}
         onClick={() => onLog(food, g)}
-        className="mt-4 w-full rounded-xl bg-emerald-600 py-3 font-semibold text-white disabled:opacity-40"
+        className="mt-4 w-full rounded-xl bg-sage py-3 font-semibold text-white disabled:opacity-40"
       >
         Logga
       </button>
@@ -204,22 +204,22 @@ function SearchTab({ onPick }: { onPick: (f: FoodItem) => void }) {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Sök livsmedel…"
-        className="w-full rounded-xl border border-stone-300 bg-transparent px-4 py-2.5 dark:border-stone-700"
+        className="w-full rounded-xl border border-line-strong bg-transparent px-4 py-2.5 dark:border-stone-700"
       />
       {loading && (
-        <p className="py-4 text-center text-sm text-stone-400">Söker…</p>
+        <p className="py-4 text-center text-sm text-faint">Söker…</p>
       )}
-      <ul className="mt-2 divide-y divide-stone-100 dark:divide-stone-800">
+      <ul className="mt-2 divide-y divide-line dark:divide-stone-800">
         {results.map((f) => (
           <li key={f.id}>
             <button onClick={() => onPick(f)} className="w-full py-2.5 text-left">
               <p className="text-sm font-medium">
                 {f.name}
                 {f.source === "custom" && (
-                  <span className="ml-1.5 text-xs text-emerald-600">egen</span>
+                  <span className="ml-1.5 text-xs text-sage">egen</span>
                 )}
               </p>
-              <p className="text-xs text-stone-400">
+              <p className="text-xs text-faint">
                 {f.brand ? `${f.brand} · ` : ""}
                 {Math.round(f.per_100g.kcal ?? 0)} kcal/100 g
               </p>
@@ -253,7 +253,7 @@ function ScanTab({
   return (
     <div>
       {status && (
-        <p className="mb-2 rounded-lg bg-stone-100 p-2 text-center text-sm dark:bg-stone-800">
+        <p className="mb-2 rounded-lg bg-shell p-2 text-center text-sm dark:bg-stone-800">
           {status}
         </p>
       )}
@@ -297,7 +297,7 @@ function TemplatesTab({
 
   if (loaded && templates.length === 0) {
     return (
-      <p className="py-6 text-center text-sm text-stone-400">
+      <p className="py-6 text-center text-sm text-faint">
         Inga mallar ännu. Logga en måltid och tryck 💾 för att spara den som
         mall.
       </p>
@@ -305,7 +305,7 @@ function TemplatesTab({
   }
 
   return (
-    <ul className="divide-y divide-stone-100 dark:divide-stone-800">
+    <ul className="divide-y divide-line dark:divide-stone-800">
       {templates.map((t) => {
         const foodById = new Map(t.foods.map((f) => [f.id, f]));
         const kcal = Math.round(
@@ -321,13 +321,13 @@ function TemplatesTab({
           <li key={t.id} className="flex items-center justify-between py-2.5">
             <div>
               <p className="text-sm font-medium">{t.name}</p>
-              <p className="text-xs text-stone-400">
+              <p className="text-xs text-faint">
                 {t.items.length} livsmedel · {kcal} kcal
               </p>
             </div>
             <button
               onClick={() => apply(t.id)}
-              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white"
+              className="rounded-lg bg-sage px-3 py-1.5 text-sm font-semibold text-white"
             >
               Logga
             </button>
@@ -391,17 +391,17 @@ function NewFoodTab({
         value={form.name}
         onChange={(e) => setForm({ ...form, name: e.target.value })}
         placeholder="Namn (t.ex. Mammas köttbullar)"
-        className="w-full rounded-xl border border-stone-300 bg-transparent px-4 py-2.5 dark:border-stone-700"
+        className="w-full rounded-xl border border-line-strong bg-transparent px-4 py-2.5 dark:border-stone-700"
       />
       <div className="grid grid-cols-4 gap-2">
         {fields.map(({ key, label }) => (
           <label key={key} className="block">
-            <span className="text-[10px] text-stone-400">{label}</span>
+            <span className="text-[10px] text-faint">{label}</span>
             <input
               inputMode="decimal"
               value={form[key]}
               onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-              className="mt-0.5 w-full rounded-lg border border-stone-300 bg-transparent px-2 py-2 text-center text-sm dark:border-stone-700"
+              className="mt-0.5 w-full rounded-lg border border-line-strong bg-transparent px-2 py-2 text-center text-sm dark:border-stone-700"
             />
           </label>
         ))}
@@ -409,7 +409,7 @@ function NewFoodTab({
       <button
         disabled={saving || !form.name.trim()}
         onClick={save}
-        className="w-full rounded-xl bg-emerald-600 py-3 font-semibold text-white disabled:opacity-40"
+        className="w-full rounded-xl bg-sage py-3 font-semibold text-white disabled:opacity-40"
       >
         Spara & välj mängd
       </button>

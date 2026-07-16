@@ -138,7 +138,7 @@ export default function SocialPage() {
         </p>
       )}
 
-      <section className="rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
+      <section className="rounded-2xl border border-line bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
         <h2 className="font-bold">Vänner</h2>
         <div className="mt-2 flex gap-2">
           <input
@@ -146,12 +146,12 @@ export default function SocialPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="väns e-postadress"
-            className="min-w-0 flex-1 rounded-xl border border-stone-300 bg-transparent px-3 py-2 text-sm dark:border-stone-700"
+            className="min-w-0 flex-1 rounded-xl border border-line-strong bg-transparent px-3 py-2 text-sm dark:border-stone-700"
           />
           <button
             disabled={!email.includes("@")}
             onClick={addFriend}
-            className="rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white disabled:opacity-40"
+            className="rounded-xl bg-sage px-4 text-sm font-semibold text-white disabled:opacity-40"
           >
             Lägg till
           </button>
@@ -160,14 +160,14 @@ export default function SocialPage() {
         {friends?.incoming.map((f) => (
           <div
             key={f.friendship_id}
-            className="mt-2 flex items-center justify-between rounded-xl bg-amber-50 px-3 py-2 text-sm dark:bg-amber-950"
+            className="mt-2 flex items-center justify-between rounded-xl bg-sand px-3 py-2 text-sm dark:bg-amber-950"
           >
             <span>
               <strong>{f.name}</strong> vill bli din vän
             </span>
             <button
               onClick={() => accept(f.friendship_id)}
-              className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-semibold text-white"
+              className="rounded-lg bg-sage px-3 py-1 text-xs font-semibold text-white"
             >
               Acceptera
             </button>
@@ -181,16 +181,16 @@ export default function SocialPage() {
               className="flex items-center justify-between py-1 text-sm"
             >
               <span className="font-medium">👤 {f.name}</span>
-              <span className="text-xs text-stone-400">{f.email}</span>
+              <span className="text-xs text-faint">{f.email}</span>
             </li>
           ))}
           {friends && friends.friends.length === 0 && (
-            <p className="mt-2 text-sm text-stone-400">
+            <p className="mt-2 text-sm text-faint">
               Inga vänner ännu — bjud in med e-postadressen de loggar in med.
             </p>
           )}
           {friends?.outgoing.map((f) => (
-            <li key={f.friendship_id} className="py-1 text-sm text-stone-400">
+            <li key={f.friendship_id} className="py-1 text-sm text-faint">
               ⏳ {f.name} (väntar på svar)
             </li>
           ))}
@@ -199,19 +199,19 @@ export default function SocialPage() {
 
       <section>
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-stone-400">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-faint">
             Utmaningar
           </h2>
           <button
             onClick={() => setShowCreate(true)}
-            className="text-sm text-emerald-600 dark:text-emerald-400"
+            className="text-sm text-sage dark:text-emerald-400"
           >
             + Ny utmaning
           </button>
         </div>
 
         {challenges.length === 0 && (
-          <p className="rounded-xl border border-dashed border-stone-300 p-4 text-center text-sm text-stone-400 dark:border-stone-700">
+          <p className="rounded-xl border border-dashed border-line-strong p-4 text-center text-sm text-faint dark:border-stone-700">
             Skapa en utmaning och bjud in vännerna — flest pass, mest
             viktnedgång eller störst fettnedgång. 🏆
           </p>
@@ -221,7 +221,7 @@ export default function SocialPage() {
           {challenges.map((c) => (
             <li
               key={c.id}
-              className="rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900"
+              className="rounded-2xl border border-line bg-white p-4 dark:border-stone-800 dark:bg-stone-900"
             >
               <button
                 className="w-full text-left"
@@ -232,17 +232,17 @@ export default function SocialPage() {
                     {c.active ? "🔥 " : ""}
                     {c.name}
                   </p>
-                  <span className="text-xs text-stone-400">
+                  <span className="text-xs text-faint">
                     {c.participant_count} deltagare
                   </span>
                 </div>
-                <p className="mt-0.5 text-sm text-stone-500 dark:text-stone-400">
+                <p className="mt-0.5 text-sm text-muted dark:text-faint">
                   {c.metric_label} · {c.starts_on} → {c.ends_on}
                 </p>
               </button>
 
               {c.invited && !c.is_participant && (
-                <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                <p className="mt-2 rounded-lg bg-sage-soft px-3 py-1.5 text-xs font-medium text-sage-deep dark:bg-emerald-950 dark:text-emerald-300">
                   🎟 Du är inbjuden till den här utmaningen!
                 </p>
               )}
@@ -250,7 +250,7 @@ export default function SocialPage() {
               {!c.is_participant && (
                 <button
                   onClick={() => join(c.id)}
-                  className="mt-2 w-full rounded-xl bg-emerald-600 py-2 text-sm font-semibold text-white"
+                  className="mt-2 w-full rounded-xl bg-sage py-2 text-sm font-semibold text-white"
                 >
                   Gå med
                 </button>
@@ -259,7 +259,7 @@ export default function SocialPage() {
               {c.is_participant && (
                 <button
                   onClick={() => invite(c.id)}
-                  className="mt-2 w-full rounded-xl border border-emerald-300 py-2 text-sm font-semibold text-emerald-700 dark:border-emerald-800 dark:text-emerald-400"
+                  className="mt-2 w-full rounded-xl border border-sage-line py-2 text-sm font-semibold text-sage-deep dark:border-emerald-800 dark:text-emerald-400"
                 >
                   ➕ Bjud in till utmaningen
                 </button>
@@ -330,7 +330,7 @@ function CreateChallenge({
   const [saving, setSaving] = useState(false);
 
   const inputCls =
-    "w-full rounded-xl border border-stone-300 bg-transparent px-4 py-2.5 dark:border-stone-700";
+    "w-full rounded-xl border border-line-strong bg-transparent px-4 py-2.5 dark:border-stone-700";
 
   async function save() {
     setSaving(true);
@@ -384,7 +384,7 @@ function CreateChallenge({
           </select>
           <div className="flex gap-2">
             <label className="flex-1">
-              <span className="text-xs text-stone-400">Start</span>
+              <span className="text-xs text-faint">Start</span>
               <input
                 type="date"
                 value={start}
@@ -393,7 +393,7 @@ function CreateChallenge({
               />
             </label>
             <label className="flex-1">
-              <span className="text-xs text-stone-400">Slut</span>
+              <span className="text-xs text-faint">Slut</span>
               <input
                 type="date"
                 value={end}
@@ -405,7 +405,7 @@ function CreateChallenge({
           <button
             disabled={saving || !name.trim()}
             onClick={save}
-            className="w-full rounded-xl bg-emerald-600 py-3 font-semibold text-white disabled:opacity-40"
+            className="w-full rounded-xl bg-sage py-3 font-semibold text-white disabled:opacity-40"
           >
             Skapa utmaning
           </button>

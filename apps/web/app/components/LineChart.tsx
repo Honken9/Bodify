@@ -15,7 +15,7 @@ export default function LineChart({
 }) {
   if (data.length === 0) {
     return (
-      <p className="py-10 text-center text-sm text-stone-400">
+      <p className="py-10 text-center text-sm text-faint">
         Ingen data ännu.
       </p>
     );
@@ -58,7 +58,7 @@ export default function LineChart({
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
-      className="w-full text-emerald-500"
+      className="w-full text-sage"
       role="img"
     >
       {yTicks.map((v) => {

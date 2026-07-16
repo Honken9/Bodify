@@ -1,5 +1,43 @@
 @import "tailwindcss";
 
+/* Shapiqo designsystem — "Mjuk & välmående"
+   Varm off-white, salviagrönt och sandtoner. */
+@theme {
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+
+  /* Ytor */
+  --color-cream: #faf7f1; /* sidbakgrund */
+  --color-cream-deep: #f5f2ea; /* stat-plattor, inbäddade ytor */
+  --color-shell: #f1ede2; /* chips, segmentväljare, spår */
+
+  /* Text */
+  --color-ink: #2f352e; /* primär */
+  --color-muted: #8a9184; /* sekundär */
+  --color-faint: #a8ad9f; /* tertiär, tomvärden */
+
+  /* Accent: salviagrön */
+  --color-sage: #5b7a5e;
+  --color-sage-deep: #42603f;
+  --color-sage-soft: #e8efe6;
+  --color-sage-line: #c6d4c4;
+
+  /* Varm sand (banners, sekundära inslag) */
+  --color-sand: #f3ecd9;
+  --color-sand-deep: #efe9db;
+  --color-sand-strong: #d9c9a8;
+  --color-sand-ink: #8a7333;
+
+  /* Avdelare & fält */
+  --color-line: #eee7d9;
+  --color-line-strong: #e0d9c8;
+
+  /* Makro-accenter (dämpade) */
+  --color-carb: #c9ae5f;
+  --color-fat: #c98f7a;
+
+  --shadow-card: 0 1px 4px rgba(90, 80, 60, 0.06);
+}
+
 :root {
   color-scheme: light dark;
 }

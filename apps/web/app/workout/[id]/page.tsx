@@ -92,7 +92,7 @@ export default function WorkoutPage() {
   }
   if (!detail) {
     return (
-      <main className="mx-auto max-w-md p-5 text-center text-stone-400">
+      <main className="mx-auto max-w-md p-5 text-center text-faint">
         Laddar…
       </main>
     );
@@ -101,7 +101,7 @@ export default function WorkoutPage() {
   return (
     <main className="mx-auto flex max-w-md flex-col gap-4 p-5 pb-32">
       <header className="pt-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">
+        <p className="text-xs font-semibold uppercase tracking-wide text-faint">
           {detail.program_name ?? "Eget pass"} · {formatDate(detail.started_at)}
           {readOnly && " · Avslutat"}
         </p>
@@ -125,14 +125,14 @@ export default function WorkoutPage() {
         <>
           <button
             onClick={() => setShowPicker(true)}
-            className="rounded-xl border border-dashed border-stone-300 py-3 font-medium text-stone-500 dark:border-stone-700 dark:text-stone-400"
+            className="rounded-xl border border-dashed border-line-strong py-3 font-medium text-muted dark:border-stone-700 dark:text-faint"
           >
             + Lägg till övning
           </button>
           <button
             disabled={finishing}
             onClick={finish}
-            className="rounded-xl bg-emerald-600 py-3.5 font-bold text-white active:bg-emerald-700 disabled:opacity-50"
+            className="rounded-xl bg-sage py-3.5 font-bold text-white active:bg-sage-deep disabled:opacity-50"
           >
             {finishing ? "Avslutar…" : "Avsluta passet ✓"}
           </button>
@@ -223,20 +223,20 @@ function ExerciseCard({
   }
 
   return (
-    <section className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm dark:border-stone-800 dark:bg-stone-900">
+    <section className="rounded-2xl border border-line bg-white p-4 shadow-card dark:border-stone-800 dark:bg-stone-900">
       <div className="flex items-baseline justify-between gap-2">
         <h2 className="font-bold">{plan.exercise.name}</h2>
         {targetLabel && (
-          <span className="shrink-0 text-xs text-stone-400">{targetLabel}</span>
+          <span className="shrink-0 text-xs text-faint">{targetLabel}</span>
         )}
       </div>
 
       {plan.previous && (
-        <div className="mt-2 rounded-lg bg-stone-50 px-3 py-2 dark:bg-stone-800/60">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400">
+        <div className="mt-2 rounded-lg bg-cream-deep px-3 py-2 dark:bg-stone-800/60">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-faint">
             Förra passet · {formatDate(plan.previous.performed_at)}
           </p>
-          <p className="mt-0.5 flex flex-wrap gap-x-3 text-sm text-stone-600 dark:text-stone-300">
+          <p className="mt-0.5 flex flex-wrap gap-x-3 text-sm text-muted dark:text-stone-300">
             {plan.previous.sets.map((s) => (
               <span key={s.id}>
                 {formatWeight(s.weight_kg)} × {s.reps}
@@ -254,7 +254,7 @@ function ExerciseCard({
               className="flex items-center justify-between text-sm"
             >
               <span>
-                <span className="mr-2 inline-block w-6 text-stone-400">
+                <span className="mr-2 inline-block w-6 text-faint">
                   #{s.set_number}
                 </span>
                 <span className="font-medium">
@@ -264,7 +264,7 @@ function ExerciseCard({
               {!readOnly && (
                 <button
                   onClick={() => onDeleteSet(s.id)}
-                  className="px-2 text-stone-400 hover:text-red-500"
+                  className="px-2 text-faint hover:text-red-500"
                   aria-label="Ta bort set"
                 >
                   ✕
@@ -284,7 +284,7 @@ function ExerciseCard({
             placeholder={
               placeholderWeight !== null ? String(placeholderWeight) : "kg"
             }
-            className="w-0 flex-1 rounded-lg border border-stone-300 bg-transparent px-3 py-2.5 text-center dark:border-stone-700"
+            className="w-0 flex-1 rounded-lg border border-line-strong bg-transparent px-3 py-2.5 text-center dark:border-stone-700"
           />
           <input
             inputMode="numeric"
@@ -293,12 +293,12 @@ function ExerciseCard({
             placeholder={
               placeholderReps !== null ? String(placeholderReps) : "reps"
             }
-            className="w-0 flex-1 rounded-lg border border-stone-300 bg-transparent px-3 py-2.5 text-center dark:border-stone-700"
+            className="w-0 flex-1 rounded-lg border border-line-strong bg-transparent px-3 py-2.5 text-center dark:border-stone-700"
           />
           <button
             disabled={saving || (reps === "" && placeholderReps === null)}
             onClick={logSet}
-            className="rounded-lg bg-emerald-600 px-4 font-semibold text-white active:bg-emerald-700 disabled:opacity-40"
+            className="rounded-lg bg-sage px-4 font-semibold text-white active:bg-sage-deep disabled:opacity-40"
           >
             Logga
           </button>
@@ -341,7 +341,7 @@ function ExercisePicker({
       >
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-lg font-bold">Välj övning</h3>
-          <button onClick={onClose} className="p-1 text-stone-400">
+          <button onClick={onClose} className="p-1 text-faint">
             ✕
           </button>
         </div>
@@ -350,9 +350,9 @@ function ExercisePicker({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Sök…"
-          className="mb-3 w-full rounded-xl border border-stone-300 bg-transparent px-4 py-2.5 dark:border-stone-700"
+          className="mb-3 w-full rounded-xl border border-line-strong bg-transparent px-4 py-2.5 dark:border-stone-700"
         />
-        <ul className="divide-y divide-stone-100 dark:divide-stone-800">
+        <ul className="divide-y divide-line dark:divide-stone-800">
           {filtered.map((e) => (
             <li key={e.id}>
               <button
@@ -360,7 +360,7 @@ function ExercisePicker({
                 className="w-full py-3 text-left"
               >
                 <p className="font-medium">{e.name}</p>
-                <p className="text-xs capitalize text-stone-400">
+                <p className="text-xs capitalize text-faint">
                   {e.muscle_groups.join(" · ")}
                 </p>
               </button>

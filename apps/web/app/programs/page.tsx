@@ -40,7 +40,7 @@ export default function ProgramsPage() {
     <main className="mx-auto flex max-w-md flex-col gap-4 p-5">
       <div className="flex items-center justify-between pt-2">
         <h1 className="text-2xl font-bold">Program</h1>
-        <a href="/exercises" className="text-sm text-emerald-600 dark:text-emerald-400">
+        <a href="/exercises" className="text-sm text-sage dark:text-emerald-400">
           Övningsbibliotek ›
         </a>
       </div>
@@ -48,10 +48,10 @@ export default function ProgramsPage() {
 
       <button
         onClick={() => setShowGenerator(true)}
-        className="rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50 p-4 text-left dark:border-emerald-800 dark:bg-emerald-950"
+        className="rounded-2xl border-2 border-dashed border-sage-line bg-sage-soft p-4 text-left dark:border-emerald-800 dark:bg-emerald-950"
       >
         <p className="font-bold">✨ Generera ett pass</p>
-        <p className="text-sm text-stone-500 dark:text-stone-400">
+        <p className="text-sm text-muted dark:text-faint">
           Ont om tid eller begränsad utrustning? Låt AI:n sätta ihop dagens
           pass.
         </p>
@@ -67,10 +67,10 @@ export default function ProgramsPage() {
         return (
           <section
             key={p.id}
-            className={`rounded-2xl border bg-white p-5 shadow-sm dark:bg-stone-900 ${
+            className={`rounded-2xl border bg-white p-5 shadow-card dark:bg-stone-900 ${
               isActive
-                ? "border-emerald-400 dark:border-emerald-600"
-                : "border-stone-200 dark:border-stone-800"
+                ? "border-sage dark:border-emerald-600"
+                : "border-line dark:border-stone-800"
             }`}
           >
             <button
@@ -79,16 +79,16 @@ export default function ProgramsPage() {
             >
               <div className="flex items-start justify-between gap-2">
                 <h2 className="text-lg font-bold">{p.name}</h2>
-                <span className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-600 dark:bg-stone-800 dark:text-stone-300">
+                <span className="shrink-0 rounded-full bg-shell px-2 py-0.5 text-xs font-medium text-muted dark:bg-stone-800 dark:text-stone-300">
                   {LEVEL_LABELS[p.level]}
                 </span>
               </div>
               {p.description && (
-                <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
+                <p className="mt-1 text-sm text-muted dark:text-faint">
                   {p.description}
                 </p>
               )}
-              <p className="mt-1 text-xs text-stone-400">
+              <p className="mt-1 text-xs text-faint">
                 {p.days.length} pass i rotationen
                 {p.days_per_week ? ` · ${p.days_per_week} dagar/vecka` : ""}
                 {isActive ? " · ✅ Aktivt" : ""}
@@ -100,7 +100,7 @@ export default function ProgramsPage() {
                 {p.days.map((day) => (
                   <div key={day.id}>
                     <p className="text-sm font-semibold">{day.name}</p>
-                    <ul className="mt-1 space-y-0.5 text-sm text-stone-600 dark:text-stone-300">
+                    <ul className="mt-1 space-y-0.5 text-sm text-muted dark:text-stone-300">
                       {day.exercises.map((ex) => (
                         <li key={ex.id}>
                           {ex.exercise.name} · {ex.target_sets} ×{" "}
@@ -113,7 +113,7 @@ export default function ProgramsPage() {
                 {!isActive && (
                   <button
                     onClick={() => activate(p.id)}
-                    className="w-full rounded-xl bg-emerald-600 py-2.5 font-semibold text-white active:bg-emerald-700"
+                    className="w-full rounded-xl bg-sage py-2.5 font-semibold text-white active:bg-sage-deep"
                   >
                     Aktivera programmet
                   </button>
