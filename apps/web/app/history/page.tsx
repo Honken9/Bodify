@@ -70,8 +70,8 @@ export default function HistoryPage() {
             onClick={() => setTab(key)}
             className={`flex-1 rounded-lg py-2 text-sm font-semibold ${
               tab === key
-                ? "bg-sage text-white"
-                : "bg-shell text-muted dark:bg-stone-800 dark:text-stone-300"
+                ? "bg-navy text-white"
+                : "bg-shell text-muted dark:bg-night-shell dark:text-night-muted"
             }`}
           >
             {label}
@@ -91,13 +91,13 @@ export default function HistoryPage() {
               <li key={s.id}>
                 <Link
                   href={`/workout/${s.id}`}
-                  className="block rounded-xl border border-line bg-white px-4 py-3 dark:border-stone-800 dark:bg-stone-900"
+                  className="block rounded-xl border border-line bg-white px-4 py-3 dark:border-night-shell dark:bg-night-card"
                 >
                   <div className="flex items-center justify-between">
                     <p className="font-semibold">
                       {s.day_name ?? "Fritt pass"}
                       {!s.finished_at && (
-                        <span className="ml-2 text-xs font-medium text-sand-ink dark:text-amber-400">
+                        <span className="ml-2 text-xs font-medium text-sand-ink dark:text-lime">
                           pågår
                         </span>
                       )}
@@ -134,7 +134,7 @@ export default function HistoryPage() {
             {cardio.map((a) => (
               <li
                 key={a.id}
-                className="rounded-xl border border-line bg-white px-4 py-3 dark:border-stone-800 dark:bg-stone-900"
+                className="rounded-xl border border-line bg-white px-4 py-3 dark:border-night-shell dark:bg-night-card"
               >
                 <div className="flex items-center justify-between">
                   <p className="font-semibold">

@@ -138,7 +138,7 @@ export default function SocialPage() {
         </p>
       )}
 
-      <section className="rounded-2xl border border-line bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
+      <section className="rounded-2xl border border-line bg-white p-4 dark:border-night-shell dark:bg-night-card">
         <h2 className="font-bold">Vänner</h2>
         <div className="mt-2 flex gap-2">
           <input
@@ -146,12 +146,12 @@ export default function SocialPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="väns e-postadress"
-            className="min-w-0 flex-1 rounded-xl border border-line-strong bg-transparent px-3 py-2 text-sm dark:border-stone-700"
+            className="min-w-0 flex-1 rounded-xl border border-line-strong bg-transparent px-3 py-2 text-sm dark:border-night-strong"
           />
           <button
             disabled={!email.includes("@")}
             onClick={addFriend}
-            className="rounded-xl bg-sage px-4 text-sm font-semibold text-white disabled:opacity-40"
+            className="rounded-xl bg-navy px-4 text-sm font-semibold text-white disabled:opacity-40"
           >
             Lägg till
           </button>
@@ -160,14 +160,14 @@ export default function SocialPage() {
         {friends?.incoming.map((f) => (
           <div
             key={f.friendship_id}
-            className="mt-2 flex items-center justify-between rounded-xl bg-sand px-3 py-2 text-sm dark:bg-amber-950"
+            className="mt-2 flex items-center justify-between rounded-xl bg-sand px-3 py-2 text-sm dark:bg-night-shell"
           >
             <span>
               <strong>{f.name}</strong> vill bli din vän
             </span>
             <button
               onClick={() => accept(f.friendship_id)}
-              className="rounded-lg bg-sage px-3 py-1 text-xs font-semibold text-white"
+              className="rounded-lg bg-navy px-3 py-1 text-xs font-semibold text-white"
             >
               Acceptera
             </button>
@@ -204,14 +204,14 @@ export default function SocialPage() {
           </h2>
           <button
             onClick={() => setShowCreate(true)}
-            className="text-sm text-sage dark:text-emerald-400"
+            className="text-sm text-navy dark:text-lime"
           >
             + Ny utmaning
           </button>
         </div>
 
         {challenges.length === 0 && (
-          <p className="rounded-xl border border-dashed border-line-strong p-4 text-center text-sm text-faint dark:border-stone-700">
+          <p className="rounded-xl border border-dashed border-line-strong p-4 text-center text-sm text-faint dark:border-night-strong">
             Skapa en utmaning och bjud in vännerna — flest pass, mest
             viktnedgång eller störst fettnedgång. 🏆
           </p>
@@ -221,7 +221,7 @@ export default function SocialPage() {
           {challenges.map((c) => (
             <li
               key={c.id}
-              className="rounded-2xl border border-line bg-white p-4 dark:border-stone-800 dark:bg-stone-900"
+              className="rounded-2xl border border-line bg-white p-4 dark:border-night-shell dark:bg-night-card"
             >
               <button
                 className="w-full text-left"
@@ -242,7 +242,7 @@ export default function SocialPage() {
               </button>
 
               {c.invited && !c.is_participant && (
-                <p className="mt-2 rounded-lg bg-sage-soft px-3 py-1.5 text-xs font-medium text-sage-deep dark:bg-emerald-950 dark:text-emerald-300">
+                <p className="mt-2 rounded-lg bg-navy-soft px-3 py-1.5 text-xs font-medium text-navy-deep dark:bg-night-shell dark:text-lime">
                   🎟 Du är inbjuden till den här utmaningen!
                 </p>
               )}
@@ -250,7 +250,7 @@ export default function SocialPage() {
               {!c.is_participant && (
                 <button
                   onClick={() => join(c.id)}
-                  className="mt-2 w-full rounded-xl bg-sage py-2 text-sm font-semibold text-white"
+                  className="mt-2 w-full rounded-xl bg-navy py-2 text-sm font-semibold text-white"
                 >
                   Gå med
                 </button>
@@ -259,14 +259,14 @@ export default function SocialPage() {
               {c.is_participant && (
                 <button
                   onClick={() => invite(c.id)}
-                  className="mt-2 w-full rounded-xl border border-sage-line py-2 text-sm font-semibold text-sage-deep dark:border-emerald-800 dark:text-emerald-400"
+                  className="mt-2 w-full rounded-xl border border-navy-line py-2 text-sm font-semibold text-navy-deep dark:border-night-strong dark:text-lime"
                 >
                   ➕ Bjud in till utmaningen
                 </button>
               )}
 
               {expanded === c.id && detail?.leaderboard && (
-                <ol className="mt-3 space-y-1 border-t border-stone-100 pt-3 dark:border-stone-800">
+                <ol className="mt-3 space-y-1 border-t border-line pt-3 dark:border-night-shell">
                   {detail.leaderboard.map((row) => (
                     <li
                       key={row.user_id}
@@ -330,7 +330,7 @@ function CreateChallenge({
   const [saving, setSaving] = useState(false);
 
   const inputCls =
-    "w-full rounded-xl border border-line-strong bg-transparent px-4 py-2.5 dark:border-stone-700";
+    "w-full rounded-xl border border-line-strong bg-transparent px-4 py-2.5 dark:border-night-strong";
 
   async function save() {
     setSaving(true);
@@ -359,7 +359,7 @@ function CreateChallenge({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-t-3xl bg-white p-5 dark:bg-stone-900"
+        className="w-full max-w-md rounded-t-3xl bg-white p-5 dark:bg-night-card"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="mb-3 text-lg font-bold">Ny utmaning</h3>
@@ -405,7 +405,7 @@ function CreateChallenge({
           <button
             disabled={saving || !name.trim()}
             onClick={save}
-            className="w-full rounded-xl bg-sage py-3 font-semibold text-white disabled:opacity-40"
+            className="w-full rounded-xl bg-navy py-3 font-semibold text-white disabled:opacity-40"
           >
             Skapa utmaning
           </button>

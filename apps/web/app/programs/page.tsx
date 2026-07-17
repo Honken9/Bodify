@@ -29,7 +29,7 @@ export default function TrainingPage() {
     <main className="mx-auto flex max-w-md flex-col desktop:max-w-4xl gap-4 p-5">
       <div className="flex items-center justify-between pt-2">
         <h1 className="text-2xl font-bold">Träning</h1>
-        <a href="/exercises" className="text-sm text-sage dark:text-emerald-400">
+        <a href="/exercises" className="text-sm text-navy dark:text-lime">
           Övningsbibliotek ›
         </a>
       </div>
@@ -44,8 +44,8 @@ export default function TrainingPage() {
             }}
             className={`flex-1 rounded-full py-2 text-xs font-semibold ${
               category === key
-                ? "bg-sage text-white"
-                : "bg-shell text-muted dark:bg-stone-800 dark:text-stone-300"
+                ? "bg-navy text-white"
+                : "bg-shell text-muted dark:bg-night-shell dark:text-night-muted"
             }`}
           >
             {label}
@@ -99,7 +99,7 @@ function GymSection({ onError }: { onError: (msg: string) => void }) {
     <>
       <button
         onClick={() => setShowGenerator(true)}
-        className="rounded-2xl border-2 border-dashed border-sage-line bg-sage-soft p-4 text-left dark:border-emerald-800 dark:bg-emerald-950"
+        className="rounded-2xl border-2 border-dashed border-navy-line bg-navy-soft p-4 text-left dark:border-night-strong dark:bg-night-shell"
       >
         <p className="font-bold">✨ Generera ett pass</p>
         <p className="text-sm text-muted dark:text-faint">
@@ -118,10 +118,10 @@ function GymSection({ onError }: { onError: (msg: string) => void }) {
         return (
           <section
             key={p.id}
-            className={`rounded-2xl border bg-white p-5 shadow-card dark:bg-stone-900 ${
+            className={`rounded-2xl border bg-white p-5 shadow-card dark:bg-night-card ${
               isActive
-                ? "border-sage dark:border-emerald-600"
-                : "border-line dark:border-stone-800"
+                ? "border-navy dark:border-lime"
+                : "border-line dark:border-night-shell"
             }`}
           >
             <button
@@ -130,7 +130,7 @@ function GymSection({ onError }: { onError: (msg: string) => void }) {
             >
               <div className="flex items-start justify-between gap-2">
                 <h2 className="text-lg font-bold">{p.name}</h2>
-                <span className="shrink-0 rounded-full bg-shell px-2 py-0.5 text-xs font-medium text-muted dark:bg-stone-800 dark:text-stone-300">
+                <span className="shrink-0 rounded-full bg-shell px-2 py-0.5 text-xs font-medium text-muted dark:bg-night-shell dark:text-night-muted">
                   {LEVEL_LABELS[p.level]}
                 </span>
               </div>
@@ -147,11 +147,11 @@ function GymSection({ onError }: { onError: (msg: string) => void }) {
             </button>
 
             {isOpen && (
-              <div className="mt-3 space-y-3 border-t border-stone-100 pt-3 dark:border-stone-800">
+              <div className="mt-3 space-y-3 border-t border-line pt-3 dark:border-night-shell">
                 {p.days.map((day) => (
                   <div key={day.id}>
                     <p className="text-sm font-semibold">{day.name}</p>
-                    <ul className="mt-1 space-y-0.5 text-sm text-muted dark:text-stone-300">
+                    <ul className="mt-1 space-y-0.5 text-sm text-muted dark:text-night-muted">
                       {day.exercises.map((ex) => (
                         <li key={ex.id}>
                           {ex.exercise.name} · {ex.target_sets} ×{" "}
@@ -164,7 +164,7 @@ function GymSection({ onError }: { onError: (msg: string) => void }) {
                 {!isActive && (
                   <button
                     onClick={() => activate(p.id)}
-                    className="w-full rounded-xl bg-sage py-2.5 font-semibold text-white active:bg-sage-deep"
+                    className="w-full rounded-xl bg-navy py-2.5 font-semibold text-white active:bg-navy-deep"
                   >
                     Aktivera programmet
                   </button>
@@ -221,7 +221,7 @@ function SingleSection({ onError }: { onError: (msg: string) => void }) {
         return (
           <section
             key={p.id}
-            className="rounded-2xl border border-line bg-white p-5 shadow-card dark:border-stone-800 dark:bg-stone-900"
+            className="rounded-2xl border border-line bg-white p-5 shadow-card dark:border-night-shell dark:bg-night-card"
           >
             <button
               className="w-full text-left"
@@ -229,7 +229,7 @@ function SingleSection({ onError }: { onError: (msg: string) => void }) {
             >
               <div className="flex items-start justify-between gap-2">
                 <h2 className="text-lg font-bold">{p.name}</h2>
-                <span className="shrink-0 rounded-full bg-shell px-2 py-0.5 text-xs font-medium text-muted dark:bg-stone-800 dark:text-stone-300">
+                <span className="shrink-0 rounded-full bg-shell px-2 py-0.5 text-xs font-medium text-muted dark:bg-night-shell dark:text-night-muted">
                   {LEVEL_LABELS[p.level]}
                 </span>
               </div>
@@ -244,8 +244,8 @@ function SingleSection({ onError }: { onError: (msg: string) => void }) {
             </button>
 
             {isOpen && (
-              <div className="mt-3 border-t border-stone-100 pt-3 dark:border-stone-800">
-                <ul className="space-y-0.5 text-sm text-muted dark:text-stone-300">
+              <div className="mt-3 border-t border-line pt-3 dark:border-night-shell">
+                <ul className="space-y-0.5 text-sm text-muted dark:text-night-muted">
                   {exercises.map((ex) => (
                     <li key={ex.id}>
                       {ex.exercise.name} · {ex.target_sets} × {ex.target_reps} ·
@@ -259,7 +259,7 @@ function SingleSection({ onError }: { onError: (msg: string) => void }) {
             <button
               disabled={starting === p.id}
               onClick={() => start(p)}
-              className="mt-3 w-full rounded-xl bg-sage py-2.5 font-semibold text-white active:bg-sage-deep disabled:opacity-50"
+              className="mt-3 w-full rounded-xl bg-navy py-2.5 font-semibold text-white active:bg-navy-deep disabled:opacity-50"
             >
               {starting === p.id ? "Startar…" : "▶ Starta passet"}
             </button>
@@ -408,7 +408,7 @@ function CardioSection({
 
   return (
     <>
-      <section className="rounded-2xl border border-line bg-white p-5 shadow-card dark:border-stone-800 dark:bg-stone-900">
+      <section className="rounded-2xl border border-line bg-white p-5 shadow-card dark:border-night-shell dark:bg-night-card">
         <h2 className="font-bold">
           {kind === "cardio" ? "Logga konditionspass" : "Logga aktivitet"}
         </h2>
@@ -422,7 +422,7 @@ function CardioSection({
             <button
               key={s.label}
               onClick={() => applySuggestion(s)}
-              className="rounded-full bg-sage-soft px-3 py-1.5 text-xs font-semibold text-sage-deep dark:bg-emerald-950 dark:text-emerald-300"
+              className="rounded-full bg-navy-soft px-3 py-1.5 text-xs font-semibold text-navy-deep dark:bg-night-shell dark:text-lime"
             >
               {s.label}
             </button>
@@ -438,8 +438,8 @@ function CardioSection({
                   onClick={() => setForm({ ...form, type: t })}
                   className={`flex-1 rounded-lg py-2 text-xs font-semibold ${
                     form.type === t
-                      ? "bg-sage text-white"
-                      : "bg-shell text-muted dark:bg-stone-800 dark:text-stone-300"
+                      ? "bg-navy text-white"
+                      : "bg-shell text-muted dark:bg-night-shell dark:text-night-muted"
                   }`}
                 >
                   {TYPE_ICONS[t]} {TYPE_LABELS[t]}
@@ -456,7 +456,7 @@ function CardioSection({
                 ? "Namn (t.ex. Morgonrunda)"
                 : "Aktivitet (t.ex. Padel med Alex)"
             }
-            className="w-full rounded-xl border border-line-strong bg-transparent px-4 py-2.5 text-sm dark:border-stone-700"
+            className="w-full rounded-xl border border-line-strong bg-transparent px-4 py-2.5 text-sm dark:border-night-strong"
           />
 
           <div className="grid grid-cols-3 gap-2">
@@ -467,7 +467,7 @@ function CardioSection({
                 value={form.km}
                 onChange={(e) => setForm({ ...form, km: e.target.value })}
                 placeholder="—"
-                className="mt-0.5 w-full rounded-lg border border-line-strong bg-transparent px-2 py-2 text-center text-sm dark:border-stone-700"
+                className="mt-0.5 w-full rounded-lg border border-line-strong bg-transparent px-2 py-2 text-center text-sm dark:border-night-strong"
               />
             </label>
             <label className="block">
@@ -477,7 +477,7 @@ function CardioSection({
                 value={form.min}
                 onChange={(e) => setForm({ ...form, min: e.target.value })}
                 placeholder="30"
-                className="mt-0.5 w-full rounded-lg border border-line-strong bg-transparent px-2 py-2 text-center text-sm dark:border-stone-700"
+                className="mt-0.5 w-full rounded-lg border border-line-strong bg-transparent px-2 py-2 text-center text-sm dark:border-night-strong"
               />
             </label>
             <label className="block">
@@ -486,7 +486,7 @@ function CardioSection({
                 type="datetime-local"
                 value={form.at}
                 onChange={(e) => setForm({ ...form, at: e.target.value })}
-                className="mt-0.5 w-full rounded-lg border border-line-strong bg-transparent px-1 py-2 text-center text-xs dark:border-stone-700"
+                className="mt-0.5 w-full rounded-lg border border-line-strong bg-transparent px-1 py-2 text-center text-xs dark:border-night-strong"
               />
             </label>
           </div>
@@ -494,7 +494,7 @@ function CardioSection({
           <button
             disabled={saving}
             onClick={save}
-            className="w-full rounded-xl bg-sage py-3 font-semibold text-white active:bg-sage-deep disabled:opacity-50"
+            className="w-full rounded-xl bg-navy py-3 font-semibold text-white active:bg-navy-deep disabled:opacity-50"
           >
             {saving ? "Sparar…" : savedFlash ? "✅ Loggat!" : "Logga aktiviteten"}
           </button>
@@ -520,7 +520,7 @@ function CardioSection({
             return (
               <li
                 key={a.id}
-                className="flex items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 shadow-card dark:border-stone-800 dark:bg-stone-900"
+                className="flex items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 shadow-card dark:border-night-shell dark:bg-night-card"
               >
                 <span className="text-xl">{TYPE_ICONS[a.type]}</span>
                 <div className="min-w-0 flex-1">

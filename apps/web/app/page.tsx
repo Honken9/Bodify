@@ -70,14 +70,14 @@ export default function Home() {
       {ongoing && (
         <button
           onClick={() => router.push(`/workout/${ongoing.id}`)}
-          className="flex items-center gap-3 rounded-2xl bg-sand p-4 text-left desktop:col-span-2 dark:bg-amber-950"
+          className="flex items-center gap-3 rounded-2xl bg-sand p-4 text-left desktop:col-span-2 dark:bg-night-shell"
         >
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sand-strong text-[15px] font-bold text-sand-ink">
             ▸
           </span>
           <span className="min-w-0">
             <p className="text-sm font-bold">Pågående pass</p>
-            <p className="text-xs text-sand-ink dark:text-amber-200">
+            <p className="text-xs text-sand-ink dark:text-lime">
               {ongoing.day_name ?? "Fritt pass"} · {ongoing.set_count} set
               loggade — tryck för att fortsätta
             </p>
@@ -86,12 +86,12 @@ export default function Home() {
       )}
 
       {nextDay && !ongoing && (
-        <section className="rounded-2xl border border-line bg-white p-5 shadow-card dark:border-stone-800 dark:bg-stone-900">
+        <section className="rounded-2xl border border-line bg-white p-5 shadow-card dark:border-night-shell dark:bg-night-card">
           <p className="text-xs font-semibold uppercase tracking-wide text-faint">
             Nästa pass · {active!.program.name}
           </p>
           <h2 className="mt-1 text-xl font-bold">{nextDay.name}</h2>
-          <ul className="mt-3 space-y-1 text-sm text-muted dark:text-stone-300">
+          <ul className="mt-3 space-y-1 text-sm text-muted dark:text-night-muted">
             {nextDay.exercises.map((ex) => (
               <li key={ex.id}>
                 {ex.exercise.name} · {ex.target_sets} × {ex.target_reps}
@@ -101,7 +101,7 @@ export default function Home() {
           <button
             disabled={starting}
             onClick={() => startSession(nextDay.id)}
-            className="mt-4 w-full rounded-xl bg-sage py-3 font-semibold text-white active:bg-sage-deep disabled:opacity-50"
+            className="mt-4 w-full rounded-xl bg-navy py-3 font-semibold text-white active:bg-navy-deep disabled:opacity-50"
           >
             {starting ? "Startar…" : "Starta passet"}
           </button>
@@ -109,13 +109,13 @@ export default function Home() {
       )}
 
       {!active && !ongoing && me && (
-        <section className="rounded-2xl border border-dashed border-line-strong p-5 text-center dark:border-stone-700">
-          <p className="text-muted dark:text-stone-300">
+        <section className="rounded-2xl border border-dashed border-line-strong p-5 text-center dark:border-night-strong">
+          <p className="text-muted dark:text-night-muted">
             Du har inget aktivt program ännu.
           </p>
           <button
             onClick={() => router.push("/programs")}
-            className="mt-3 rounded-xl bg-sage px-5 py-2 font-semibold text-white"
+            className="mt-3 rounded-xl bg-navy px-5 py-2 font-semibold text-white"
           >
             Välj program
           </button>
@@ -126,7 +126,7 @@ export default function Home() {
         <button
           disabled={starting}
           onClick={() => startSession(null)}
-          className="rounded-xl border border-line-strong py-3 font-semibold text-stone-700 dark:border-stone-700 dark:text-stone-200"
+          className="rounded-xl border border-line-strong py-3 font-semibold text-night-strong dark:border-night-strong dark:text-night-muted"
         >
           Starta fritt pass
         </button>
@@ -145,7 +145,7 @@ export default function Home() {
             {recent.map((s) => (
               <li
                 key={s.id}
-                className="flex items-center justify-between rounded-xl border border-line bg-white px-4 py-3 text-sm dark:border-stone-800 dark:bg-stone-900"
+                className="flex items-center justify-between rounded-xl border border-line bg-white px-4 py-3 text-sm dark:border-night-shell dark:bg-night-card"
               >
                 <span className="font-medium">
                   {s.day_name ?? "Fritt pass"}
@@ -163,20 +163,20 @@ export default function Home() {
         <div className="flex flex-col gap-2">
           <a
             href="/social"
-            className="rounded-xl border border-line bg-white px-4 py-3 text-sm font-medium dark:border-stone-800 dark:bg-stone-900"
+            className="rounded-xl border border-line bg-white px-4 py-3 text-sm font-medium dark:border-night-shell dark:bg-night-card"
           >
             🏆 Vänner & utmaningar ›
           </a>
           <a
             href="/photos"
-            className="rounded-xl border border-line bg-white px-4 py-3 text-sm font-medium dark:border-stone-800 dark:bg-stone-900"
+            className="rounded-xl border border-line bg-white px-4 py-3 text-sm font-medium dark:border-night-shell dark:bg-night-card"
           >
             📸 Progressfoton — jämför före & efter ›
           </a>
           {me.is_admin && (
             <a
               href="/admin"
-              className="rounded-xl border border-line bg-white px-4 py-3 text-sm font-medium dark:border-stone-800 dark:bg-stone-900"
+              className="rounded-xl border border-line bg-white px-4 py-3 text-sm font-medium dark:border-night-shell dark:bg-night-card"
             >
               🛠️ Admin ›
             </a>
@@ -195,12 +195,12 @@ type Readiness = {
 
 const READINESS_STYLE: Record<string, { bg: string; icon: string; label: string }> = {
   green: {
-    bg: "border-sage-line bg-sage-soft dark:border-emerald-800 dark:bg-emerald-950",
+    bg: "border-navy-line bg-navy-soft dark:border-night-strong dark:bg-night-shell",
     icon: "🟢",
     label: "Bra återhämtning",
   },
   yellow: {
-    bg: "border-amber-300 bg-sand dark:border-amber-700 dark:bg-amber-950",
+    bg: "border-sand-strong bg-sand dark:border-night-strong dark:bg-night-shell",
     icon: "🟡",
     label: "Lite sliten",
   },
@@ -231,7 +231,7 @@ function ReadinessCard() {
         <p className="font-bold">
           {style.icon} Coachen: {style.label}
         </p>
-        <p className="mt-1 text-sm text-muted dark:text-stone-300">
+        <p className="mt-1 text-sm text-muted dark:text-night-muted">
           {data.recommendation}
         </p>
       </button>
@@ -276,7 +276,7 @@ function DashboardSection() {
   }, [period]);
 
   return (
-    <section className="rounded-2xl border border-line bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
+    <section className="rounded-2xl border border-line bg-white p-4 dark:border-night-shell dark:bg-night-card">
       <div className="flex items-center justify-between">
         <h3 className="font-bold">Din översikt</h3>
         <div className="flex gap-1">
@@ -287,8 +287,8 @@ function DashboardSection() {
                 onClick={() => setPeriod(p)}
                 className={`rounded-full px-3 py-1 text-xs font-semibold ${
                   period === p
-                    ? "bg-sage text-white"
-                    : "bg-shell text-muted dark:bg-stone-800"
+                    ? "bg-navy text-white"
+                    : "bg-shell text-muted dark:bg-night-shell"
                 }`}
               >
                 {PERIOD_LABELS[p]}
@@ -339,12 +339,12 @@ function DashboardSection() {
                   title={d.day}
                   className={`h-6 flex-1 rounded-sm ${
                     d.strength && d.cardio
-                      ? "bg-sage-deep"
+                      ? "bg-navy-deep"
                       : d.strength
-                        ? "bg-sage"
+                        ? "bg-navy"
                         : d.cardio
                           ? "bg-sand-strong"
-                          : "bg-shell dark:bg-stone-800"
+                          : "bg-shell dark:bg-night-shell"
                   }`}
                 />
               ))}
@@ -366,7 +366,7 @@ function Stat({
   sub: string;
 }) {
   return (
-    <div className="rounded-xl bg-cream-deep p-3 dark:bg-stone-800/60">
+    <div className="rounded-xl bg-cream-deep p-3 dark:bg-night-shell/60">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-faint">
         {label}
       </p>

@@ -76,7 +76,7 @@ export default function PhotosPage() {
         <select
           value={pose}
           onChange={(e) => setPose(e.target.value)}
-          className="rounded-xl border border-line-strong bg-transparent px-3 py-2.5 text-sm dark:border-stone-700"
+          className="rounded-xl border border-line-strong bg-transparent px-3 py-2.5 text-sm dark:border-night-strong"
         >
           {Object.entries(POSE_LABELS).map(([key, label]) => (
             <option key={key} value={key}>
@@ -87,7 +87,7 @@ export default function PhotosPage() {
         <button
           disabled={uploading}
           onClick={() => fileRef.current?.click()}
-          className="flex-1 rounded-xl bg-sage py-2.5 font-semibold text-white disabled:opacity-50"
+          className="flex-1 rounded-xl bg-navy py-2.5 font-semibold text-white disabled:opacity-50"
         >
           {uploading ? "Laddar upp…" : "📸 Ta / välj foto"}
         </button>
@@ -106,7 +106,7 @@ export default function PhotosPage() {
       </div>
 
       {compare.length === 2 && (
-        <section className="rounded-2xl border-2 border-sage bg-white p-3 dark:border-emerald-600 dark:bg-stone-900">
+        <section className="rounded-2xl border-2 border-navy bg-white p-3 dark:border-lime dark:bg-night-card">
           <div className="mb-2 flex items-center justify-between">
             <h2 className="font-bold">Före / efter</h2>
             <button
@@ -162,7 +162,7 @@ export default function PhotosPage() {
               <button
                 onClick={() => toggleCompare(p)}
                 className={`block w-full overflow-hidden rounded-xl ${
-                  selected ? "ring-4 ring-sage" : ""
+                  selected ? "ring-4 ring-navy" : ""
                 }`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}

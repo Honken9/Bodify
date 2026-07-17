@@ -90,7 +90,7 @@ export default function FoodPicker({
       onClick={onClose}
     >
       <div
-        className="flex max-h-[85dvh] w-full max-w-md flex-col rounded-t-3xl bg-white p-5 dark:bg-stone-900"
+        className="flex max-h-[85dvh] w-full max-w-md flex-col rounded-t-3xl bg-white p-5 dark:bg-night-card"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -125,8 +125,8 @@ export default function FoodPicker({
                   onClick={() => setTab(key)}
                   className={`shrink-0 rounded-lg px-2.5 py-2 text-xs font-semibold ${
                     tab === key
-                      ? "bg-sage text-white"
-                      : "bg-shell text-muted dark:bg-stone-800 dark:text-stone-300"
+                      ? "bg-navy text-white"
+                      : "bg-shell text-muted dark:bg-night-shell dark:text-night-muted"
                   }`}
                 >
                   {label}
@@ -205,7 +205,7 @@ function GramsForm({
 
   return (
     <div>
-      <button onClick={onBack} className="mb-2 text-sm text-sage">
+      <button onClick={onBack} className="mb-2 text-sm text-navy">
         ‹ Tillbaka
       </button>
       <p className="font-semibold">{food.name}</p>
@@ -216,7 +216,7 @@ function GramsForm({
           inputMode="numeric"
           value={grams}
           onChange={(e) => setGrams(e.target.value)}
-          className="w-28 rounded-xl border border-line-strong bg-transparent px-4 py-2.5 text-center text-lg font-semibold dark:border-stone-700"
+          className="w-28 rounded-xl border border-line-strong bg-transparent px-4 py-2.5 text-center text-lg font-semibold dark:border-night-strong"
         />
         <span className="text-muted">gram</span>
         <span className="ml-auto text-sm text-muted">
@@ -228,7 +228,7 @@ function GramsForm({
           <button
             key={v}
             onClick={() => setGrams(String(v))}
-            className="flex-1 rounded-lg bg-shell py-1.5 text-xs font-medium dark:bg-stone-800"
+            className="flex-1 rounded-lg bg-shell py-1.5 text-xs font-medium dark:bg-night-shell"
           >
             {v} g
           </button>
@@ -237,7 +237,7 @@ function GramsForm({
       <button
         disabled={g <= 0}
         onClick={() => onLog(food, g)}
-        className="mt-4 w-full rounded-xl bg-sage py-3 font-semibold text-white disabled:opacity-40"
+        className="mt-4 w-full rounded-xl bg-navy py-3 font-semibold text-white disabled:opacity-40"
       >
         Logga
       </button>
@@ -264,7 +264,7 @@ function FoodRow({
         <p className="truncate text-sm font-medium">
           {food.name}
           {food.source === "custom" && (
-            <span className="ml-1.5 text-xs text-sage">egen</span>
+            <span className="ml-1.5 text-xs text-navy">egen</span>
           )}
         </p>
         <p className="text-xs text-faint">
@@ -324,7 +324,7 @@ function QuickTab({
       {recent.length > 0 && (
         <>
           {heading("Senaste")}
-          <ul className="divide-y divide-line dark:divide-stone-800">
+          <ul className="divide-y divide-line dark:divide-night-shell">
             {recent.map((r) => (
               <FoodRow
                 key={r.food.id}
@@ -344,7 +344,7 @@ function QuickTab({
       {favorites.length > 0 && (
         <>
           {heading("⭐ Favoriter")}
-          <ul className="divide-y divide-line dark:divide-stone-800">
+          <ul className="divide-y divide-line dark:divide-night-shell">
             {favorites.map((f) => (
               <FoodRow
                 key={f.id}
@@ -359,7 +359,7 @@ function QuickTab({
       )}
 
       {loaded && recent.length === 0 && favorites.length === 0 && (
-        <p className="rounded-lg bg-shell p-3 text-center text-sm text-muted dark:bg-stone-800 dark:text-stone-300">
+        <p className="rounded-lg bg-shell p-3 text-center text-sm text-muted dark:bg-night-shell dark:text-night-muted">
           Här samlas dina senast loggade livsmedel och favoriter (☆) för
           snabb loggning.
         </p>
@@ -368,7 +368,7 @@ function QuickTab({
       {suggestions.length > 0 && (
         <>
           {heading("Förslag")}
-          <ul className="divide-y divide-line dark:divide-stone-800">
+          <ul className="divide-y divide-line dark:divide-night-shell">
             {suggestions.map((f) => (
               <FoodRow
                 key={f.id}
@@ -421,12 +421,12 @@ function SearchTab({
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Sök livsmedel…"
-        className="w-full rounded-xl border border-line-strong bg-transparent px-4 py-2.5 dark:border-stone-700"
+        className="w-full rounded-xl border border-line-strong bg-transparent px-4 py-2.5 dark:border-night-strong"
       />
       {loading && (
         <p className="py-4 text-center text-sm text-faint">Söker…</p>
       )}
-      <ul className="mt-2 divide-y divide-line dark:divide-stone-800">
+      <ul className="mt-2 divide-y divide-line dark:divide-night-shell">
         {results.map((f) => (
           <FoodRow
             key={f.id}
@@ -463,7 +463,7 @@ function ScanTab({
   return (
     <div>
       {status && (
-        <p className="mb-2 rounded-lg bg-shell p-2 text-center text-sm dark:bg-stone-800">
+        <p className="mb-2 rounded-lg bg-shell p-2 text-center text-sm dark:bg-night-shell">
           {status}
         </p>
       )}
@@ -567,8 +567,8 @@ function MealPhotoTab({
         onClick={() => fileRef.current?.click()}
         className={`w-full rounded-xl py-3 font-semibold disabled:opacity-50 ${
           items
-            ? "border border-line-strong text-muted dark:border-stone-700 dark:text-stone-300"
-            : "bg-sage text-white"
+            ? "border border-line-strong text-muted dark:border-night-strong dark:text-night-muted"
+            : "bg-navy text-white"
         }`}
       >
         {busy ?? (items ? "Ta nytt foto" : "🍽 Fota måltiden")}
@@ -588,7 +588,7 @@ function MealPhotoTab({
 
       {items && (
         <div className="mt-3">
-          <p className="mb-2 rounded-lg bg-sand px-3 py-2 text-xs text-sand-ink dark:bg-amber-950 dark:text-amber-200">
+          <p className="mb-2 rounded-lg bg-sand px-3 py-2 text-xs text-sand-ink dark:bg-night-shell dark:text-lime">
             AI-uppskattning — justera namn och gram innan du loggar.
           </p>
 
@@ -604,7 +604,7 @@ function MealPhotoTab({
                 <input
                   value={it.name}
                   onChange={(e) => update(i, { name: e.target.value })}
-                  className="min-w-0 flex-1 rounded-lg border border-line-strong bg-transparent px-2.5 py-2 text-sm dark:border-stone-700"
+                  className="min-w-0 flex-1 rounded-lg border border-line-strong bg-transparent px-2.5 py-2 text-sm dark:border-night-strong"
                 />
                 <input
                   inputMode="numeric"
@@ -612,7 +612,7 @@ function MealPhotoTab({
                   onChange={(e) =>
                     update(i, { grams: Number(e.target.value) || 0 })
                   }
-                  className="w-16 rounded-lg border border-line-strong bg-transparent px-1 py-2 text-center text-sm dark:border-stone-700"
+                  className="w-16 rounded-lg border border-line-strong bg-transparent px-1 py-2 text-center text-sm dark:border-night-strong"
                 />
                 <span className="w-6 text-xs text-faint">g</span>
                 <span className="w-14 text-right text-xs font-semibold tabular-nums">
@@ -631,7 +631,7 @@ function MealPhotoTab({
 
           {items.length > 0 && (
             <>
-              <div className="mt-3 flex items-center justify-between rounded-xl bg-cream-deep px-3 py-2 text-sm dark:bg-stone-800/60">
+              <div className="mt-3 flex items-center justify-between rounded-xl bg-cream-deep px-3 py-2 text-sm dark:bg-night-shell/60">
                 <span className="font-semibold">Totalt</span>
                 <span className="font-bold">
                   {totalKcal} kcal · {totalProtein} g protein
@@ -640,7 +640,7 @@ function MealPhotoTab({
               <button
                 disabled={!!busy || items.some((it) => it.grams <= 0)}
                 onClick={logAll}
-                className="mt-3 w-full rounded-xl bg-sage py-3 font-semibold text-white disabled:opacity-40"
+                className="mt-3 w-full rounded-xl bg-navy py-3 font-semibold text-white disabled:opacity-40"
               >
                 {busy ?? `Logga måltiden (${totalKcal} kcal)`}
               </button>
@@ -695,7 +695,7 @@ function TemplatesTab({
   }
 
   return (
-    <ul className="divide-y divide-line dark:divide-stone-800">
+    <ul className="divide-y divide-line dark:divide-night-shell">
       {templates.map((t) => {
         const foodById = new Map(t.foods.map((f) => [f.id, f]));
         const kcal = Math.round(
@@ -717,7 +717,7 @@ function TemplatesTab({
             </div>
             <button
               onClick={() => apply(t.id)}
-              className="rounded-lg bg-sage px-3 py-1.5 text-sm font-semibold text-white"
+              className="rounded-lg bg-navy px-3 py-1.5 text-sm font-semibold text-white"
             >
               Logga
             </button>
@@ -781,7 +781,7 @@ function NewFoodTab({
         value={form.name}
         onChange={(e) => setForm({ ...form, name: e.target.value })}
         placeholder="Namn (t.ex. Mammas köttbullar)"
-        className="w-full rounded-xl border border-line-strong bg-transparent px-4 py-2.5 dark:border-stone-700"
+        className="w-full rounded-xl border border-line-strong bg-transparent px-4 py-2.5 dark:border-night-strong"
       />
       <div className="grid grid-cols-4 gap-2">
         {fields.map(({ key, label }) => (
@@ -791,7 +791,7 @@ function NewFoodTab({
               inputMode="decimal"
               value={form[key]}
               onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-              className="mt-0.5 w-full rounded-lg border border-line-strong bg-transparent px-2 py-2 text-center text-sm dark:border-stone-700"
+              className="mt-0.5 w-full rounded-lg border border-line-strong bg-transparent px-2 py-2 text-center text-sm dark:border-night-strong"
             />
           </label>
         ))}
@@ -799,7 +799,7 @@ function NewFoodTab({
       <button
         disabled={saving || !form.name.trim()}
         onClick={save}
-        className="w-full rounded-xl bg-sage py-3 font-semibold text-white disabled:opacity-40"
+        className="w-full rounded-xl bg-navy py-3 font-semibold text-white disabled:opacity-40"
       >
         Spara & välj mängd
       </button>

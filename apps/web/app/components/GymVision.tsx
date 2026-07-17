@@ -40,7 +40,7 @@ export default function GymVision({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <div
-        className="max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-5 dark:bg-stone-900"
+        className="max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-5 dark:bg-night-card"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -57,7 +57,7 @@ export default function GymVision({ onClose }: { onClose: () => void }) {
         <button
           disabled={busy}
           onClick={() => fileRef.current?.click()}
-          className="w-full rounded-xl bg-sage py-3 font-semibold text-white disabled:opacity-50"
+          className="w-full rounded-xl bg-navy py-3 font-semibold text-white disabled:opacity-50"
         >
           {busy ? "Analyserar…" : "Ta / välj foto"}
         </button>
@@ -92,13 +92,13 @@ export default function GymVision({ onClose }: { onClose: () => void }) {
                   {result.equipment.map((eq) => (
                     <span
                       key={eq}
-                      className="rounded-full bg-sage-soft px-3 py-1 text-xs font-semibold capitalize text-sage-deep dark:bg-emerald-950 dark:text-emerald-300"
+                      className="rounded-full bg-navy-soft px-3 py-1 text-xs font-semibold capitalize text-navy-deep dark:bg-night-shell dark:text-lime"
                     >
                       ✓ {eq}
                     </span>
                   ))}
                 </div>
-                <ul className="mt-3 divide-y divide-line dark:divide-stone-800">
+                <ul className="mt-3 divide-y divide-line dark:divide-night-shell">
                   {result.exercises.map((e) => (
                     <li key={e.id} className="py-2">
                       <p className="text-sm font-medium">{e.name}</p>

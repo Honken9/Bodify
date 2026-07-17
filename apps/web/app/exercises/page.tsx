@@ -69,13 +69,13 @@ export default function ExercisesPage() {
         <div className="flex gap-1.5">
           <button
             onClick={() => setShowVision(true)}
-            className="rounded-xl border border-line-strong px-3 py-1.5 text-sm font-semibold dark:border-stone-700"
+            className="rounded-xl border border-line-strong px-3 py-1.5 text-sm font-semibold dark:border-night-strong"
           >
             📷 Gym-vision
           </button>
           <button
             onClick={() => setShowForm((v) => !v)}
-            className="rounded-xl bg-sage px-3 py-1.5 text-sm font-semibold text-white"
+            className="rounded-xl bg-navy px-3 py-1.5 text-sm font-semibold text-white"
           >
             + Ny
           </button>
@@ -87,16 +87,16 @@ export default function ExercisesPage() {
       {error && <p className="text-red-600 dark:text-red-400">{error}</p>}
 
       {showForm && (
-        <div className="flex gap-2 rounded-2xl border border-line bg-white p-3 dark:border-stone-800 dark:bg-stone-900">
+        <div className="flex gap-2 rounded-2xl border border-line bg-white p-3 dark:border-night-shell dark:bg-night-card">
           <input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="Namn på övningen"
-            className="min-w-0 flex-1 rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm dark:border-stone-700"
+            className="min-w-0 flex-1 rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm dark:border-night-strong"
           />
           <button
             onClick={createExercise}
-            className="rounded-lg bg-sage px-4 text-sm font-semibold text-white"
+            className="rounded-lg bg-navy px-4 text-sm font-semibold text-white"
           >
             Spara
           </button>
@@ -107,7 +107,7 @@ export default function ExercisesPage() {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Sök övning…"
-        className="rounded-xl border border-line-strong bg-white px-4 py-2.5 dark:border-stone-700 dark:bg-stone-900"
+        className="rounded-xl border border-line-strong bg-white px-4 py-2.5 dark:border-night-strong dark:bg-night-card"
       />
 
       <div className="flex flex-wrap gap-1.5">
@@ -117,8 +117,8 @@ export default function ExercisesPage() {
             onClick={() => setMuscle(muscle === m ? null : m)}
             className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${
               muscle === m
-                ? "bg-sage text-white"
-                : "bg-shell text-muted dark:bg-stone-800 dark:text-stone-300"
+                ? "bg-navy text-white"
+                : "bg-shell text-muted dark:bg-night-shell dark:text-night-muted"
             }`}
           >
             {m}
@@ -130,12 +130,12 @@ export default function ExercisesPage() {
         {filtered.map((e) => (
           <li
             key={e.id}
-            className="rounded-xl border border-line bg-white px-4 py-3 dark:border-stone-800 dark:bg-stone-900"
+            className="rounded-xl border border-line bg-white px-4 py-3 dark:border-night-shell dark:bg-night-card"
           >
             <p className="font-medium">
               {e.name}
               {!e.is_global && (
-                <span className="ml-2 text-xs text-sage dark:text-emerald-400">
+                <span className="ml-2 text-xs text-navy dark:text-lime">
                   egen
                 </span>
               )}

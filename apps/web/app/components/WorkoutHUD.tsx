@@ -93,12 +93,12 @@ export default function WorkoutHUD({
   const allDone = exerciseIndex === 0;
 
   return (
-    <div className="sticky top-0 z-30 -mx-5 bg-cream/95 px-5 pb-2 pt-2 backdrop-blur dark:bg-stone-950/95">
+    <div className="sticky top-0 z-30 -mx-5 bg-cream/95 px-5 pb-2 pt-2 backdrop-blur dark:bg-night/95">
       <div
         className={`rounded-2xl p-4 shadow-card transition-colors ${
           resting
-            ? "bg-sage text-white"
-            : "bg-ink text-white dark:bg-stone-100 dark:text-stone-900"
+            ? "bg-navy text-white"
+            : "bg-ink text-white dark:bg-shell dark:text-night-card"
         }`}
       >
         <div className="flex items-baseline justify-between text-[11px] font-semibold uppercase tracking-wide opacity-70">
@@ -116,7 +116,7 @@ export default function WorkoutHUD({
               <p className="text-sm font-medium opacity-80">
                 Vila{exerciseName ? ` · nästa: ${exerciseName}` : ""}
               </p>
-              <p className="font-mono text-4xl font-bold tabular-nums leading-tight">
+              <p className="font-mono text-4xl font-bold tabular-nums leading-tight text-lime">
                 {fmt(restLeft)}
               </p>
             </div>

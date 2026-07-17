@@ -88,7 +88,7 @@ function PushSection({ onError }: { onError: (m: string) => void }) {
   }
 
   return (
-    <section className="rounded-2xl border border-line bg-white p-5 dark:border-stone-800 dark:bg-stone-900">
+    <section className="rounded-2xl border border-line bg-white p-5 dark:border-night-shell dark:bg-night-card">
       <h2 className="font-bold">Push-notiser</h2>
       <p className="mt-1 text-sm text-muted dark:text-faint">
         Påminnelser, utmaningsuppdateringar och coach-råd direkt till mobilen.
@@ -96,7 +96,7 @@ function PushSection({ onError }: { onError: (m: string) => void }) {
         &quot;Lägg till på hemskärmen&quot;).
       </p>
       {state === "unsupported" ? (
-        <p className="mt-3 text-sm text-sand-ink dark:text-amber-400">
+        <p className="mt-3 text-sm text-sand-ink dark:text-lime">
           Webbläsaren stöder inte push (öppna appen från hemskärmen på iOS).
         </p>
       ) : (
@@ -105,8 +105,8 @@ function PushSection({ onError }: { onError: (m: string) => void }) {
           disabled={state === "unknown"}
           className={`mt-3 w-full rounded-xl py-2.5 font-semibold ${
             state === "on"
-              ? "border border-line-strong text-muted dark:border-stone-700 dark:text-stone-300"
-              : "bg-sage text-white"
+              ? "border border-line-strong text-muted dark:border-night-strong dark:text-night-muted"
+              : "bg-navy text-white"
           }`}
         >
           {state === "on" ? "Stäng av push-notiser" : "Aktivera push-notiser"}
@@ -179,16 +179,16 @@ export default function SettingsPage() {
         return (
           <section
             key={p.provider}
-            className="rounded-2xl border border-line bg-white p-5 dark:border-stone-800 dark:bg-stone-900"
+            className="rounded-2xl border border-line bg-white p-5 dark:border-night-shell dark:bg-night-card"
           >
             <div className="flex items-center justify-between">
               <h2 className="font-bold">{meta?.name ?? p.provider}</h2>
               {p.connected ? (
-                <span className="rounded-full bg-sage-soft px-2.5 py-0.5 text-xs font-semibold text-sage-deep dark:bg-emerald-950 dark:text-emerald-300">
+                <span className="rounded-full bg-navy-soft px-2.5 py-0.5 text-xs font-semibold text-navy-deep dark:bg-night-shell dark:text-lime">
                   Kopplad
                 </span>
               ) : (
-                <span className="rounded-full bg-shell px-2.5 py-0.5 text-xs text-muted dark:bg-stone-800">
+                <span className="rounded-full bg-shell px-2.5 py-0.5 text-xs text-muted dark:bg-night-shell">
                   Ej kopplad
                 </span>
               )}
@@ -202,8 +202,8 @@ export default function SettingsPage() {
               }
               className={`mt-3 w-full rounded-xl py-2.5 font-semibold ${
                 p.connected
-                  ? "border border-line-strong text-muted dark:border-stone-700 dark:text-stone-300"
-                  : "bg-sage text-white"
+                  ? "border border-line-strong text-muted dark:border-night-strong dark:text-night-muted"
+                  : "bg-navy text-white"
               }`}
             >
               {p.connected ? "Koppla från" : `Anslut ${meta?.name}`}
@@ -212,18 +212,18 @@ export default function SettingsPage() {
         );
       })}
 
-      <section className="rounded-2xl border border-line bg-white p-5 dark:border-stone-800 dark:bg-stone-900">
+      <section className="rounded-2xl border border-line bg-white p-5 dark:border-night-shell dark:bg-night-card">
         <h2 className="font-bold">Apple Health</h2>
         <p className="mt-1 text-sm text-muted dark:text-faint">
           Synka sömn, HRV, steg och träningspass via appen{" "}
           <strong>Health Auto Export</strong> på din iPhone:
         </p>
-        <ol className="mt-2 list-inside list-decimal space-y-1 text-sm text-muted dark:text-stone-300">
+        <ol className="mt-2 list-inside list-decimal space-y-1 text-sm text-muted dark:text-night-muted">
           <li>Skapa en token nedan (visas bara en gång).</li>
           <li>I HAE: skapa en automation av typen &quot;REST API&quot;.</li>
           <li>
             Klistra in endpoint-URL:en och lägg till headern{" "}
-            <code className="rounded bg-shell px-1 dark:bg-stone-800">
+            <code className="rounded bg-shell px-1 dark:bg-night-shell">
               Authorization: Bearer &lt;din token&gt;
             </code>
           </li>
@@ -231,8 +231,8 @@ export default function SettingsPage() {
         </ol>
 
         {newToken && (
-          <div className="mt-3 rounded-xl border-2 border-sand-strong bg-sand p-3 dark:border-amber-600 dark:bg-amber-950">
-            <p className="text-xs font-semibold text-sand-ink dark:text-amber-300">
+          <div className="mt-3 rounded-xl border-2 border-sand-strong bg-sand p-3 dark:border-night-strong dark:bg-night-shell">
+            <p className="text-xs font-semibold text-sand-ink dark:text-lime">
               Spara nu — visas inte igen!
             </p>
             <p className="mt-1 break-all font-mono text-sm">{newToken.token}</p>
@@ -254,7 +254,7 @@ export default function SettingsPage() {
           {status?.apple_health_tokens.map((t) => (
             <li
               key={t.id}
-              className="flex items-center justify-between rounded-xl bg-cream-deep px-3 py-2 text-sm dark:bg-stone-800/60"
+              className="flex items-center justify-between rounded-xl bg-cream-deep px-3 py-2 text-sm dark:bg-night-shell/60"
             >
               <div>
                 <p className="font-medium">{t.label}</p>
@@ -279,7 +279,7 @@ export default function SettingsPage() {
 
         <button
           onClick={createToken}
-          className="mt-3 w-full rounded-xl bg-sage py-2.5 font-semibold text-white"
+          className="mt-3 w-full rounded-xl bg-navy py-2.5 font-semibold text-white"
         >
           Skapa ny token
         </button>

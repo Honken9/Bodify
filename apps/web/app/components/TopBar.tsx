@@ -32,7 +32,7 @@ export default function TopBar() {
         {wideScreen && resolved === "mobile" && (
           <button
             onClick={() => setMode("desktop")}
-            className="rounded-full bg-shell px-3 py-1.5 text-xs font-semibold text-muted dark:bg-stone-800 dark:text-stone-300"
+            className="rounded-full bg-shell px-3 py-1.5 text-xs font-semibold text-muted dark:bg-night-shell dark:text-night-muted"
             title="Bredare layout med sidomeny"
           >
             🖥️ Helskärmsläge
@@ -41,7 +41,7 @@ export default function TopBar() {
         <a
           href="/settings"
           aria-label="Inställningar & kopplingar"
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-shell text-[11px] font-semibold text-sand-ink dark:bg-stone-800 dark:text-stone-300"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-shell text-[11px] font-semibold text-sand-ink dark:bg-night-shell dark:text-night-muted"
         >
           {initials ?? "•"}
         </a>

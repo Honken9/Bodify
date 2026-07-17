@@ -85,7 +85,7 @@ export default function GenerateWorkout({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <div
-        className="max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-5 dark:bg-stone-900"
+        className="max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-5 dark:bg-night-card"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -114,8 +114,8 @@ export default function GenerateWorkout({ onClose }: { onClose: () => void }) {
                     onClick={() => setMinutes(m)}
                     className={`flex-1 rounded-lg py-2 text-sm font-semibold ${
                       minutes === m
-                        ? "bg-sage text-white"
-                        : "bg-shell text-muted dark:bg-stone-800 dark:text-stone-300"
+                        ? "bg-navy text-white"
+                        : "bg-shell text-muted dark:bg-night-shell dark:text-night-muted"
                     }`}
                   >
                     {m}
@@ -135,8 +135,8 @@ export default function GenerateWorkout({ onClose }: { onClose: () => void }) {
                     onClick={() => toggle(eq)}
                     className={`rounded-full px-3 py-1.5 text-xs font-medium capitalize ${
                       equipment.includes(eq)
-                        ? "bg-sage text-white"
-                        : "bg-shell text-muted dark:bg-stone-800"
+                        ? "bg-navy text-white"
+                        : "bg-shell text-muted dark:bg-night-shell"
                     }`}
                   >
                     {eq}
@@ -149,13 +149,13 @@ export default function GenerateWorkout({ onClose }: { onClose: () => void }) {
               value={focus}
               onChange={(e) => setFocus(e.target.value)}
               placeholder="Fokus (valfritt), t.ex. ben & säte"
-              className="w-full rounded-xl border border-line-strong bg-transparent px-4 py-2.5 dark:border-stone-700"
+              className="w-full rounded-xl border border-line-strong bg-transparent px-4 py-2.5 dark:border-night-strong"
             />
 
             <button
               disabled={!!busy || equipment.length === 0}
               onClick={generate}
-              className="w-full rounded-xl bg-sage py-3 font-semibold text-white disabled:opacity-50"
+              className="w-full rounded-xl bg-navy py-3 font-semibold text-white disabled:opacity-50"
             >
               {busy ?? "Generera"}
             </button>
@@ -167,7 +167,7 @@ export default function GenerateWorkout({ onClose }: { onClose: () => void }) {
               {plan.exercises.map((e) => (
                 <li
                   key={e.exercise_id}
-                  className="flex items-center justify-between rounded-lg bg-cream-deep px-3 py-2 text-sm dark:bg-stone-800/60"
+                  className="flex items-center justify-between rounded-lg bg-cream-deep px-3 py-2 text-sm dark:bg-night-shell/60"
                 >
                   <span className="font-medium">{e.name}</span>
                   <span className="text-muted dark:text-faint">
@@ -179,14 +179,14 @@ export default function GenerateWorkout({ onClose }: { onClose: () => void }) {
             <div className="mt-4 flex gap-2">
               <button
                 onClick={() => setPlan(null)}
-                className="flex-1 rounded-xl border border-line-strong py-3 font-semibold text-muted dark:border-stone-700 dark:text-stone-300"
+                className="flex-1 rounded-xl border border-line-strong py-3 font-semibold text-muted dark:border-night-strong dark:text-night-muted"
               >
                 Gör om
               </button>
               <button
                 disabled={!!busy}
                 onClick={startPlan}
-                className="flex-1 rounded-xl bg-sage py-3 font-semibold text-white disabled:opacity-50"
+                className="flex-1 rounded-xl bg-navy py-3 font-semibold text-white disabled:opacity-50"
               >
                 {busy ?? "Kör passet ▶"}
               </button>

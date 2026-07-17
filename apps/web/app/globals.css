@@ -1,41 +1,55 @@
 @import "tailwindcss";
 
-/* Shapiqo designsystem — "Mjuk & välmående"
-   Varm off-white, salviagrönt och sandtoner. */
+/* Shapiqo designsystem — navy/lime enligt varumärkesguiden.
+   Sval off-white bas, navy som primärfärg, lime som energiaccent. */
 @theme {
   --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
 
-  /* Ytor */
-  --color-cream: #faf7f1; /* sidbakgrund */
-  --color-cream-deep: #f5f2ea; /* stat-plattor, inbäddade ytor */
-  --color-shell: #f1ede2; /* chips, segmentväljare, spår */
+  /* Ytor (ljust läge) */
+  --color-cream: #f7f8fa; /* sidbakgrund */
+  --color-cream-deep: #eef1f5; /* stat-plattor, inbäddade ytor */
+  --color-shell: #e9edf3; /* chips, segmentväljare, spår */
 
   /* Text */
-  --color-ink: #2f352e; /* primär */
-  --color-muted: #8a9184; /* sekundär */
-  --color-faint: #a8ad9f; /* tertiär, tomvärden */
+  --color-ink: #1b2a44; /* primär (mörk navy) */
+  --color-muted: #64758c; /* sekundär */
+  --color-faint: #97a3b6; /* tertiär, tomvärden */
 
-  /* Accent: salviagrön */
-  --color-sage: #5b7a5e;
-  --color-sage-deep: #42603f;
-  --color-sage-soft: #e8efe6;
-  --color-sage-line: #c6d4c4;
+  /* Primär: navy (loggans gradient) */
+  --color-navy: #23588a;
+  --color-navy-deep: #19325b;
+  --color-navy-soft: #e7eef6;
+  --color-navy-line: #bfd0e2;
 
-  /* Varm sand (banners, sekundära inslag) */
-  --color-sand: #f3ecd9;
-  --color-sand-deep: #efe9db;
-  --color-sand-strong: #d9c9a8;
-  --color-sand-ink: #8a7333;
+  /* Accent: lime (loggans S) */
+  --color-lime: #a1e645;
+  --color-lime-deep: #7fc22b; /* linjer/grafer där ljus lime blir för svag */
+  --color-lime-ink: #13284b; /* text ovanpå lime */
+
+  /* Mjuk lime-ton (banners, sekundära inslag — fd sand) */
+  --color-sand: #eef7dc;
+  --color-sand-deep: #e5f1cf;
+  --color-sand-strong: #b8d97b;
+  --color-sand-ink: #4d6b1f;
 
   /* Avdelare & fält */
-  --color-line: #eee7d9;
-  --color-line-strong: #e0d9c8;
+  --color-line: #e4e9f0;
+  --color-line-strong: #d2dae5;
 
   /* Makro-accenter (dämpade) */
   --color-carb: #c9ae5f;
   --color-fat: #c98f7a;
 
-  --shadow-card: 0 1px 4px rgba(90, 80, 60, 0.06);
+  /* Mörkt läge: navy-natt i stället för gråbrunt */
+  --color-night: #0d1830; /* sidbakgrund */
+  --color-night-card: #16233c; /* kort */
+  --color-night-shell: #21324f; /* chips, inbäddade ytor */
+  --color-night-strong: #35496b; /* fältkanter, starkare linjer */
+  --color-night-ink: #eef2f8; /* primär text */
+  --color-night-muted: #c2cddf; /* sekundär text */
+  --color-night-faint: #8da0bc; /* tertiär text */
+
+  --shadow-card: 0 1px 4px rgba(25, 50, 91, 0.07);
 }
 
 :root {

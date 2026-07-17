@@ -95,13 +95,13 @@ export default function FoodPage() {
         <h1 className="text-2xl font-bold">Kost</h1>
         <button
           onClick={() => setEditTargets(true)}
-          className="text-sm text-sage dark:text-emerald-400"
+          className="text-sm text-navy dark:text-lime"
         >
           Mål ⚙️
         </button>
       </div>
 
-      <div className="flex items-center justify-between rounded-xl border border-line bg-white px-2 py-1.5 dark:border-stone-800 dark:bg-stone-900">
+      <div className="flex items-center justify-between rounded-xl border border-line bg-white px-2 py-1.5 dark:border-night-shell dark:bg-night-card">
         <button onClick={() => setDay(shiftDay(day, -1))} className="p-2 text-lg">
           ‹
         </button>
@@ -131,13 +131,13 @@ export default function FoodPage() {
 
       {log && (
         <>
-          <section className="rounded-2xl border border-line bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
+          <section className="rounded-2xl border border-line bg-white p-4 dark:border-night-shell dark:bg-night-card">
             <MacroBar
               label="Kalorier"
               value={log.totals.kcal}
               target={log.targets.kcal}
               unit="kcal"
-              color="bg-sage"
+              color="bg-lime"
             />
             <div className="mt-3 grid grid-cols-3 gap-3">
               <MacroBar
@@ -145,7 +145,7 @@ export default function FoodPage() {
                 value={log.totals.protein_g}
                 target={log.targets.protein_g}
                 unit="g"
-                color="bg-sage"
+                color="bg-navy"
                 compact
               />
               <MacroBar
@@ -249,7 +249,7 @@ function MacroBar({
           </span>
         )}
       </div>
-      <div className="mt-1 h-2 overflow-hidden rounded-full bg-shell dark:bg-stone-800">
+      <div className="mt-1 h-2 overflow-hidden rounded-full bg-shell dark:bg-night-shell">
         <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
       {compact && (
@@ -271,7 +271,7 @@ function MicrosSection({ micros }: { micros: import("../lib/types").Micro[] }) {
   ).length;
 
   return (
-    <section className="rounded-2xl border border-line bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
+    <section className="rounded-2xl border border-line bg-white p-4 dark:border-night-shell dark:bg-night-card">
       <button
         className="flex w-full items-center justify-between"
         onClick={() => setOpen((v) => !v)}
@@ -294,7 +294,7 @@ function MicrosSection({ micros }: { micros: import("../lib/types").Micro[] }) {
                   ? over
                     ? "bg-red-400"
                     : "bg-sand-strong"
-                  : "bg-sage";
+                  : "bg-navy";
               return (
                 <div key={m.key}>
                   <div className="flex items-baseline justify-between text-xs">
@@ -314,7 +314,7 @@ function MicrosSection({ micros }: { micros: import("../lib/types").Micro[] }) {
                       {m.amount} {m.unit} · {m.percent} %
                     </span>
                   </div>
-                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-shell dark:bg-stone-800">
+                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-shell dark:bg-night-shell">
                     <div
                       className={`h-full ${bar}`}
                       style={{ width: `${Math.min(100, m.percent)}%` }}
@@ -353,7 +353,7 @@ function MealSection({
 }) {
   const kcal = Math.round(entries.reduce((sum, e) => sum + e.kcal, 0));
   return (
-    <section className="rounded-2xl border border-line bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
+    <section className="rounded-2xl border border-line bg-white p-4 dark:border-night-shell dark:bg-night-card">
       <div className="flex items-center justify-between">
         <h2 className="font-bold">{MEAL_LABELS[meal]}</h2>
         <div className="flex items-center gap-3">
@@ -382,14 +382,14 @@ function MealSection({
           )}
           <button
             onClick={onAdd}
-            className="rounded-lg bg-sage px-2.5 py-1 text-sm font-bold text-white"
+            className="rounded-lg bg-navy px-2.5 py-1 text-sm font-bold text-white"
           >
             +
           </button>
         </div>
       </div>
       {entries.length > 0 && (
-        <ul className="mt-2 divide-y divide-line dark:divide-stone-800">
+        <ul className="mt-2 divide-y divide-line dark:divide-night-shell">
           {entries.map((e) => (
             <li key={e.id} className="flex items-center justify-between py-2">
               <div className="min-w-0">
@@ -457,7 +457,7 @@ function TargetsEditor({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-t-3xl bg-white p-5 dark:bg-stone-900"
+        className="w-full max-w-md rounded-t-3xl bg-white p-5 dark:bg-night-card"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="mb-4 text-lg font-bold">Dagliga mål</h3>
@@ -472,7 +472,7 @@ function TargetsEditor({
             <button
               key={label}
               onClick={() => setForm({ ...preset })}
-              className="flex-1 rounded-lg bg-shell py-2 text-xs font-semibold text-muted dark:bg-stone-800 dark:text-stone-300"
+              className="flex-1 rounded-lg bg-shell py-2 text-xs font-semibold text-muted dark:bg-night-shell dark:text-night-muted"
             >
               {label}
             </button>
@@ -490,7 +490,7 @@ function TargetsEditor({
                 onChange={(e) =>
                   setForm({ ...form, [key]: Number(e.target.value) || 0 })
                 }
-                className="mt-1 w-full rounded-xl border border-line-strong bg-transparent px-4 py-2.5 dark:border-stone-700"
+                className="mt-1 w-full rounded-xl border border-line-strong bg-transparent px-4 py-2.5 dark:border-night-strong"
               />
             </label>
           ))}
@@ -498,7 +498,7 @@ function TargetsEditor({
         <button
           disabled={saving}
           onClick={save}
-          className="mt-4 w-full rounded-xl bg-sage py-3 font-semibold text-white disabled:opacity-50"
+          className="mt-4 w-full rounded-xl bg-navy py-3 font-semibold text-white disabled:opacity-50"
         >
           Spara mål
         </button>

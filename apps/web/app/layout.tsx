@@ -51,7 +51,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="sv" className={`${dmSans.variable} ${montserrat.variable}`}>
-      <body className="min-h-dvh bg-cream pb-20 font-sans text-ink antialiased desktop:pb-8 desktop:pl-60 dark:bg-stone-950 dark:text-stone-100">
+      <body className="min-h-dvh bg-cream pb-20 font-sans text-ink antialiased desktop:pb-8 desktop:pl-60 dark:bg-night dark:text-night-ink">
         <LayoutModeProvider>
           <TopBar />
           <Sidebar />

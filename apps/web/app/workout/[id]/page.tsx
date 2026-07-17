@@ -154,14 +154,14 @@ export default function WorkoutPage() {
         <>
           <button
             onClick={() => setShowPicker(true)}
-            className="rounded-xl border border-dashed border-line-strong py-3 font-medium text-muted dark:border-stone-700 dark:text-faint"
+            className="rounded-xl border border-dashed border-line-strong py-3 font-medium text-muted dark:border-night-strong dark:text-faint"
           >
             + Lägg till övning
           </button>
           <button
             disabled={finishing}
             onClick={finish}
-            className="rounded-xl bg-sage py-3.5 font-bold text-white active:bg-sage-deep disabled:opacity-50"
+            className="rounded-xl bg-navy py-3.5 font-bold text-white active:bg-navy-deep disabled:opacity-50"
           >
             {finishing ? "Avslutar…" : "Avsluta passet ✓"}
           </button>
@@ -244,7 +244,7 @@ function ExerciseCard({
   }
 
   return (
-    <section className="rounded-2xl border border-line bg-white p-4 shadow-card dark:border-stone-800 dark:bg-stone-900">
+    <section className="rounded-2xl border border-line bg-white p-4 shadow-card dark:border-night-shell dark:bg-night-card">
       <div className="flex items-baseline justify-between gap-2">
         <h2 className="font-bold">{plan.exercise.name}</h2>
         {targetLabel && (
@@ -253,11 +253,11 @@ function ExerciseCard({
       </div>
 
       {plan.previous && (
-        <div className="mt-2 rounded-lg bg-cream-deep px-3 py-2 dark:bg-stone-800/60">
+        <div className="mt-2 rounded-lg bg-cream-deep px-3 py-2 dark:bg-night-shell/60">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-faint">
             Förra passet · {formatDate(plan.previous.performed_at)}
           </p>
-          <p className="mt-0.5 flex flex-wrap gap-x-3 text-sm text-muted dark:text-stone-300">
+          <p className="mt-0.5 flex flex-wrap gap-x-3 text-sm text-muted dark:text-night-muted">
             {plan.previous.sets.map((s) => (
               <span key={s.id}>
                 {formatWeight(s.weight_kg)} × {s.reps}
@@ -305,7 +305,7 @@ function ExerciseCard({
             placeholder={
               placeholderWeight !== null ? String(placeholderWeight) : "kg"
             }
-            className="w-0 flex-1 rounded-lg border border-line-strong bg-transparent px-3 py-2.5 text-center dark:border-stone-700"
+            className="w-0 flex-1 rounded-lg border border-line-strong bg-transparent px-3 py-2.5 text-center dark:border-night-strong"
           />
           <input
             inputMode="numeric"
@@ -314,12 +314,12 @@ function ExerciseCard({
             placeholder={
               placeholderReps !== null ? String(placeholderReps) : "reps"
             }
-            className="w-0 flex-1 rounded-lg border border-line-strong bg-transparent px-3 py-2.5 text-center dark:border-stone-700"
+            className="w-0 flex-1 rounded-lg border border-line-strong bg-transparent px-3 py-2.5 text-center dark:border-night-strong"
           />
           <button
             disabled={saving || (reps === "" && placeholderReps === null)}
             onClick={logSet}
-            className="rounded-lg bg-sage px-4 font-semibold text-white active:bg-sage-deep disabled:opacity-40"
+            className="rounded-lg bg-navy px-4 font-semibold text-white active:bg-navy-deep disabled:opacity-40"
           >
             Logga
           </button>
@@ -357,7 +357,7 @@ function ExercisePicker({
       onClick={onClose}
     >
       <div
-        className="max-h-[70dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-5 dark:bg-stone-900"
+        className="max-h-[70dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-5 dark:bg-night-card"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -371,9 +371,9 @@ function ExercisePicker({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Sök…"
-          className="mb-3 w-full rounded-xl border border-line-strong bg-transparent px-4 py-2.5 dark:border-stone-700"
+          className="mb-3 w-full rounded-xl border border-line-strong bg-transparent px-4 py-2.5 dark:border-night-strong"
         />
-        <ul className="divide-y divide-line dark:divide-stone-800">
+        <ul className="divide-y divide-line dark:divide-night-shell">
           {filtered.map((e) => (
             <li key={e.id}>
               <button
