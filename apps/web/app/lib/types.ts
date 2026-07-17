@@ -36,8 +36,23 @@ export type Program = {
   description: string | null;
   level: "beginner" | "intermediate" | "advanced";
   days_per_week: number | null;
+  kind: "program" | "single";
   is_global: boolean;
   days: ProgramDay[];
+};
+
+export type CardioActivity = {
+  id: string;
+  type: "run" | "ride" | "walk" | "swim" | "other";
+  source: string;
+  name: string | null;
+  started_at: string;
+  duration_s: number;
+  distance_m: number | null;
+  avg_hr: number | null;
+  max_hr: number | null;
+  avg_pace_s_per_km: number | null;
+  calories: number | null;
 };
 
 export type UserProgram = {
@@ -99,7 +114,7 @@ export type FoodItem = {
   barcode: string | null;
   name: string;
   brand: string | null;
-  source: "off" | "custom";
+  source: "off" | "base" | "custom";
   per_100g: {
     kcal?: number;
     protein_g?: number;
@@ -148,6 +163,12 @@ export type DayLog = {
   totals: MacroTotals;
   targets: NutritionTargets;
   micros: Micro[];
+};
+
+export type RecentFood = {
+  food: FoodItem;
+  grams: number;
+  last_eaten: string;
 };
 
 export type MealTemplate = {

@@ -11,7 +11,7 @@ const ITEMS = [
   { href: "/", label: "Hem", icon: "🏠" },
   { href: "/food", label: "Kost", icon: "🥗" },
   { href: "/health", label: "Hälsa", icon: "❤️" },
-  { href: "/programs", label: "Program", icon: "📋" },
+  { href: "/programs", label: "Träning", icon: "🏋️" },
   { href: "/exercises", label: "Övningar", icon: "💪" },
   { href: "/history", label: "Historik", icon: "🕘" },
   { href: "/social", label: "Socialt", icon: "🏆" },

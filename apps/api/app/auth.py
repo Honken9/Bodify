@@ -13,6 +13,7 @@ import jwt
 from fastapi import Depends, HTTPException, Request
 from jwt import PyJWKClient
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -92,8 +93,16 @@ async def get_current_user(
                 403, "Din e-postadress är inte upplagd i Bodify ännu."
             )
         session.add(user)
-        await session.commit()
-        await session.refresh(user)
+        try:
+            await session.commit()
+            await session.refresh(user)
+        except IntegrityError:
+            # Två parallella förstaanrop kan försöka skapa samma användare —
+            # den som förlorade racet läser upp den som vann.
+            await session.rollback()
+            user = await session.scalar(select(User).where(User.email == email))
+            if user is None:  # bör inte hända
+                raise HTTPException(500, "Kunde inte skapa användaren.")
 
     # RLS-nyckeln: all användardata filtreras på detta värde i databasen.
     if session.bind.dialect.name == "postgresql":

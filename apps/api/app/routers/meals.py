@@ -56,7 +56,9 @@ async def _visible_food(
     food_item_id: uuid.UUID, user: User, db: AsyncSession
 ) -> FoodItem:
     food = await db.get(FoodItem, food_item_id)
-    if food is None or (food.source != "off" and food.created_by != user.id):
+    if food is None or (
+        food.source not in ("off", "base") and food.created_by != user.id
+    ):
         raise HTTPException(404, "Livsmedlet finns inte.")
     return food
 

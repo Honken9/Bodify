@@ -1,5 +1,5 @@
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from sqlalchemy import (
     Date,
@@ -30,7 +30,9 @@ class FoodItem(Base):
     barcode: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(200), index=True)
     brand: Mapped[str | None] = mapped_column(String(120))
-    source: Mapped[str] = mapped_column(String(20), default="custom")  # off|custom
+    source: Mapped[str] = mapped_column(
+        String(20), default="custom"
+    )  # off|base|custom (base = inbyggda förslag, synliga för alla)
     per_100g: Mapped[dict] = mapped_column(JSON, default=dict)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("users.id", ondelete="SET NULL")
@@ -55,6 +57,28 @@ class MealEntry(Base):
     protein_g: Mapped[float] = mapped_column(Numeric(7, 1), default=0)
     carbs_g: Mapped[float] = mapped_column(Numeric(7, 1), default=0)
     fat_g: Mapped[float] = mapped_column(Numeric(7, 1), default=0)
+    # Klientsatt tid med mikrosekunder — "senaste"-listan sorterar på den,
+    # och databasens now() har bara sekundupplösning på SQLite.
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        server_default=func.now(),
+    )
+
+    food_item: Mapped[FoodItem] = relationship(lazy="selectin")
+
+
+class FoodFavorite(Base):
+    """Favoritmarkerat livsmedel — snabbval vid loggning."""
+
+    __tablename__ = "food_favorites"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    food_item_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("food_items.id", ondelete="CASCADE"), primary_key=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

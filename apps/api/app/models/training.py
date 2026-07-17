@@ -44,6 +44,9 @@ class Program(Base):
     description: Mapped[str | None] = mapped_column(Text)
     level: Mapped[str] = mapped_column(String(20), default="beginner")
     days_per_week: Mapped[int | None] = mapped_column(Integer)
+    # "program" = flerdagars rotation, "single" = fristående pass som
+    # startas direkt utan aktivering
+    kind: Mapped[str] = mapped_column(String(20), default="program")
 
     days: Mapped[list["ProgramDay"]] = relationship(
         back_populates="program",

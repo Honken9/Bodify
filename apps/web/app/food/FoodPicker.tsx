@@ -11,9 +11,11 @@ const BarcodeScanner = dynamic(() => import("../components/BarcodeScanner"), {
     <p className="py-6 text-center text-sm text-faint">Laddar skannern…</p>
   ),
 });
-import type { FoodItem, MealKey, MealTemplate } from "../lib/types";
+import type { FoodItem, MealKey, MealTemplate, RecentFood } from "../lib/types";
 
-type Tab = "search" | "scan" | "photo" | "templates" | "new";
+type Tab = "quick" | "search" | "scan" | "photo" | "templates" | "new";
+
+type Picked = { food: FoodItem; grams?: number };
 
 export default function FoodPicker({
   day,
@@ -28,8 +30,42 @@ export default function FoodPicker({
   onLogged: () => void;
   onError: (msg: string) => void;
 }) {
-  const [tab, setTab] = useState<Tab>("search");
-  const [selected, setSelected] = useState<FoodItem | null>(null);
+  const [tab, setTab] = useState<Tab>("quick");
+  const [selected, setSelected] = useState<Picked | null>(null);
+
+  // Favoriter delas mellan flikarna (stjärnan i Snabbval och Sök)
+  const [favIds, setFavIds] = useState<Set<string>>(new Set());
+  const [favorites, setFavorites] = useState<FoodItem[]>([]);
+
+  useEffect(() => {
+    api<FoodItem[]>("/api/food/favorites")
+      .then((rows) => {
+        setFavorites(rows);
+        setFavIds(new Set(rows.map((f) => f.id)));
+      })
+      .catch(() => {});
+  }, []);
+
+  async function toggleFavorite(food: FoodItem) {
+    const isFav = favIds.has(food.id);
+    // Optimistisk uppdatering — stjärnan ska kännas direkt
+    setFavIds((prev) => {
+      const next = new Set(prev);
+      if (isFav) next.delete(food.id);
+      else next.add(food.id);
+      return next;
+    });
+    setFavorites((prev) =>
+      isFav ? prev.filter((f) => f.id !== food.id) : [food, ...prev]
+    );
+    try {
+      await api(`/api/food/favorites/${food.id}`, {
+        method: isFav ? "DELETE" : "PUT",
+      });
+    } catch (e) {
+      onError((e as Error).message);
+    }
+  }
 
   async function logFood(food: FoodItem, grams: number) {
     try {
@@ -66,18 +102,20 @@ export default function FoodPicker({
 
         {selected ? (
           <GramsForm
-            food={selected}
+            food={selected.food}
+            initialGrams={selected.grams}
             onBack={() => setSelected(null)}
             onLog={logFood}
           />
         ) : (
           <>
-            <div className="mb-3 flex gap-1.5">
+            <div className="mb-3 flex gap-1 overflow-x-auto">
               {(
                 [
+                  ["quick", "⭐ Snabb"],
                   ["search", "🔍 Sök"],
                   ["scan", "📷 Kod"],
-                  ["photo", "🍽 Fota mat"],
+                  ["photo", "🍽 Foto"],
                   ["templates", "📄 Mall"],
                   ["new", "＋ Eget"],
                 ] as [Tab, string][]
@@ -85,7 +123,7 @@ export default function FoodPicker({
                 <button
                   key={key}
                   onClick={() => setTab(key)}
-                  className={`flex-1 rounded-lg py-2 text-xs font-semibold ${
+                  className={`shrink-0 rounded-lg px-2.5 py-2 text-xs font-semibold ${
                     tab === key
                       ? "bg-sage text-white"
                       : "bg-shell text-muted dark:bg-stone-800 dark:text-stone-300"
@@ -97,9 +135,26 @@ export default function FoodPicker({
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto">
-              {tab === "search" && <SearchTab onPick={setSelected} />}
+              {tab === "quick" && (
+                <QuickTab
+                  favorites={favorites}
+                  favIds={favIds}
+                  onToggleFavorite={toggleFavorite}
+                  onPick={setSelected}
+                />
+              )}
+              {tab === "search" && (
+                <SearchTab
+                  favIds={favIds}
+                  onToggleFavorite={toggleFavorite}
+                  onPick={(food) => setSelected({ food })}
+                />
+              )}
               {tab === "scan" && (
-                <ScanTab onPick={setSelected} onError={onError} />
+                <ScanTab
+                  onPick={(food) => setSelected({ food })}
+                  onError={onError}
+                />
               )}
               {tab === "photo" && (
                 <MealPhotoTab
@@ -118,7 +173,10 @@ export default function FoodPicker({
                 />
               )}
               {tab === "new" && (
-                <NewFoodTab onCreated={setSelected} onError={onError} />
+                <NewFoodTab
+                  onCreated={(food) => setSelected({ food })}
+                  onError={onError}
+                />
               )}
             </div>
           </>
@@ -130,14 +188,16 @@ export default function FoodPicker({
 
 function GramsForm({
   food,
+  initialGrams,
   onBack,
   onLog,
 }: {
   food: FoodItem;
+  initialGrams?: number;
   onBack: () => void;
   onLog: (food: FoodItem, grams: number) => void;
 }) {
-  const [grams, setGrams] = useState("100");
+  const [grams, setGrams] = useState(String(initialGrams ?? 100));
   const g = Number(grams) || 0;
   const per = food.per_100g;
   const kcal = Math.round(((per.kcal ?? 0) * g) / 100);
@@ -185,7 +245,155 @@ function GramsForm({
   );
 }
 
-function SearchTab({ onPick }: { onPick: (f: FoodItem) => void }) {
+function FoodRow({
+  food,
+  detail,
+  isFav,
+  onToggleFavorite,
+  onPick,
+}: {
+  food: FoodItem;
+  detail?: string;
+  isFav: boolean;
+  onToggleFavorite: (f: FoodItem) => void;
+  onPick: () => void;
+}) {
+  return (
+    <li className="flex items-center gap-1">
+      <button onClick={onPick} className="min-w-0 flex-1 py-2.5 text-left">
+        <p className="truncate text-sm font-medium">
+          {food.name}
+          {food.source === "custom" && (
+            <span className="ml-1.5 text-xs text-sage">egen</span>
+          )}
+        </p>
+        <p className="text-xs text-faint">
+          {detail ??
+            `${food.brand ? `${food.brand} · ` : ""}${Math.round(
+              food.per_100g.kcal ?? 0
+            )} kcal/100 g`}
+        </p>
+      </button>
+      <button
+        onClick={() => onToggleFavorite(food)}
+        className="p-2 text-lg leading-none"
+        aria-label={isFav ? "Ta bort favorit" : "Spara som favorit"}
+      >
+        {isFav ? "⭐" : "☆"}
+      </button>
+    </li>
+  );
+}
+
+function QuickTab({
+  favorites,
+  favIds,
+  onToggleFavorite,
+  onPick,
+}: {
+  favorites: FoodItem[];
+  favIds: Set<string>;
+  onToggleFavorite: (f: FoodItem) => void;
+  onPick: (p: Picked) => void;
+}) {
+  const [recent, setRecent] = useState<RecentFood[]>([]);
+  const [suggestions, setSuggestions] = useState<FoodItem[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    Promise.all([
+      api<RecentFood[]>("/api/food/recent"),
+      api<FoodItem[]>("/api/food/suggestions"),
+    ])
+      .then(([recent, suggestions]) => {
+        setRecent(recent);
+        setSuggestions(suggestions);
+      })
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, []);
+
+  const heading = (text: string) => (
+    <h4 className="mb-1 mt-4 text-xs font-bold uppercase tracking-wide text-faint first:mt-0">
+      {text}
+    </h4>
+  );
+
+  return (
+    <div>
+      {recent.length > 0 && (
+        <>
+          {heading("Senaste")}
+          <ul className="divide-y divide-line dark:divide-stone-800">
+            {recent.map((r) => (
+              <FoodRow
+                key={r.food.id}
+                food={r.food}
+                detail={`Senast ${r.grams} g · ${Math.round(
+                  ((r.food.per_100g.kcal ?? 0) * r.grams) / 100
+                )} kcal`}
+                isFav={favIds.has(r.food.id)}
+                onToggleFavorite={onToggleFavorite}
+                onPick={() => onPick({ food: r.food, grams: r.grams })}
+              />
+            ))}
+          </ul>
+        </>
+      )}
+
+      {favorites.length > 0 && (
+        <>
+          {heading("⭐ Favoriter")}
+          <ul className="divide-y divide-line dark:divide-stone-800">
+            {favorites.map((f) => (
+              <FoodRow
+                key={f.id}
+                food={f}
+                isFav={favIds.has(f.id)}
+                onToggleFavorite={onToggleFavorite}
+                onPick={() => onPick({ food: f })}
+              />
+            ))}
+          </ul>
+        </>
+      )}
+
+      {loaded && recent.length === 0 && favorites.length === 0 && (
+        <p className="rounded-lg bg-shell p-3 text-center text-sm text-muted dark:bg-stone-800 dark:text-stone-300">
+          Här samlas dina senast loggade livsmedel och favoriter (☆) för
+          snabb loggning.
+        </p>
+      )}
+
+      {suggestions.length > 0 && (
+        <>
+          {heading("Förslag")}
+          <ul className="divide-y divide-line dark:divide-stone-800">
+            {suggestions.map((f) => (
+              <FoodRow
+                key={f.id}
+                food={f}
+                isFav={favIds.has(f.id)}
+                onToggleFavorite={onToggleFavorite}
+                onPick={() => onPick({ food: f })}
+              />
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  );
+}
+
+function SearchTab({
+  favIds,
+  onToggleFavorite,
+  onPick,
+}: {
+  favIds: Set<string>;
+  onToggleFavorite: (f: FoodItem) => void;
+  onPick: (f: FoodItem) => void;
+}) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<FoodItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -220,20 +428,13 @@ function SearchTab({ onPick }: { onPick: (f: FoodItem) => void }) {
       )}
       <ul className="mt-2 divide-y divide-line dark:divide-stone-800">
         {results.map((f) => (
-          <li key={f.id}>
-            <button onClick={() => onPick(f)} className="w-full py-2.5 text-left">
-              <p className="text-sm font-medium">
-                {f.name}
-                {f.source === "custom" && (
-                  <span className="ml-1.5 text-xs text-sage">egen</span>
-                )}
-              </p>
-              <p className="text-xs text-faint">
-                {f.brand ? `${f.brand} · ` : ""}
-                {Math.round(f.per_100g.kcal ?? 0)} kcal/100 g
-              </p>
-            </button>
-          </li>
+          <FoodRow
+            key={f.id}
+            food={f}
+            isFav={favIds.has(f.id)}
+            onToggleFavorite={onToggleFavorite}
+            onPick={() => onPick(f)}
+          />
         ))}
       </ul>
     </div>

@@ -31,6 +31,14 @@ class FoodItemCreate(BaseModel):
     per_100g: Per100g
 
 
+class RecentFood(BaseModel):
+    """Snabbval: nyligen loggat livsmedel med senaste gramvikten."""
+
+    food: FoodItemOut
+    grams: float
+    last_eaten: date
+
+
 class MealEntryOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

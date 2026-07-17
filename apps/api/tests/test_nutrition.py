@@ -290,6 +290,134 @@ async def test_day_micros_with_rdi_percent(
     assert "iron_mg" not in micros
 
 
+async def test_recent_foods_dedupe_and_grams(
+    client, make_token, known_user, other_user, mock_off
+):
+    food = (
+        await client.get(
+            f"/api/food/barcode/{KVARG['barcode']}", headers=auth(make_token)
+        )
+    ).json()
+    egg = (
+        await client.post(
+            "/api/food",
+            headers=auth(make_token),
+            json={"name": "Ägg", "per_100g": {"kcal": 155, "protein_g": 13}},
+        )
+    ).json()
+    for food_id, grams in [(food["id"], 100), (egg["id"], 120), (food["id"], 250)]:
+        await client.post(
+            "/api/meals",
+            headers=auth(make_token),
+            json={
+                "eaten_on": "2026-07-16",
+                "meal": "breakfast",
+                "food_item_id": food_id,
+                "grams": grams,
+            },
+        )
+
+    recent = (
+        await client.get("/api/food/recent", headers=auth(make_token))
+    ).json()
+    # Senast loggade först, dubbletter borttagna, senaste gramvikten följer med
+    assert [r["food"]["name"] for r in recent] == ["Kvarg vanilj", "Ägg"]
+    assert recent[0]["grams"] == 250.0
+
+    # Annan användare har en tom lista
+    other = (
+        await client.get(
+            "/api/food/recent", headers=auth(make_token, "anna@example.com")
+        )
+    ).json()
+    assert other == []
+
+
+async def test_favorites_flow(client, make_token, known_user, other_user, mock_off):
+    food = (
+        await client.get(
+            f"/api/food/barcode/{KVARG['barcode']}", headers=auth(make_token)
+        )
+    ).json()
+
+    resp = await client.put(
+        f"/api/food/favorites/{food['id']}", headers=auth(make_token)
+    )
+    assert resp.status_code == 204
+    # Idempotent — en gång till gör inget
+    await client.put(f"/api/food/favorites/{food['id']}", headers=auth(make_token))
+
+    favorites = (
+        await client.get("/api/food/favorites", headers=auth(make_token))
+    ).json()
+    assert [f["name"] for f in favorites] == ["Kvarg vanilj"]
+
+    # Annans favoritlista påverkas inte
+    anna = auth(make_token, "anna@example.com")
+    assert (await client.get("/api/food/favorites", headers=anna)).json() == []
+
+    resp = await client.delete(
+        f"/api/food/favorites/{food['id']}", headers=auth(make_token)
+    )
+    assert resp.status_code == 204
+    assert (
+        await client.get("/api/food/favorites", headers=auth(make_token))
+    ).json() == []
+
+
+async def test_favorite_of_foreign_custom_food_rejected(
+    client, make_token, known_user, other_user
+):
+    mine = (
+        await client.post(
+            "/api/food",
+            headers=auth(make_token),
+            json={"name": "Hemlig smoothie", "per_100g": {"kcal": 80}},
+        )
+    ).json()
+    resp = await client.put(
+        f"/api/food/favorites/{mine['id']}",
+        headers=auth(make_token, "anna@example.com"),
+    )
+    assert resp.status_code == 404
+
+
+async def test_base_food_suggestions_visible_for_all(
+    client, make_token, known_user, other_user, db_session, mock_off
+):
+    from app.models import FoodItem
+
+    banana = FoodItem(
+        name="Banan",
+        source="base",
+        per_100g={"kcal": 93, "protein_g": 1.1, "carbs_g": 21, "fat_g": 0.3},
+    )
+    db_session.add(banana)
+    await db_session.commit()
+
+    for email in ("daniel@example.com", "anna@example.com"):
+        suggestions = (
+            await client.get(
+                "/api/food/suggestions", headers=auth(make_token, email)
+            )
+        ).json()
+        assert [f["name"] for f in suggestions] == ["Banan"]
+
+        # Basförslag går att logga direkt
+        resp = await client.post(
+            "/api/meals",
+            headers=auth(make_token, email),
+            json={
+                "eaten_on": "2026-07-16",
+                "meal": "snack",
+                "food_item_id": str(banana.id),
+                "grams": 120,
+            },
+        )
+        assert resp.status_code == 201
+        assert resp.json()["kcal"] == 111.6
+
+
 async def test_meal_isolation(
     client, make_token, known_user, other_user, mock_off
 ):

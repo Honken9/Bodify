@@ -1,4 +1,5 @@
 import re
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import or_, select
@@ -7,14 +8,106 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import get_current_user
 from app.db import get_session
 from app.integrations import openfoodfacts
-from app.models import FoodItem, User
-from app.schemas_nutrition import FoodItemCreate, FoodItemOut
+from app.models import FoodFavorite, FoodItem, MealEntry, User
+from app.schemas_nutrition import FoodItemCreate, FoodItemOut, RecentFood
 
 router = APIRouter(prefix="/api/food", tags=["food"])
 
+# Delade källor som alla användare får se ("base" = inbyggda förslag)
+SHARED_SOURCES = ("off", "base")
+
 
 def _visible(user: User):
-    return or_(FoodItem.source == "off", FoodItem.created_by == user.id)
+    return or_(
+        FoodItem.source.in_(SHARED_SOURCES), FoodItem.created_by == user.id
+    )
+
+
+@router.get("/recent", response_model=list[RecentFood])
+async def recent_foods(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> list[RecentFood]:
+    """De 10 senast loggade livsmedlen (unika), med senaste gramvikten —
+    snabbval för det man äter ofta."""
+    entries = await db.scalars(
+        select(MealEntry)
+        .where(MealEntry.user_id == user.id)
+        .order_by(MealEntry.created_at.desc())
+        .limit(60)
+    )
+    recent: list[RecentFood] = []
+    seen: set = set()
+    for entry in entries:
+        if entry.food_item_id in seen:
+            continue
+        seen.add(entry.food_item_id)
+        recent.append(
+            RecentFood(
+                food=FoodItemOut.model_validate(entry.food_item),
+                grams=float(entry.grams),
+                last_eaten=entry.eaten_on,
+            )
+        )
+        if len(recent) == 10:
+            break
+    return recent
+
+
+@router.get("/favorites", response_model=list[FoodItemOut])
+async def list_favorites(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> list[FoodItem]:
+    favorites = await db.scalars(
+        select(FoodFavorite)
+        .where(FoodFavorite.user_id == user.id)
+        .order_by(FoodFavorite.created_at.desc())
+    )
+    return [f.food_item for f in favorites]
+
+
+@router.put("/favorites/{food_item_id}", status_code=204)
+async def add_favorite(
+    food_item_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> None:
+    food = await db.get(FoodItem, food_item_id)
+    if food is None or (
+        food.source not in SHARED_SOURCES and food.created_by != user.id
+    ):
+        raise HTTPException(404, "Livsmedlet finns inte.")
+    existing = await db.get(FoodFavorite, (user.id, food_item_id))
+    if existing is None:
+        db.add(FoodFavorite(user_id=user.id, food_item_id=food_item_id))
+        await db.commit()
+
+
+@router.delete("/favorites/{food_item_id}", status_code=204)
+async def remove_favorite(
+    food_item_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> None:
+    favorite = await db.get(FoodFavorite, (user.id, food_item_id))
+    if favorite is not None:
+        await db.delete(favorite)
+        await db.commit()
+
+
+@router.get("/suggestions", response_model=list[FoodItemOut])
+async def list_suggestions(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> list[FoodItem]:
+    """Inbyggda basförslag — vanliga livsmedel med typvärden per 100 g."""
+    rows = await db.scalars(
+        select(FoodItem)
+        .where(FoodItem.source == "base")
+        .order_by(FoodItem.name)
+    )
+    return list(rows)
 
 
 @router.get("/barcode/{barcode}", response_model=FoodItemOut)

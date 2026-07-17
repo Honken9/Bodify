@@ -48,6 +48,57 @@ async def activated_program(client, make_token, known_user, two_exercises):
     return program
 
 
+async def test_single_workout_starts_without_activation(
+    client, make_token, known_user, db_session, two_exercises
+):
+    """Enstaka pass (kind=single) startas direkt utan aktivt program och
+    påverkar inte rotationen."""
+    import uuid as uuid_mod
+
+    from app.models import Program, ProgramDay, ProgramDayExercise
+
+    program = Program(
+        user_id=None,
+        name="HIIT Express",
+        kind="single",
+        level="beginner",
+    )
+    day = ProgramDay(name="HIIT Express", position=0)
+    day.exercises.append(
+        ProgramDayExercise(
+            exercise_id=uuid_mod.UUID(two_exercises[0]),
+            position=0,
+            target_sets=4,
+            target_reps="12",
+            rest_seconds=45,
+        )
+    )
+    program.days.append(day)
+    db_session.add(program)
+    await db_session.commit()
+
+    listed = (
+        await client.get("/api/programs", headers=auth(make_token))
+    ).json()
+    single = next(p for p in listed if p["kind"] == "single")
+    assert single["name"] == "HIIT Express"
+
+    resp = await client.post(
+        "/api/sessions/start",
+        headers=auth(make_token),
+        json={"program_day_id": single["days"][0]["id"]},
+    )
+    assert resp.status_code == 201
+    assert resp.json()["day_name"] == "HIIT Express"
+    assert resp.json()["plan"][0]["target_sets"] == 4
+
+    # Inget program aktiverades av att passet startades
+    active = (
+        await client.get("/api/user-programs/active", headers=auth(make_token))
+    ).json()
+    assert active is None
+
+
 async def test_custom_exercise_is_private(
     client, make_token, known_user, other_user, two_exercises
 ):

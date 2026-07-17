@@ -55,6 +55,7 @@ class ProgramOut(BaseModel):
     description: str | None
     level: str
     days_per_week: int | None
+    kind: str = "program"  # program = rotation, single = fristående pass
     is_global: bool = False
     days: list[ProgramDayOut]
 

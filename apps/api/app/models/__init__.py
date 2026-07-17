@@ -8,7 +8,7 @@ from app.models.health import (
     OAuthConnection,
     SleepSession,
 )
-from app.models.nutrition import FoodItem, MealEntry, MealTemplate, NutritionTarget
+from app.models.nutrition import FoodFavorite, FoodItem, MealEntry, MealTemplate, NutritionTarget
 from app.models.social import (
     CHALLENGE_METRICS,
     Challenge,
@@ -39,6 +39,7 @@ __all__ = [
     "ChallengeSnapshot",
     "Friendship",
     "Exercise",
+    "FoodFavorite",
     "FoodItem",
     "Goal",
     "IngestToken",
