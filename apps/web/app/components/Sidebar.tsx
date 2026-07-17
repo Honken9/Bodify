@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import type { Me } from "../lib/types";
 import { useLayoutMode } from "./LayoutMode";
+import Logo from "./Logo";
 
 const ITEMS = [
   { href: "/", label: "Hem", icon: "🏠" },
@@ -30,12 +31,9 @@ export default function Sidebar() {
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-line bg-white px-4 py-6 desktop:flex dark:border-stone-800 dark:bg-stone-900">
-      <Link
-        href="/"
-        className="px-3 text-lg font-bold lowercase tracking-wide text-sage"
-      >
-        shapiqo
-      </Link>
+      <div className="px-3">
+        <Logo badge={34} name={18} />
+      </div>
 
       <nav className="mt-6 flex flex-1 flex-col gap-1">
         {ITEMS.map((item) => {

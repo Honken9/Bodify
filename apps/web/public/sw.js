@@ -1,10 +1,19 @@
-/* Bodify service worker: offline-skal + push-notiser */
+/* Shapiqo service worker: offline-skal + push-notiser */
 
-const CACHE = "bodify-v1";
+const CACHE = "shapiqo-v2"; // bumpad så gamla cachade ikoner rensas
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    Promise.all([
+      self.clients.claim(),
+      caches
+        .keys()
+        .then((keys) =>
+          Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
+        ),
+    ])
+  );
 });
 
 self.addEventListener("fetch", (event) => {
@@ -34,10 +43,10 @@ self.addEventListener("push", (event) => {
     data = { body: event.data ? event.data.text() : "" };
   }
   event.waitUntil(
-    self.registration.showNotification(data.title || "Bodify", {
+    self.registration.showNotification(data.title || "Shapiqo", {
       body: data.body || "",
-      icon: "/icon.svg",
-      badge: "/icon.svg",
+      icon: "/brand/shapiqo-icon.png",
+      badge: "/brand/shapiqo-icon.png",
       data: { url: data.url || "/" },
     })
   );

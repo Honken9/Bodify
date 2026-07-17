@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import type { Me } from "../lib/types";
 import { useLayoutMode } from "./LayoutMode";
+import Logo from "./Logo";
 
 function initialsOf(me: Me): string {
   const source = me.display_name?.trim() || me.email;
@@ -26,12 +27,7 @@ export default function TopBar() {
 
   return (
     <header className="mx-auto flex w-full max-w-md items-center justify-between px-5 pt-4 desktop:hidden">
-      <a
-        href="/"
-        className="text-[15px] font-bold lowercase tracking-wide text-sage"
-      >
-        shapiqo
-      </a>
+      <Logo badge={30} name={16} />
       <div className="flex items-center gap-2">
         {wideScreen && resolved === "mobile" && (
           <button

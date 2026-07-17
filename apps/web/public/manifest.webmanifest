@@ -1,16 +1,28 @@
 {
   "name": "Shapiqo",
   "short_name": "Shapiqo",
-  "description": "Din self-hostade plattform för kost och träning",
+  "description": "Din self-hostade plattform för kost och träning — train, eat, live",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#052e16",
-  "theme_color": "#052e16",
+  "background_color": "#faf7f1",
+  "theme_color": "#19325b",
   "icons": [
     {
-      "src": "/icon.svg",
+      "src": "/brand/shapiqo-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/brand/shapiqo-icon.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/brand/shapiqo-icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png",
       "purpose": "any"
     }
   ]
