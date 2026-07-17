@@ -23,9 +23,19 @@ function shiftDay(day: string, delta: number): string {
   return isoDate(d);
 }
 
+// Signatur för en måltids innehåll — används för att veta om exakt
+// denna kombination redan är sparad som favorit.
+function mealSignature(items: { food_item_id: string; grams: number }[]): string {
+  return items
+    .map((i) => `${i.food_item_id}:${Math.round(i.grams * 10)}`)
+    .sort()
+    .join("|");
+}
+
 export default function FoodPage() {
   const [day, setDay] = useState(() => isoDate(new Date()));
   const [log, setLog] = useState<DayLog | null>(null);
+  const [templates, setTemplates] = useState<MealTemplate[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pickerMeal, setPickerMeal] = useState<MealKey | null>(null);
   const [editTargets, setEditTargets] = useState(false);
@@ -34,6 +44,9 @@ export default function FoodPage() {
     api<DayLog>(`/api/meals?day=${day}`)
       .then(setLog)
       .catch((e: Error) => setError(e.message));
+    api<MealTemplate[]>("/api/meal-templates")
+      .then(setTemplates)
+      .catch(() => {});
   }, [day]);
 
   useEffect(refresh, [refresh]);
@@ -43,14 +56,32 @@ export default function FoodPage() {
     refresh();
   }
 
-  async function saveAsTemplate(meal: MealKey) {
-    const name = window.prompt("Namn på mallen?");
-    if (!name) return;
+  function savedTemplateFor(entries: MealEntry[]): MealTemplate | undefined {
+    const sig = mealSignature(
+      entries.map((e) => ({ food_item_id: e.food_item.id, grams: e.grams }))
+    );
+    return templates.find((t) => mealSignature(t.items) === sig);
+  }
+
+  async function toggleMealFavorite(meal: MealKey, entries: MealEntry[]) {
     try {
-      await api("/api/meal-templates/from-meal", {
-        method: "POST",
-        body: JSON.stringify({ name, eaten_on: day, meal }),
-      });
+      const saved = savedTemplateFor(entries);
+      if (saved) {
+        await api(`/api/meal-templates/${saved.id}`, { method: "DELETE" });
+      } else {
+        // Namnet sätts automatiskt från innehållet — inget att fylla i
+        const names = entries.map((e) => e.food_item.name);
+        const name = (
+          names.length === 1 ? names[0] : `${names[0]} +${names.length - 1}`
+        ).slice(0, 120);
+        await api("/api/meal-templates/from-meal", {
+          method: "POST",
+          body: JSON.stringify({ name, eaten_on: day, meal }),
+        });
+      }
+      api<MealTemplate[]>("/api/meal-templates")
+        .then(setTemplates)
+        .catch(() => {});
     } catch (e) {
       setError((e as Error).message);
     }
@@ -144,9 +175,17 @@ export default function FoodPage() {
               key={meal}
               meal={meal}
               entries={log.entries.filter((e) => e.meal === meal)}
+              saved={
+                !!savedTemplateFor(log.entries.filter((e) => e.meal === meal))
+              }
               onAdd={() => setPickerMeal(meal)}
               onRemove={removeEntry}
-              onSaveTemplate={() => saveAsTemplate(meal)}
+              onToggleFavorite={() =>
+                toggleMealFavorite(
+                  meal,
+                  log.entries.filter((e) => e.meal === meal)
+                )
+              }
             />
           ))}
           </div>
@@ -300,15 +339,17 @@ function MicrosSection({ micros }: { micros: import("../lib/types").Micro[] }) {
 function MealSection({
   meal,
   entries,
+  saved,
   onAdd,
   onRemove,
-  onSaveTemplate,
+  onToggleFavorite,
 }: {
   meal: MealKey;
   entries: MealEntry[];
+  saved: boolean;
   onAdd: () => void;
   onRemove: (id: string) => void;
-  onSaveTemplate: () => void;
+  onToggleFavorite: () => void;
 }) {
   const kcal = Math.round(entries.reduce((sum, e) => sum + e.kcal, 0));
   return (
@@ -320,11 +361,22 @@ function MealSection({
             <>
               <span className="text-sm text-faint">{kcal} kcal</span>
               <button
-                onClick={onSaveTemplate}
-                title="Spara som mall"
-                className="text-sm text-faint"
+                onClick={onToggleFavorite}
+                title={
+                  saved
+                    ? "Ta bort från favoritmåltider"
+                    : "Spara som favoritmåltid"
+                }
+                aria-label={
+                  saved
+                    ? "Ta bort från favoritmåltider"
+                    : "Spara som favoritmåltid"
+                }
+                className={`text-lg leading-none ${
+                  saved ? "" : "text-faint"
+                }`}
               >
-                💾
+                {saved ? "❤️" : "♡"}
               </button>
             </>
           )}

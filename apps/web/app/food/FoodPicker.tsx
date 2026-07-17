@@ -116,7 +116,7 @@ export default function FoodPicker({
                   ["search", "🔍 Sök"],
                   ["scan", "📷 Kod"],
                   ["photo", "🍽 Foto"],
-                  ["templates", "📄 Mall"],
+                  ["templates", "❤️ Måltider"],
                   ["new", "＋ Eget"],
                 ] as [Tab, string][]
               ).map(([key, label]) => (
@@ -688,8 +688,8 @@ function TemplatesTab({
   if (loaded && templates.length === 0) {
     return (
       <p className="py-6 text-center text-sm text-faint">
-        Inga mallar ännu. Logga en måltid och tryck 💾 för att spara den som
-        mall.
+        Inga favoritmåltider ännu. Logga en måltid och tryck ♡ för att spara
+        den — sen loggar du hela måltiden igen med ett tryck här.
       </p>
     );
   }
