@@ -13,6 +13,7 @@ from app.ai.ollama import AIUnavailable
 from app.auth import get_current_user
 from app.db import get_session
 from app.models import Exercise, Program, ProgramDay, ProgramDayExercise, User
+from app.security import sniff_image
 from app.services import readiness as readiness_service
 
 logger = logging.getLogger(__name__)
@@ -255,11 +256,11 @@ async def meal_vision(
 ) -> dict:
     """Fota måltiden → identifierade livsmedel med uppskattad mängd och
     näringsvärden. Uppskattningar — användaren justerar innan loggning."""
-    if (file.content_type or "") not in ("image/jpeg", "image/png", "image/webp"):
-        raise HTTPException(400, "Skicka ett foto (JPEG/PNG/WebP).")
     content = await file.read()
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(413, "Bilden är för stor (max 10 MB).")
+    if sniff_image(content) not in ("image/jpeg", "image/png", "image/webp"):
+        raise HTTPException(400, "Skicka ett foto (JPEG/PNG/WebP).")
 
     prompt = (
         "Du är en noggrann nutritionist. Titta på fotot av måltiden. "
@@ -313,11 +314,11 @@ async def gym_vision(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_session),
 ) -> dict:
-    if (file.content_type or "") not in ("image/jpeg", "image/png", "image/webp"):
-        raise HTTPException(400, "Skicka ett foto (JPEG/PNG/WebP).")
     content = await file.read()
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(413, "Bilden är för stor (max 10 MB).")
+    if sniff_image(content) not in ("image/jpeg", "image/png", "image/webp"):
+        raise HTTPException(400, "Skicka ett foto (JPEG/PNG/WebP).")
 
     prompt = (
         "Titta på fotot från ett gym. Vilka av följande utrustningstyper "

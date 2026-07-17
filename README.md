@@ -158,6 +158,17 @@ Tester: `cd apps/api && .venv/bin/python -m pytest` (56 st)
   grund för ett framtida byte till icke-ägande databasroll.
 - **OAuth-tokens krypteras i vila** (Fernet via `SECRET_KEY`); Apple
   Health-tokens lagras endast som SHA-256-hashar.
+- **Startvakter**: API:t vägrar starta i produktion (Access konfigurerat)
+  om `SECRET_KEY` har kvar standardvärdet eller om `DEV_AUTH_EMAIL` är
+  satt (`apps/api/app/main.py`).
+- **CSRF-skydd**: skrivande anrop med en främmande `Origin`-header nekas
+  (Access-cookien gör annars inloggade webbläsare till en attackvektor).
+- **Rate limiting**: webhook-endpoints (utan Access) har en minutbudget
+  per klient-IP.
+- **Uppladdade bilder valideras på innehåll** (magiska bytes), inte på
+  insänd Content-Type — gäller progressfoton och AI-vision.
+- **Säkerhetsheaders** sätts av Caddy (`nosniff`, `X-Frame-Options: DENY`,
+  `Referrer-Policy`, `Permissions-Policy`).
 
 ## Framtida idéer
 

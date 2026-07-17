@@ -1,4 +1,13 @@
 :80 {
+	# Säkerhetsheaders för allt som passerar proxyn
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera=(self), microphone=(), geolocation=()"
+		-Server
+	}
+
 	handle /api/* {
 		reverse_proxy api:8000
 	}

@@ -4,6 +4,7 @@ import os
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite://")
 os.environ.setdefault("CF_TEAM_DOMAIN", "testteam.cloudflareaccess.com")
 os.environ.setdefault("CF_ACCESS_AUD", "test-aud-tag")
+os.environ.setdefault("SECRET_KEY", "test-secret-only-for-pytest")
 
 import jwt
 import pytest

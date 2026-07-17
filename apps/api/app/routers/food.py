@@ -1,3 +1,5 @@
+import re
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +23,10 @@ async def lookup_barcode(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_session),
 ) -> FoodItem:
+    # EAN/UPC är alltid 6–14 siffror — allt annat avvisas innan värdet
+    # används i uppslag mot Open Food Facts.
+    if not re.fullmatch(r"\d{6,14}", barcode):
+        raise HTTPException(400, "Ogiltig streckkod.")
     cached = await db.scalar(select(FoodItem).where(FoodItem.barcode == barcode))
     if cached is not None:
         return cached

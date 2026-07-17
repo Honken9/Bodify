@@ -13,6 +13,10 @@ def auth(make_token, email="daniel@example.com"):
     return {ACCESS_JWT_HEADER: make_token(email=email)}
 
 
+# Minimal men äkta JPEG-signatur — innehållet magic-byte-valideras numera.
+FAKE_JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 32
+
+
 @pytest.fixture
 async def exercise_library(client, make_token, known_user):
     ids = {}
@@ -124,7 +128,7 @@ async def test_gym_vision_maps_equipment(
     resp = await client.post(
         "/api/ai/gym-vision",
         headers=auth(make_token),
-        files={"file": ("gym.jpg", io.BytesIO(b"fake-jpeg"), "image/jpeg")},
+        files={"file": ("gym.jpg", io.BytesIO(FAKE_JPEG), "image/jpeg")},
     )
     assert resp.status_code == 200
     body = resp.json()
@@ -165,7 +169,7 @@ async def test_meal_vision_returns_items(client, make_token, known_user, monkeyp
     resp = await client.post(
         "/api/ai/meal-vision",
         headers=auth(make_token),
-        files={"file": ("mat.jpg", io.BytesIO(b"fake-jpeg"), "image/jpeg")},
+        files={"file": ("mat.jpg", io.BytesIO(FAKE_JPEG), "image/jpeg")},
     )
     assert resp.status_code == 200
     items = resp.json()["items"]
@@ -182,7 +186,7 @@ async def test_meal_vision_ollama_down(client, make_token, known_user, monkeypat
     resp = await client.post(
         "/api/ai/meal-vision",
         headers=auth(make_token),
-        files={"file": ("mat.jpg", io.BytesIO(b"fake-jpeg"), "image/jpeg")},
+        files={"file": ("mat.jpg", io.BytesIO(FAKE_JPEG), "image/jpeg")},
     )
     assert resp.status_code == 503
 

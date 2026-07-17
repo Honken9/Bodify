@@ -11,11 +11,12 @@ from app.auth import get_current_user
 from app.config import get_settings
 from app.db import get_session
 from app.models import ProgressPhoto, User
+from app.security import sniff_image
 
 router = APIRouter(prefix="/api/photos", tags=["photos"])
 
 MAX_SIZE = 15 * 1024 * 1024
-ALLOWED = {
+EXT = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
     "image/webp": ".webp",
@@ -59,16 +60,18 @@ async def upload_photo(
 ) -> ProgressPhoto:
     if pose not in ("front", "side", "back"):
         raise HTTPException(400, "Ogiltig pose.")
-    ext = ALLOWED.get(file.content_type or "")
-    if ext is None:
-        raise HTTPException(400, "Endast JPEG/PNG/WebP/HEIC stöds.")
 
     content = await file.read()
     if len(content) > MAX_SIZE:
         raise HTTPException(413, "Bilden är för stor (max 15 MB).")
+    # Lita på filens innehåll, inte på insänd Content-Type — det avgör
+    # både lagrad typ och hur filen senare serveras.
+    content_type = sniff_image(content)
+    if content_type is None:
+        raise HTTPException(400, "Endast JPEG/PNG/WebP/HEIC stöds.")
 
     photo_id = uuid.uuid4()
-    path = _photos_dir(user.id) / f"{photo_id}{ext}"
+    path = _photos_dir(user.id) / f"{photo_id}{EXT[content_type]}"
     path.write_bytes(content)
 
     photo = ProgressPhoto(
@@ -76,7 +79,7 @@ async def upload_photo(
         user_id=user.id,
         pose=pose,
         file_path=str(path),
-        content_type=file.content_type or "image/jpeg",
+        content_type=content_type,
     )
     db.add(photo)
     await db.commit()

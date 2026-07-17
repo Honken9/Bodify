@@ -26,3 +26,21 @@ def decrypt(value: str) -> str:
 def hash_token(token: str) -> str:
     """SHA-256-hash för ingest-tokens — själva tokenen lagras aldrig."""
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+def sniff_image(content: bytes) -> str | None:
+    """Avgör bildformat ur filens magiska bytes — Content-Type-headern
+    kan förfalskas och får inte styra vad som lagras eller serveras.
+
+    Returnerar MIME-typ för JPEG/PNG/WebP, annars None."""
+    if content.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if content.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if content[:4] == b"RIFF" and content[8:12] == b"WEBP":
+        return "image/webp"
+    if content[4:8] == b"ftyp" and content[8:12] in (
+        b"heic", b"heix", b"hevc", b"mif1", b"msf1",
+    ):
+        return "image/heic"
+    return None
