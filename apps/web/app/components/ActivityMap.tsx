@@ -63,6 +63,30 @@ export default function ActivityMap({
   const layersRef = useRef<
     Map<string, { layer: L.Polyline | L.CircleMarker; isRoute: boolean }>
   >(new Map());
+  const focusRef = useRef<string | null>(focusId);
+
+  // Valt pass lyser rött så det sticker ut bland de navyfärgade
+  function styleEntry(
+    entry: { layer: L.Polyline | L.CircleMarker; isRoute: boolean },
+    focused: boolean
+  ) {
+    if (entry.isRoute) {
+      (entry.layer as L.Polyline).setStyle({
+        color: focused ? "#e11d48" : "#23588a",
+        weight: focused ? 5 : 3,
+        opacity: focused ? 1 : 0.85,
+      });
+    } else {
+      const dot = entry.layer as L.CircleMarker;
+      dot.setStyle({
+        color: focused ? "#9f1239" : "#19325b",
+        fillColor: focused ? "#e11d48" : "#23588a",
+        fillOpacity: focused ? 1 : 0.85,
+      });
+      dot.setRadius(focused ? 9 : 7);
+    }
+    if (focused) entry.layer.bringToFront();
+  }
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -135,6 +159,10 @@ export default function ActivityMap({
       }
     }
 
+    // Behåll markeringen om kartan byggs om (t.ex. efter omladdning av data)
+    const focused = focusRef.current && layersRef.current.get(focusRef.current);
+    if (focused) styleEntry(focused, true);
+
     if (bounds.isValid()) {
       allBoundsRef.current = bounds;
       map.fitBounds(bounds, { padding: [30, 30] });
@@ -153,8 +181,10 @@ export default function ActivityMap({
 
   // Klick i listan/bläddring → zooma till aktiviteten; null = visa alla
   useEffect(() => {
+    focusRef.current = focusId;
     const map = mapRef.current;
     if (!map) return;
+    for (const [id, e] of layersRef.current) styleEntry(e, id === focusId);
     if (!focusId) {
       map.closePopup();
       if (allBoundsRef.current) {
