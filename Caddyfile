@@ -4,8 +4,16 @@
 		X-Content-Type-Options nosniff
 		X-Frame-Options DENY
 		Referrer-Policy strict-origin-when-cross-origin
-		Permissions-Policy "camera=(self), microphone=(), geolocation=()"
+		# geolocation=(self): platsväljaren på kartsidan använder
+		# webbläsarens position — bara vår egen origin får fråga
+		Permissions-Policy "camera=(self), microphone=(), geolocation=(self)"
 		-Server
+	}
+
+	# Största foto-uppladdningen är 15 MB (progressfoton) — allt större
+	# stoppas i proxyn innan det når API:t och äter minne
+	request_body {
+		max_size 25MB
 	}
 
 	handle /api/* {

@@ -92,6 +92,10 @@ class PlaceOut(BaseModel):
     lng: float
 
 
+# Nominatims användarvillkor: max 1 anrop/sekund — enkel broms per användare
+_geo_search_last: dict[str, float] = {}
+
+
 @router.get("/geo-search", response_model=list[PlaceOut])
 async def geo_search(
     q: str,
@@ -99,9 +103,18 @@ async def geo_search(
 ) -> list[PlaceOut]:
     """Sök plats via OpenStreetMap/Nominatim (t.ex. "SATS Farsta") —
     gratis och nyckellöst, i linje med kartan i övrigt."""
-    q = q.strip()
+    q = q.strip()[:200]
     if len(q) < 2:
         return []
+    import time
+
+    now = time.monotonic()
+    last = _geo_search_last.get(str(user.id), 0.0)
+    if now - last < 1.0:
+        raise HTTPException(429, "Sök lite långsammare — max en sökning per sekund.")
+    if len(_geo_search_last) > 10_000:
+        _geo_search_last.clear()
+    _geo_search_last[str(user.id)] = now
     import httpx
 
     try:
@@ -217,7 +230,7 @@ class BulkLocationUpdate(BaseModel):
 
     lat: float = Field(ge=-90, le=90)
     lng: float = Field(ge=-180, le=180)
-    ids: list[uuid.UUID] | None = None
+    ids: list[uuid.UUID] | None = Field(default=None, max_length=5000)
     all_missing: bool = False
 
 

@@ -205,7 +205,11 @@ async def accept_generated_workout(
     """Spara det genererade passet som ett eget enkeldagarsprogram och
     returnera dagens id — startas sedan som vanligt pass."""
     for item in payload.plan.exercises:
-        exercise = await db.get(Exercise, uuid.UUID(item.exercise_id))
+        try:
+            exercise_id = uuid.UUID(item.exercise_id)
+        except ValueError:
+            raise HTTPException(400, f"Ogiltigt övnings-id för '{item.name}'.")
+        exercise = await db.get(Exercise, exercise_id)
         if exercise is None or (
             not exercise.is_global and exercise.created_by != user.id
         ):
