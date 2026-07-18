@@ -151,6 +151,9 @@ class PhotoFoodItem(BaseModel):
 
     name: str = Field(min_length=1, max_length=120)
     grams: float = Field(gt=0, le=3000)
+    # AI:ns ursprungliga gissning (före användarens justering) — används
+    # för att kalibrera framtida portionsuppskattningar
+    ai_grams: float | None = Field(default=None, gt=0, le=3000)
     per_100g: Per100g
 
 

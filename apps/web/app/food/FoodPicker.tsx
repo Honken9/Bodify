@@ -502,6 +502,7 @@ function ScanTab({
 type AnalyzedItem = {
   name: string;
   grams: number;
+  ai_grams?: number; // AI:ns ursprungliga gissning — för kalibrering
   per_100g: {
     kcal: number;
     protein_g: number;
@@ -524,6 +525,7 @@ function MealPhotoTab({
   const fileRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<AnalyzedItem[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [calibrated, setCalibrated] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [hasWebcam, setHasWebcam] = useState(false);
 
@@ -550,7 +552,13 @@ function MealPhotoTab({
       });
       const body = await res.json().catch(() => null);
       if (!res.ok) throw new Error(body?.detail ?? `Fel ${res.status}`);
-      setItems(body.items);
+      setCalibrated(!!body.calibrated);
+      setItems(
+        (body.items as AnalyzedItem[]).map((it) => ({
+          ...it,
+          ai_grams: it.grams,
+        }))
+      );
     } catch (e) {
       onError((e as Error).message);
     } finally {
@@ -598,7 +606,8 @@ function MealPhotoTab({
       {!items && (
         <p className="mb-3 text-sm text-muted dark:text-faint">
           Fota tallriken så identifierar Shapiqo livsmedlen, uppskattar
-          mängderna och räknar ut kalorier och makron.
+          mängderna och räknar ut kalorier och makron. Tips: fota snett
+          uppifrån med ett bestick i bild — det ger AI:n en storleksreferens.
         </p>
       )}
 
@@ -648,6 +657,8 @@ function MealPhotoTab({
         <div className="mt-3">
           <p className="mb-2 rounded-lg bg-sand px-3 py-2 text-xs text-sand-ink dark:bg-night-shell dark:text-lime">
             AI-uppskattning — justera namn och gram innan du loggar.
+            Dina justeringar kalibrerar framtida gissningar.
+            {calibrated && " (Mängderna är kalibrerade efter din historik.)"}
           </p>
 
           {items.length === 0 && (

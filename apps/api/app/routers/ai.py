@@ -265,9 +265,18 @@ async def meal_vision(
 
     prompt = (
         "Du är en noggrann nutritionist. Titta på fotot av måltiden. "
-        "Identifiera varje enskilt livsmedel/komponent på tallriken, "
-        "uppskatta mängden i gram (tänk på tallrikens storlek som referens) "
-        "och ange typiska näringsvärden per 100 gram. Svenska namn. "
+        "Identifiera varje enskilt livsmedel/komponent på tallriken och "
+        "uppskatta mängden i gram.\n"
+        "Så bedömer du portionsstorlek:\n"
+        "- Använd storleksreferenser i bilden: en middagstallrik är ~27 cm "
+        "i diameter, en gaffel ~19 cm, ett dricksglas ~250 ml.\n"
+        "- Jämför med typiska portioner och håll dig nära dem om inget "
+        "tydligt talar emot: kokt ris/pasta/potatis 150–300 g, kött/fisk/"
+        "kyckling 100–200 g, sallad/grönsaker 50–150 g, sås 30–80 g, "
+        "bröd 30–60 g/skiva.\n"
+        "- Titta på hur högt maten är staplad, inte bara ytan.\n"
+        "- Hellre en typisk portion än en extrem gissning.\n"
+        "Ange typiska näringsvärden per 100 gram. Svenska namn. "
         "Svara med strikt JSON, inget annat:\n"
         '{"items": [{"name": "Grillad kycklingfilé", "grams": 150, '
         '"kcal_per_100g": 110, "protein_g_per_100g": 23, '
@@ -304,7 +313,24 @@ async def meal_vision(
         }
         for item in meal.items
     ]
-    return {"items": items}
+
+    # Personlig kalibrering: när användaren justerar gram innan loggning
+    # sparas kvoten (justerat/AI-förslag). Medianen av de senaste kvoterna
+    # skalar framtida förslag — systemet lär sig om AI:n brukar ta i för
+    # mycket eller för lite för just den här användaren.
+    ratios = (user.profile or {}).get("portion_ratios") or []
+    factor = 1.0
+    calibrated = False
+    if len(ratios) >= 3:
+        ordered = sorted(float(r) for r in ratios)
+        factor = ordered[len(ordered) // 2]
+        factor = max(0.6, min(1.6, factor))
+        if abs(factor - 1.0) >= 0.05:
+            calibrated = True
+            for item in items:
+                item["grams"] = max(5, round(item["grams"] * factor / 5) * 5)
+
+    return {"items": items, "calibrated": calibrated, "factor": round(factor, 2)}
 
 
 # ── Gym-vision ────────────────────────────────────────────────

@@ -292,3 +292,75 @@ async def test_readiness_red_on_low_hrv_and_bad_sleep(
     assert statuses["HRV"] == "red"
     assert statuses["Sömn"] == "red"
     assert "vila" in result["recommendation"].lower()
+
+
+async def test_meal_vision_applies_personal_calibration(
+    client, make_token, known_user, db_session, monkeypatch
+):
+    # Användaren brukar halvera AI:ns gissningar → median 0.8 ska skala ner
+    known_user.profile = {"portion_ratios": [0.8, 0.75, 0.8, 0.85, 0.8]}
+    db_session.add(known_user)
+    await db_session.commit()
+
+    async def fake_chat(prompt, **kwargs):
+        return json.dumps(
+            {
+                "items": [
+                    {
+                        "name": "Jasminris kokt",
+                        "grams": 200,
+                        "kcal_per_100g": 130,
+                        "protein_g_per_100g": 2.7,
+                        "carbs_g_per_100g": 28,
+                        "fat_g_per_100g": 0.3,
+                    }
+                ]
+            }
+        )
+
+    monkeypatch.setattr(ollama, "chat", fake_chat)
+    resp = await client.post(
+        "/api/ai/meal-vision",
+        headers=auth(make_token),
+        files={"file": ("mat.jpg", io.BytesIO(FAKE_JPEG), "image/jpeg")},
+    )
+    body = resp.json()
+    assert body["calibrated"] is True
+    assert body["factor"] == 0.8
+    assert body["items"][0]["grams"] == 160  # 200 × 0.8
+
+
+async def test_photo_log_records_calibration_ratios(
+    client, make_token, known_user, monkeypatch
+):
+    from app.integrations import openfoodfacts
+
+    async def no_remote(query, limit=10):
+        return []
+
+    monkeypatch.setattr(openfoodfacts, "search_products", no_remote)
+    payload = {
+        "eaten_on": "2026-07-18",
+        "meal": "lunch",
+        "items": [
+            {
+                "name": "Ris",
+                "grams": 150,  # justerat ner från AI:ns 200
+                "ai_grams": 200,
+                "per_100g": {"kcal": 130, "protein_g": 2.7, "carbs_g": 28, "fat_g": 0.3},
+            },
+            {
+                "name": "Kyckling",
+                "grams": 500,  # orimlig kvot (>3×) ska INTE sparas
+                "ai_grams": 100,
+                "per_100g": {"kcal": 110, "protein_g": 23, "carbs_g": 0, "fat_g": 2},
+            },
+        ],
+    }
+    resp = await client.post(
+        "/api/meals/photo-log", headers=auth(make_token), json=payload
+    )
+    assert resp.status_code == 200
+
+    me = (await client.get("/api/me", headers=auth(make_token))).json()
+    assert me["profile"]["portion_ratios"] == [0.75]

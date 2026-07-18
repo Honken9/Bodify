@@ -207,6 +207,7 @@ async def photo_log(
     bibliotek (återanvänds vid samma namn), så det även går att söka
     fram och logga manuellt nästa gång."""
     entries = []
+    ratios = []
     for item in payload.items:
         name = item.name.strip()[:120]
         food = await db.scalar(
@@ -230,6 +231,18 @@ async def photo_log(
                 user, db, payload.eaten_on, payload.meal, food, item.grams
             )
         )
+        # Kalibreringsunderlag: hur mycket justerade användaren AI:ns gissning?
+        if item.ai_grams:
+            ratio = float(item.grams) / float(item.ai_grams)
+            if 0.3 <= ratio <= 3.0:  # orimliga kvoter förgiftar inte medianen
+                ratios.append(round(ratio, 3))
+    if ratios:
+        profile = dict(user.profile or {})
+        history = list(profile.get("portion_ratios") or [])
+        history.extend(ratios)
+        profile["portion_ratios"] = history[-30:]  # rullande fönster
+        user.profile = profile
+        db.add(user)
     await db.commit()
     ids = [e.id for e in entries]
     return list(
