@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { api } from "../lib/api";
+import type { Me } from "../lib/types";
 
 const TABS = [
   { href: "/", label: "Hem", icon: "🏠" },
@@ -11,13 +14,24 @@ const TABS = [
   { href: "/history", label: "Historik", icon: "🕘" },
 ];
 
+const ADMIN_TAB = { href: "/admin", label: "Admin", icon: "🛠️" };
+
 export default function Nav() {
   const pathname = usePathname();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    api<Me>("/api/me")
+      .then((me) => setIsAdmin(me.is_admin))
+      .catch(() => {});
+  }, []);
+
+  const tabs = isAdmin ? [...TABS, ADMIN_TAB] : TABS;
 
   return (
     <nav className="desktop:hidden fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 backdrop-blur dark:border-night-shell dark:bg-night-card/95">
       <div className="mx-auto flex max-w-md pb-[env(safe-area-inset-bottom)]">
-        {TABS.map((tab) => {
+        {tabs.map((tab) => {
           const active =
             tab.href === "/" ? pathname === "/" : pathname.startsWith(tab.href);
           return (
