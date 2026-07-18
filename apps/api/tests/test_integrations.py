@@ -436,6 +436,145 @@ async def test_apple_health_ingest(client, make_token, known_user):
     assert resp2.json()["workouts"] == 0
 
 
+def test_encode_polyline_google_example():
+    from app.integrations.apple_health import encode_polyline
+
+    # Googles referensexempel för polyline-kodning
+    points = [(38.5, -120.2), (40.7, -120.95), (43.252, -126.453)]
+    assert encode_polyline(points) == "_p~iF~ps|U_ulLnnqC_mqNvxq`@"
+
+
+async def test_apple_workout_route_and_fun_metrics(client, make_token, known_user):
+    token = (
+        await client.post(
+            "/api/integrations/apple-health/tokens",
+            headers=auth(make_token),
+            json={},
+        )
+    ).json()["token"]
+
+    payload = {
+        "data": {
+            "metrics": [
+                {
+                    "name": "flights_climbed",
+                    "units": "count",
+                    "data": [{"date": "2026-07-18 12:00:00 +0200", "qty": 14}],
+                },
+                {
+                    "name": "apple_exercise_time",
+                    "units": "min",
+                    "data": [{"date": "2026-07-18 12:00:00 +0200", "qty": 42}],
+                },
+                {
+                    "name": "active_energy",
+                    "units": "kJ",  # skalas till kcal
+                    "data": [{"date": "2026-07-18 12:00:00 +0200", "qty": 2000}],
+                },
+                {
+                    "name": "blood_oxygen_saturation",
+                    "units": "%",
+                    "data": [{"date": "2026-07-18 12:00:00 +0200", "qty": 97}],
+                },
+            ],
+            "workouts": [
+                {
+                    "name": "Outdoor Walk",
+                    "start": "2026-07-18 08:00:00 +0000",
+                    "end": "2026-07-18 08:45:00 +0000",
+                    "distance": {"qty": 3.4, "units": "km"},
+                    "elevation": {"ascent": 38, "descent": 32, "units": "m"},
+                    "temperature": {"qty": 18.4, "units": "degC"},
+                    "route": [
+                        {"lat": 59.243, "lon": 18.088, "altitude": 30},
+                        {"lat": 59.245, "lon": 18.091, "altitude": 31},
+                        {"lat": 59.248, "lon": 18.095, "altitude": 33},
+                    ],
+                }
+            ],
+        }
+    }
+    resp = await client.post(
+        "/api/webhooks/apple-health",
+        json=payload,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["workouts"] == 1
+    assert resp.json()["metrics"] == 4
+
+    latest = (
+        await client.get("/api/metrics/latest", headers=auth(make_token))
+    ).json()
+    assert latest["flights_climbed"]["value"] == 14
+    assert latest["exercise_min"]["value"] == 42
+    assert latest["active_kcal"]["value"] == round(2000 * 0.2390057, 3)
+    assert latest["spo2"]["value"] == 97
+
+    # Promenadens GPS-rutt hamnar på kartan som linje
+    geo = (await client.get("/api/cardio/geo", headers=auth(make_token))).json()
+    assert len(geo) == 1
+    assert geo[0]["type"] == "walk"
+    assert geo[0]["polyline"]
+    assert geo[0]["start"] == [59.243, 18.088]
+
+
+async def test_apple_route_enriches_gps_less_twin(
+    client, make_token, known_user, db_session
+):
+    from app.models import CardioActivity
+
+    # Withings-promenaden finns redan — utan GPS
+    walk = CardioActivity(
+        user_id=known_user.id,
+        type="walk",
+        source="withings",
+        external_id="w-walk-1",
+        name="Promenad",
+        started_at=datetime(2026, 7, 18, 8, 2, tzinfo=timezone.utc),
+        duration_s=2700,
+        distance_m=3400.0,
+    )
+    db_session.add(walk)
+    await db_session.commit()
+
+    token = (
+        await client.post(
+            "/api/integrations/apple-health/tokens",
+            headers=auth(make_token),
+            json={},
+        )
+    ).json()["token"]
+
+    payload = {
+        "data": {
+            "workouts": [
+                {
+                    "name": "Outdoor Walk",
+                    "start": "2026-07-18 08:00:00 +0000",
+                    "end": "2026-07-18 08:45:00 +0000",
+                    "route": [
+                        {"lat": 59.243, "lon": 18.088},
+                        {"lat": 59.246, "lon": 18.092},
+                    ],
+                }
+            ]
+        }
+    }
+    resp = await client.post(
+        "/api/webhooks/apple-health",
+        json=payload,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.json()["workouts"] == 0  # ingen dubblett skapas…
+
+    # …men Withings-passet fick Apples GPS-rutt
+    geo = (await client.get("/api/cardio/geo", headers=auth(make_token))).json()
+    assert len(geo) == 1
+    assert geo[0]["id"] == str(walk.id)
+    assert geo[0]["polyline"]
+
+
 async def test_apple_workout_deduped_against_strava(
     client, make_token, known_user, strava_conn, monkeypatch
 ):

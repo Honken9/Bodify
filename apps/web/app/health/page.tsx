@@ -23,6 +23,9 @@ const METRIC_META: Record<
   hr_avg: { label: "Snittpuls (dag)", unit: "bpm", decimals: 0 },
   hr_min: { label: "Lägsta puls (dag)", unit: "bpm", decimals: 0 },
   hr_max: { label: "Maxpuls (dag)", unit: "bpm", decimals: 0 },
+  flights_climbed: { label: "Trappor", unit: "/dag", decimals: 0 },
+  exercise_min: { label: "Träningsminuter", unit: "min/dag", decimals: 0 },
+  active_kcal: { label: "Aktiv energi", unit: "kcal/dag", decimals: 0 },
 };
 
 type Latest = Record<

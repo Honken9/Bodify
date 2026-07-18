@@ -98,6 +98,9 @@ METRICS = {
     "hr_avg",  # dagens snittpuls (slag/min)
     "hr_min",  # dagens lägsta puls
     "hr_max",  # dagens högsta puls
+    "flights_climbed",  # trappor/dag (Apple Health)
+    "exercise_min",  # träningsminuter/dag (Apple Health)
+    "active_kcal",  # aktiv förbränning/dag (Apple Health)
 }
 
 

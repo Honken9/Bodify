@@ -26,7 +26,14 @@ METRIC_MAP: dict[str, tuple[str, float]] = {
     "resting_heart_rate": ("resting_hr", 1.0),
     "step_count": ("steps", 1.0),
     "vo2_max": ("vo2max", 1.0),
+    "blood_oxygen_saturation": ("spo2", 1.0),
+    "flights_climbed": ("flights_climbed", 1.0),
+    "apple_exercise_time": ("exercise_min", 1.0),
+    "active_energy": ("active_kcal", 1.0),  # kJ-enheter skalas i ingest
 }
+
+# Energienheter HAE kan skicka → kcal
+ENERGY_SCALE = {"kj": 0.2390057, "kcal": 1.0, "cal": 0.001}
 
 WORKOUT_TYPE_MAP = [
     ("run", "run"),
@@ -71,6 +78,43 @@ def _workout_type(name: str) -> str:
     return "other"
 
 
+def encode_polyline(points: list[tuple[float, float]]) -> str:
+    """[(lat, lng), ...] → Google-kodad polyline (samma format som Strava)."""
+    chars: list[str] = []
+    prev_lat = prev_lng = 0
+    for lat, lng in points:
+        ilat, ilng = round(lat * 1e5), round(lng * 1e5)
+        for delta in (ilat - prev_lat, ilng - prev_lng):
+            value = ~(delta << 1) if delta < 0 else delta << 1
+            while value >= 0x20:
+                chars.append(chr((0x20 | (value & 0x1F)) + 63))
+                value >>= 5
+            chars.append(chr(value + 63))
+        prev_lat, prev_lng = ilat, ilng
+    return "".join(chars)
+
+
+def _route_points(workout: dict) -> list[tuple[float, float]]:
+    """GPS-punkter ur HAE:s route-fält (kräver att rutter är påslagna i
+    appen). Glesas ut till max 500 punkter — nog för kartan."""
+    points: list[tuple[float, float]] = []
+    for p in workout.get("route") or []:
+        if not isinstance(p, dict):
+            continue
+        lat = p.get("lat") if p.get("lat") is not None else p.get("latitude")
+        lng = (
+            p.get("lon")
+            if p.get("lon") is not None
+            else p.get("lng") if p.get("lng") is not None else p.get("longitude")
+        )
+        if isinstance(lat, (int, float)) and isinstance(lng, (int, float)):
+            points.append((float(lat), float(lng)))
+    if len(points) > 500:
+        step = len(points) / 500
+        points = [points[int(i * step)] for i in range(500)] + [points[-1]]
+    return points
+
+
 async def ingest(user: User, payload: dict, db: AsyncSession) -> dict:
     """Normalisera in en HAE-export. Returnerar räknare per datatyp."""
     data = payload.get("data") or {}
@@ -88,6 +132,9 @@ async def ingest(user: User, payload: dict, db: AsyncSession) -> dict:
             counts["skipped"] += 1
             continue
         metric, scale = mapped
+        if metric == "active_kcal":
+            units = str(metric_block.get("units") or "kcal").lower()
+            scale = ENERGY_SCALE.get(units, 1.0)
         for point in metric_block.get("data") or []:
             measured_at = _parse_date(point.get("date") or "")
             value = _qty(point)
@@ -156,8 +203,8 @@ async def _ingest_workout(user: User, workout: dict, db: AsyncSession) -> int:
 
     workout_type = _workout_type(workout.get("name") or "")
 
-    # Dedupe: samma pass kommer ofta även via Strava — hoppa över om en
-    # aktivitet av samma typ startar inom ±15 minuter.
+    # Dedupe: samma pass kommer ofta även via Strava/Withings — hoppa
+    # över om en aktivitet av samma typ startar inom ±15 minuter.
     window = timedelta(minutes=15)
     overlap = await db.scalar(
         select(CardioActivity).where(
@@ -167,8 +214,6 @@ async def _ingest_workout(user: User, workout: dict, db: AsyncSession) -> int:
             CardioActivity.started_at <= start + window,
         )
     )
-    if overlap is not None:
-        return 0
 
     duration_s = int((end - start).total_seconds())
     distance = _qty(workout.get("distance"))
@@ -186,6 +231,31 @@ async def _ingest_workout(user: User, workout: dict, db: AsyncSession) -> int:
         else None
     )
 
+    # GPS-rutt + roliga extras (kräver att rutter är påslagna i HAE)
+    raw: dict = {}
+    points = _route_points(workout)
+    if points:
+        raw["polyline"] = encode_polyline(points)
+        raw["start_latlng"] = [points[0][0], points[0][1]]
+    elevation = workout.get("elevation")
+    if isinstance(elevation, dict) and _qty(elevation.get("ascent")) is not None:
+        raw["total_elevation_gain"] = _qty(elevation.get("ascent"))
+    for key, raw_key in (
+        ("temperature", "temperature"),
+        ("humidity", "humidity"),
+        ("intensity", "intensity"),
+    ):
+        value = _qty(workout.get(key))
+        if value is not None:
+            raw[raw_key] = round(value, 1)
+
+    if overlap is not None:
+        # Passet finns redan (Strava/Withings/klockan) — men saknar
+        # tvillingen GPS (t.ex. Withings-promenad) får den Apples rutt.
+        if raw.get("polyline") and not (overlap.raw or {}).get("polyline"):
+            overlap.raw = {**(overlap.raw or {}), **raw}
+        return 0
+
     external_id = workout.get("id") or f"hae-{start.timestamp():.0f}"
     existing = await db.scalar(
         select(CardioActivity).where(
@@ -195,6 +265,11 @@ async def _ingest_workout(user: User, workout: dict, db: AsyncSession) -> int:
         )
     )
     if existing is not None:
+        # Redan importerat utan rutt (t.ex. innan rutter slogs på i HAE)?
+        # Komplettera med GPS:en utan att röra manuellt satta platser.
+        old_raw = existing.raw or {}
+        if raw.get("polyline") and not old_raw.get("polyline"):
+            existing.raw = {**old_raw, **raw}
         return 0
 
     db.add(
@@ -211,6 +286,7 @@ async def _ingest_workout(user: User, workout: dict, db: AsyncSession) -> int:
             max_hr=_qty(workout.get("maxHeartRate")),
             avg_pace_s_per_km=pace,
             calories=_qty(workout.get("activeEnergyBurned")),
+            raw=raw or None,
         )
     )
     return 1
