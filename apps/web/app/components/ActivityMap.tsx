@@ -66,7 +66,11 @@ export default function ActivityMap({
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
-    const map = L.map(containerRef.current, { scrollWheelZoom: true });
+    // preferCanvas: ritar hundratals rutter snabbt utan att segna ner
+    const map = L.map(containerRef.current, {
+      scrollWheelZoom: true,
+      preferCanvas: true,
+    });
     mapRef.current = map;
     layersRef.current.clear();
 

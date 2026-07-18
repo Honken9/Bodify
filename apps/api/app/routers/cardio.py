@@ -54,7 +54,7 @@ class CardioGeoOut(BaseModel):
 
 @router.get("/geo", response_model=list[CardioGeoOut])
 async def list_geo_activities(
-    limit: int = 200,
+    limit: int = 1000,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_session),
 ) -> list[CardioGeoOut]:
@@ -62,7 +62,7 @@ async def list_geo_activities(
         select(CardioActivity)
         .where(CardioActivity.user_id == user.id)
         .order_by(CardioActivity.started_at.desc())
-        .limit(min(limit, 500))
+        .limit(min(limit, 5000))
     )
     result = []
     for a in rows:

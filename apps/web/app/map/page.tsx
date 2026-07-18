@@ -38,7 +38,7 @@ export default function MapPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api<GeoActivity[]>("/api/cardio/geo")
+    api<GeoActivity[]>("/api/cardio/geo?limit=5000")
       .then(setActivities)
       .catch((e: Error) => setError(e.message));
   }, []);
@@ -57,7 +57,7 @@ export default function MapPage() {
           ? `✅ ${res.imported} aktiviteter hämtade från Strava!`
           : "✅ Historiken är redan komplett — inget nytt att hämta."
       );
-      setActivities(await api<GeoActivity[]>("/api/cardio/geo"));
+      setActivities(await api<GeoActivity[]>("/api/cardio/geo?limit=5000"));
     } catch (e) {
       const msg = (e as Error).message;
       setError(

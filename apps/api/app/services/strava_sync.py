@@ -7,6 +7,7 @@ dag ett. Idempotent: befintliga aktiviteter uppdateras på externt id.
 
 import logging
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,7 +16,7 @@ from app.models import CardioActivity, OAuthConnection
 
 logger = logging.getLogger(__name__)
 
-MAX_PAGES = 20  # 20 × 200 = 4000 aktiviteter — långt över ett normalt arkiv
+MAX_PAGES = 100  # 100 × 200 = 20 000 aktiviteter — hela arkivet i praktiken
 
 
 async def backfill_activities(
@@ -23,7 +24,15 @@ async def backfill_activities(
 ) -> int:
     imported = 0
     for page in range(1, max_pages + 1):
-        activities = await strava.fetch_activity_page(conn, db, page)
+        try:
+            activities = await strava.fetch_activity_page(conn, db, page)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 429:
+                # Stravas kvot (per 15 min) nådd — spara det vi fått;
+                # nästa "Hämta historik" fortsätter där det tog slut.
+                logger.warning("Strava-kvot nådd på sida %s — pausar.", page)
+                break
+            raise
         if not activities:
             break
         for activity in activities:
