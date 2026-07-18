@@ -90,7 +90,7 @@ export default function FoodPicker({
       onClick={onClose}
     >
       <div
-        className="flex max-h-[85dvh] w-full max-w-md flex-col rounded-t-3xl bg-white p-5 dark:bg-night-card"
+        className="flex max-h-[85dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-white p-5 dark:bg-night-card"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -299,6 +299,8 @@ function QuickTab({
   const [recent, setRecent] = useState<RecentFood[]>([]);
   const [suggestions, setSuggestions] = useState<FoodItem[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [showAllFavorites, setShowAllFavorites] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -319,13 +321,17 @@ function QuickTab({
     </h4>
   );
 
+  // Kompakt: max 5 per sektion så listan inte växer förbi flikarna —
+  // resten göms bakom "visa fler"
+  const visibleFavorites = showAllFavorites ? favorites : favorites.slice(0, 5);
+
   return (
     <div>
       {recent.length > 0 && (
         <>
           {heading("Senaste")}
           <ul className="divide-y divide-line dark:divide-night-shell">
-            {recent.map((r) => (
+            {recent.slice(0, 5).map((r) => (
               <FoodRow
                 key={r.food.id}
                 food={r.food}
@@ -345,7 +351,7 @@ function QuickTab({
         <>
           {heading("⭐ Favoriter")}
           <ul className="divide-y divide-line dark:divide-night-shell">
-            {favorites.map((f) => (
+            {visibleFavorites.map((f) => (
               <FoodRow
                 key={f.id}
                 food={f}
@@ -355,6 +361,16 @@ function QuickTab({
               />
             ))}
           </ul>
+          {favorites.length > 5 && (
+            <button
+              onClick={() => setShowAllFavorites((v) => !v)}
+              className="mt-1 w-full rounded-lg bg-shell py-2 text-xs font-semibold text-muted dark:bg-night-shell dark:text-night-muted"
+            >
+              {showAllFavorites
+                ? "Visa färre ▴"
+                : `Visa alla ${favorites.length} favoriter ▾`}
+            </button>
+          )}
         </>
       )}
 
@@ -367,18 +383,28 @@ function QuickTab({
 
       {suggestions.length > 0 && (
         <>
-          {heading("Förslag")}
-          <ul className="divide-y divide-line dark:divide-night-shell">
-            {suggestions.map((f) => (
-              <FoodRow
-                key={f.id}
-                food={f}
-                isFav={favIds.has(f.id)}
-                onToggleFavorite={onToggleFavorite}
-                onPick={() => onPick({ food: f })}
-              />
-            ))}
-          </ul>
+          <button
+            onClick={() => setShowSuggestions((v) => !v)}
+            className="mt-4 flex w-full items-center justify-between rounded-lg bg-shell px-3 py-2.5 text-sm font-semibold dark:bg-night-shell"
+          >
+            <span>💡 Vanliga livsmedel</span>
+            <span className="text-xs text-muted">
+              {suggestions.length} st {showSuggestions ? "▴" : "▾"}
+            </span>
+          </button>
+          {showSuggestions && (
+            <ul className="divide-y divide-line dark:divide-night-shell">
+              {suggestions.map((f) => (
+                <FoodRow
+                  key={f.id}
+                  food={f}
+                  isFav={favIds.has(f.id)}
+                  onToggleFavorite={onToggleFavorite}
+                  onPick={() => onPick({ food: f })}
+                />
+              ))}
+            </ul>
+          )}
         </>
       )}
     </div>
