@@ -282,6 +282,64 @@ async def test_metric_series_windowed(client, make_token, known_user):
     assert [p["value"] for p in day] == [83.2]
 
 
+async def test_cardio_geo_only_returns_activities_with_gps(
+    client, make_token, known_user, db_session
+):
+    from app.models import CardioActivity
+
+    db_session.add(
+        CardioActivity(
+            user_id=known_user.id,
+            type="run",
+            source="strava",
+            external_id="geo-1",
+            name="Morgonrunda",
+            started_at=datetime(2026, 7, 17, 6, 15, tzinfo=timezone.utc),
+            duration_s=1560,
+            distance_m=4000,
+            raw={"polyline": "_p~iF~ps|U_ulLnnqC", "start_latlng": [59.33, 18.06]},
+        )
+    )
+    db_session.add(
+        CardioActivity(
+            user_id=known_user.id,
+            type="other",
+            source="manual",
+            external_id=None,
+            name="Padel",
+            started_at=datetime(2026, 7, 16, 18, 0, tzinfo=timezone.utc),
+            duration_s=3600,
+            raw=None,  # ingen GPS → ska inte med på kartan
+        )
+    )
+    await db_session.commit()
+
+    geo = (await client.get("/api/cardio/geo", headers=auth(make_token))).json()
+    assert len(geo) == 1
+    assert geo[0]["name"] == "Morgonrunda"
+    assert geo[0]["polyline"] == "_p~iF~ps|U_ulLnnqC"
+    assert geo[0]["start"] == [59.33, 18.06]
+
+
+def test_strava_normalize_keeps_gps():
+    from app.integrations.strava import normalize_activity
+
+    fields = normalize_activity(
+        {
+            "id": 987,
+            "type": "Run",
+            "name": "Kvällsrunda",
+            "start_date": "2026-07-17T18:00:00Z",
+            "moving_time": 1800,
+            "distance": 5000,
+            "map": {"summary_polyline": "abc123"},
+            "start_latlng": [59.31, 18.07],
+        }
+    )
+    assert fields["raw"]["polyline"] == "abc123"
+    assert fields["raw"]["start_latlng"] == [59.31, 18.07]
+
+
 HAE_PAYLOAD = {
     "data": {
         "metrics": [

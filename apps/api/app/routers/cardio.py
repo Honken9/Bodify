@@ -38,6 +38,54 @@ class CardioCreate(BaseModel):
     avg_hr: float | None = Field(default=None, gt=0, le=250)
 
 
+class CardioGeoOut(BaseModel):
+    """Aktivitet med GPS-data för träningskartan — rutt (kodad polyline)
+    för t.ex. löprundor, eller bara startpunkt för platsbundna pass."""
+
+    id: uuid.UUID
+    type: str
+    name: str | None
+    started_at: datetime
+    duration_s: int
+    distance_m: float | None
+    polyline: str | None
+    start: list[float] | None
+
+
+@router.get("/geo", response_model=list[CardioGeoOut])
+async def list_geo_activities(
+    limit: int = 200,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> list[CardioGeoOut]:
+    rows = await db.scalars(
+        select(CardioActivity)
+        .where(CardioActivity.user_id == user.id)
+        .order_by(CardioActivity.started_at.desc())
+        .limit(min(limit, 500))
+    )
+    result = []
+    for a in rows:
+        raw = a.raw or {}
+        polyline = raw.get("polyline") or None
+        start = raw.get("start_latlng") or None
+        if not polyline and not (isinstance(start, list) and len(start) == 2):
+            continue  # ingen GPS-data — hör inte hemma på kartan
+        result.append(
+            CardioGeoOut(
+                id=a.id,
+                type=a.type,
+                name=a.name,
+                started_at=a.started_at,
+                duration_s=a.duration_s,
+                distance_m=float(a.distance_m) if a.distance_m else None,
+                polyline=polyline,
+                start=start if isinstance(start, list) and len(start) == 2 else None,
+            )
+        )
+    return result
+
+
 @router.get("", response_model=list[CardioOut])
 async def list_activities(
     limit: int = 30,

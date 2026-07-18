@@ -29,9 +29,14 @@ export default function TrainingPage() {
     <main className="mx-auto flex max-w-md flex-col desktop:max-w-4xl gap-4 p-5">
       <div className="flex items-center justify-between pt-2">
         <h1 className="text-2xl font-bold">Träning</h1>
-        <a href="/exercises" className="text-sm text-navy dark:text-lime">
-          Övningsbibliotek ›
-        </a>
+        <div className="flex gap-3">
+          <a href="/map" className="text-sm text-navy dark:text-lime">
+            🗺️ Karta
+          </a>
+          <a href="/exercises" className="text-sm text-navy dark:text-lime">
+            Övningsbibliotek ›
+          </a>
+        </div>
       </div>
 
       <div className="flex gap-1.5">

@@ -13,6 +13,7 @@ const ITEMS = [
   { href: "/food", label: "Kost", icon: "🥗" },
   { href: "/health", label: "Hälsa", icon: "❤️" },
   { href: "/programs", label: "Träning", icon: "🏋️" },
+  { href: "/map", label: "Karta", icon: "🗺️" },
   { href: "/exercises", label: "Övningar", icon: "💪" },
   { href: "/history", label: "Historik", icon: "🕘" },
   { href: "/social", label: "Socialt", icon: "🏆" },

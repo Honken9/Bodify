@@ -129,5 +129,9 @@ def normalize_activity(activity: dict) -> dict:
             "sport_type": activity.get("sport_type"),
             "elapsed_time": activity.get("elapsed_time"),
             "total_elevation_gain": activity.get("total_elevation_gain"),
+            # GPS för träningskartan: rutt (kodad polyline) + startpunkt
+            "polyline": (activity.get("map") or {}).get("polyline")
+            or (activity.get("map") or {}).get("summary_polyline"),
+            "start_latlng": activity.get("start_latlng"),
         },
     }
