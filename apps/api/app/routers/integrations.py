@@ -179,8 +179,8 @@ async def strava_sync(
         raise HTTPException(404, "Strava är inte kopplat ännu.")
     from app.services.strava_sync import backfill_activities
 
-    imported = await backfill_activities(conn, db)
-    return {"ok": True, "imported": imported}
+    result = await backfill_activities(conn, db)
+    return {"ok": True, **result}
 
 
 @router.get("/withings/callback")

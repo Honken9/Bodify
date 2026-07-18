@@ -47,9 +47,10 @@ MAX_PAGES = 100  # 100 × 200 = 20 000 aktiviteter — hela arkivet i praktiken
 
 async def backfill_activities(
     conn: OAuthConnection, db: AsyncSession, max_pages: int = MAX_PAGES
-) -> int:
+) -> dict:
     imported = 0
     removed_dupes = 0
+    paused = False
     for page in range(1, max_pages + 1):
         try:
             activities = await strava.fetch_activity_page(conn, db, page)
@@ -58,6 +59,7 @@ async def backfill_activities(
                 # Stravas kvot (per 15 min) nådd — spara det vi fått;
                 # nästa "Hämta historik" fortsätter där det tog slut.
                 logger.warning("Strava-kvot nådd på sida %s — pausar.", page)
+                paused = True
                 break
             raise
         if not activities:
@@ -89,4 +91,4 @@ async def backfill_activities(
             break  # sista sidan
     if removed_dupes:
         logger.info("Rensade %s klock-dubbletter av Strava-pass.", removed_dupes)
-    return imported
+    return {"imported": imported, "paused": paused}

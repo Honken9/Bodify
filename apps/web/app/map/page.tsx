@@ -36,10 +36,27 @@ const TYPE_ICONS: Record<string, string> = {
   other: "💪",
 };
 
+const PERIODS: [string, string][] = [
+  ["all", "Allt"],
+  ["week", "Vecka"],
+  ["month", "Månad"],
+  ["year", "År"],
+];
+
+function isoWeek(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
+
 export default function MapPage() {
   const [all, setAll] = useState<CardioActivity[] | null>(null);
   const [geo, setGeo] = useState<GeoActivity[]>([]);
   const [filter, setFilter] = useState("all");
+  const [period, setPeriod] = useState("all");
+  const [periodOffset, setPeriodOffset] = useState(0); // 0 = nu, -1 = förra…
   const [focusId, setFocusId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
@@ -67,14 +84,18 @@ export default function MapPage() {
     setSyncResult(null);
     setError(null);
     try {
-      const res = await api<{ imported: number }>(
+      const res = await api<{ imported: number; paused?: boolean }>(
         "/api/integrations/strava/sync",
         { method: "POST" }
       );
       setSyncResult(
-        res.imported > 0
-          ? `✅ ${res.imported} aktiviteter hämtade från Strava!`
-          : "✅ Historiken är redan komplett — inget nytt att hämta."
+        res.paused
+          ? `⏸ ${res.imported} aktiviteter hämtade — Stravas kvot är nådd. ` +
+              "Tryck på Hämta historik igen om ca 15 min så fortsätter " +
+              "hämtningen bakåt i tiden."
+          : res.imported > 0
+            ? `✅ ${res.imported} aktiviteter hämtade från Strava!`
+            : "✅ Historiken är redan komplett — inget nytt att hämta."
       );
       await load();
     } catch (e) {
@@ -91,8 +112,52 @@ export default function MapPage() {
 
   const geoById = new Map(geo.map((g) => [g.id, g]));
 
-  // Listan: alla pass (typfilter), "nogps" = bara de utan GPS
+  // Vald tidsperiod → [start, slut) att filtrera på; null = allt
+  function periodRange(): [Date, Date] | null {
+    if (period === "all") return null;
+    const now = new Date();
+    if (period === "year") {
+      const y = now.getFullYear() + periodOffset;
+      return [new Date(y, 0, 1), new Date(y + 1, 0, 1)];
+    }
+    if (period === "month") {
+      const s = new Date(now.getFullYear(), now.getMonth() + periodOffset, 1);
+      return [s, new Date(s.getFullYear(), s.getMonth() + 1, 1)];
+    }
+    // Vecka — måndag som första dag
+    const monday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() - ((now.getDay() + 6) % 7) + periodOffset * 7
+    );
+    const end = new Date(monday);
+    end.setDate(end.getDate() + 7);
+    return [monday, end];
+  }
+  const range = periodRange();
+
+  function periodLabel(): string {
+    if (!range) return "";
+    const [s, e] = range;
+    if (period === "year") return String(s.getFullYear());
+    if (period === "month")
+      return new Intl.DateTimeFormat("sv-SE", {
+        month: "long",
+        year: "numeric",
+      }).format(s);
+    const last = new Date(e);
+    last.setDate(last.getDate() - 1);
+    return `v.${isoWeek(s)} · ${s.getDate()}/${s.getMonth() + 1}–${last.getDate()}/${
+      last.getMonth() + 1
+    }`;
+  }
+
+  // Listan: alla pass (typ- + tidsfilter), "nogps" = bara de utan GPS
   const listItems = (all ?? []).filter((a) => {
+    if (range) {
+      const t = new Date(a.started_at);
+      if (t < range[0] || t >= range[1]) return false;
+    }
     if (filter === "nogps") return !geoById.has(a.id);
     return filter === "all" || a.type === filter;
   });
@@ -184,6 +249,58 @@ export default function MapPage() {
             {label}
           </button>
         ))}
+      </div>
+
+      {/* Tidsfilter: allt, eller bläddra vecka/månad/år */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {PERIODS.map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => {
+              setPeriod(key);
+              setPeriodOffset(0);
+              setFocusId(null);
+              setSelected(new Set());
+            }}
+            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${
+              period === key
+                ? "bg-lime text-lime-ink"
+                : "bg-shell text-muted dark:bg-night-shell dark:text-night-muted"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+        {range && (
+          <div className="ml-auto flex items-center gap-1 rounded-full bg-cream-deep px-1 py-0.5 dark:bg-night-shell/60">
+            <button
+              onClick={() => {
+                setPeriodOffset((o) => o - 1);
+                setFocusId(null);
+                setSelected(new Set());
+              }}
+              className="px-2 py-1 text-sm leading-none"
+              aria-label="Föregående period"
+            >
+              ‹
+            </button>
+            <span className="min-w-20 text-center text-xs font-semibold capitalize">
+              {periodLabel()}
+            </span>
+            <button
+              onClick={() => {
+                setPeriodOffset((o) => Math.min(0, o + 1));
+                setFocusId(null);
+                setSelected(new Set());
+              }}
+              disabled={periodOffset === 0}
+              className="px-2 py-1 text-sm leading-none disabled:opacity-30"
+              aria-label="Nästa period"
+            >
+              ›
+            </button>
+          </div>
+        )}
       </div>
 
       {all !== null && all.length === 0 ? (
