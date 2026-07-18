@@ -123,11 +123,42 @@ async def fetch_activity_page(
     return resp.json()
 
 
+def normalize_splits(activity: dict) -> list[dict] | None:
+    """Km-varv (splits_metric) → kompakta rader för detaljvyn.
+
+    Finns bara i detaljsvaret från /activities/{id}, inte i listsidorna —
+    None betyder "okänt", tom lista "hämtat men inga varv"."""
+    if "splits_metric" not in activity:
+        return None
+    rows = []
+    for split in activity.get("splits_metric") or []:
+        distance = float(split.get("distance") or 0)
+        seconds = int(split.get("moving_time") or split.get("elapsed_time") or 0)
+        if distance <= 0 or seconds <= 0:
+            continue
+        rows.append(
+            {
+                "km": split.get("split"),
+                "distance_m": round(distance),
+                "time_s": seconds,
+                "pace_s_per_km": round(seconds / (distance / 1000), 1),
+                "hr": (
+                    round(float(split["average_heartrate"]))
+                    if split.get("average_heartrate")
+                    else None
+                ),
+                "elev_diff_m": split.get("elevation_difference"),
+            }
+        )
+    return rows
+
+
 def normalize_activity(activity: dict) -> dict:
     """Strava-aktivitet → fält för cardio_activities."""
     distance_m = float(activity.get("distance") or 0)
     moving_s = int(activity.get("moving_time") or 0)
     pace = round(moving_s / (distance_m / 1000), 1) if distance_m > 100 else None
+    splits = normalize_splits(activity)
     return {
         "type": TYPE_MAP.get(activity.get("sport_type") or activity.get("type"), "other"),
         "external_id": str(activity["id"]),
@@ -160,5 +191,7 @@ def normalize_activity(activity: dict) -> dict:
             "kudos_count": activity.get("kudos_count"),
             "pr_count": activity.get("pr_count"),
             "achievement_count": activity.get("achievement_count"),
+            # Km-varv — bara med när detaljsvaret innehåller dem
+            **({"splits": splits} if splits is not None else {}),
         },
     }

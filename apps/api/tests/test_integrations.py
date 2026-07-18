@@ -766,6 +766,174 @@ async def test_bulk_location(client, make_token, known_user, db_session):
     assert resp.json()["updated"] == 0
 
 
+def test_strava_normalize_splits():
+    from app.integrations.strava import normalize_activity
+
+    detail = {
+        "id": 555,
+        "sport_type": "Run",
+        "start_date": "2026-07-13T06:00:00Z",
+        "moving_time": 1800,
+        "distance": 5000.0,
+        "splits_metric": [
+            {
+                "split": 1,
+                "distance": 1000.0,
+                "moving_time": 330,
+                "average_heartrate": 148.6,
+                "elevation_difference": 4.2,
+            },
+            {"split": 2, "distance": 1000.0, "moving_time": 350},
+            {"split": 3, "distance": 120.0, "moving_time": 40},
+            {"split": 4, "distance": 0, "moving_time": 0},  # skräp filtreras
+        ],
+    }
+    splits = normalize_activity(detail)["raw"]["splits"]
+    assert len(splits) == 3
+    assert splits[0] == {
+        "km": 1,
+        "distance_m": 1000,
+        "time_s": 330,
+        "pace_s_per_km": 330.0,
+        "hr": 149,
+        "elev_diff_m": 4.2,
+    }
+    assert splits[1]["hr"] is None
+
+    # Listsvar (utan splits_metric) → ingen splits-nyckel = "okänt, hämta vid behov"
+    summary = {"id": 556, "sport_type": "Run", "start_date": "2026-07-13T06:00:00Z"}
+    assert "splits" not in normalize_activity(summary)["raw"]
+
+
+async def test_watch_gym_pass_merges_with_logged_session(
+    client, make_token, known_user, withings_conn, db_session, monkeypatch
+):
+    from app.models import WorkoutSession
+
+    ws = WorkoutSession(
+        user_id=known_user.id,
+        started_at=datetime(2026, 7, 18, 17, 0, tzinfo=timezone.utc),
+        finished_at=datetime(2026, 7, 18, 18, 5, tzinfo=timezone.utc),
+        start_lat=59.243,
+        start_lng=18.088,
+    )
+    db_session.add(ws)
+    await db_session.commit()
+
+    async def watch_gym(conn, db, days_back=7):
+        return [
+            {
+                "external_id": "w-gym-18",
+                "type": "other",
+                "name": "Styrketräning",
+                "started_at": datetime(2026, 7, 18, 17, 8, tzinfo=timezone.utc),
+                "duration_s": 3300,
+                "distance_m": None,
+                "calories": 410,
+                "avg_hr": 121,
+                "max_hr": 158,
+                "avg_pace_s_per_km": None,
+            }
+        ]
+
+    async def no_days(conn, db, days_back=7):
+        return []
+
+    monkeypatch.setattr(withings_mod, "fetch_workouts", watch_gym)
+    monkeypatch.setattr(withings_mod, "fetch_daily_activity", no_days)
+
+    resp = await client.post(
+        "/api/webhooks/withings", data={"userid": "w-99", "appli": "16"}
+    )
+    assert resp.status_code == 200
+
+    # Klockpasset är ihopslaget → syns inte som eget pass
+    cardio = (await client.get("/api/cardio", headers=auth(make_token))).json()
+    assert cardio == []
+
+    # ...men berikar styrkepasset med klockdata
+    sessions = (await client.get("/api/sessions", headers=auth(make_token))).json()
+    assert sessions[0]["watch"]["avg_hr"] == 121.0
+    assert sessions[0]["watch"]["calories"] == 410.0
+    assert sessions[0]["watch"]["source"] == "withings"
+
+    # Gympasset med position syns på kartan som styrkepass
+    geo = (await client.get("/api/cardio/geo", headers=auth(make_token))).json()
+    strength = [g for g in geo if g["type"] == "strength"]
+    assert len(strength) == 1
+    assert strength[0]["start"] == [59.243, 18.088]
+
+    # Koppla isär → eget pass igen, och länkas aldrig om automatiskt
+    resp = await client.post(
+        f"/api/sessions/{ws.id}/unlink-watch", headers=auth(make_token)
+    )
+    assert resp.status_code == 200
+    assert resp.json()["watch"] is None
+    cardio = (await client.get("/api/cardio", headers=auth(make_token))).json()
+    assert len(cardio) == 1
+
+    await client.post(
+        "/api/webhooks/withings", data={"userid": "w-99", "appli": "16"}
+    )
+    sessions = (await client.get("/api/sessions", headers=auth(make_token))).json()
+    assert sessions[0]["watch"] is None  # opt-out respekteras
+    cardio = (await client.get("/api/cardio", headers=auth(make_token))).json()
+    assert len(cardio) == 1
+
+
+async def test_auto_merge_can_be_disabled(
+    client, make_token, known_user, withings_conn, db_session, monkeypatch
+):
+    from app.models import WorkoutSession
+
+    # Stäng av ihopslagning i profilen
+    resp = await client.patch(
+        "/api/me",
+        headers=auth(make_token),
+        json={"profile": {"auto_merge_watch": False}},
+    )
+    assert resp.json()["profile"]["auto_merge_watch"] is False
+
+    ws = WorkoutSession(
+        user_id=known_user.id,
+        started_at=datetime(2026, 7, 19, 17, 0, tzinfo=timezone.utc),
+        finished_at=datetime(2026, 7, 19, 18, 0, tzinfo=timezone.utc),
+    )
+    db_session.add(ws)
+    await db_session.commit()
+
+    async def watch_gym(conn, db, days_back=7):
+        return [
+            {
+                "external_id": "w-gym-19",
+                "type": "other",
+                "name": "Styrketräning",
+                "started_at": datetime(2026, 7, 19, 17, 5, tzinfo=timezone.utc),
+                "duration_s": 3000,
+                "distance_m": None,
+                "calories": 300,
+                "avg_hr": 110,
+                "max_hr": 150,
+                "avg_pace_s_per_km": None,
+            }
+        ]
+
+    async def no_days(conn, db, days_back=7):
+        return []
+
+    monkeypatch.setattr(withings_mod, "fetch_workouts", watch_gym)
+    monkeypatch.setattr(withings_mod, "fetch_daily_activity", no_days)
+    await client.post(
+        "/api/webhooks/withings", data={"userid": "w-99", "appli": "16"}
+    )
+
+    # Ingen ihopslagning — klockpasset är kvar som eget
+    cardio = (await client.get("/api/cardio", headers=auth(make_token))).json()
+    assert len(cardio) == 1
+    sessions = (await client.get("/api/sessions", headers=auth(make_token))).json()
+    assert sessions[0]["watch"] is None
+
+
 async def test_geo_search_short_query_returns_empty(client, make_token, known_user):
     # Under 2 tecken → tom lista utan att Nominatim anropas
     resp = await client.get("/api/cardio/geo-search?q=s", headers=auth(make_token))

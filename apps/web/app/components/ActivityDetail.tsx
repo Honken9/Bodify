@@ -24,6 +24,14 @@ export type CardioDetail = {
   polyline: string | null;
   start: [number, number] | null;
   extras: Record<string, number | string>;
+  splits: {
+    km: number | null;
+    distance_m: number;
+    time_s: number;
+    pace_s_per_km: number;
+    hr: number | null;
+    elev_diff_m: number | null;
+  }[];
 };
 
 const TYPE_META: Record<string, [string, string]> = {
@@ -45,6 +53,67 @@ function fmtDuration(s: number): string {
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
   return h > 0 ? `${h} h ${m} min` : `${m} min`;
+}
+
+/** Km-varv med tempostaplar — snabbaste varvet fylld hela vägen. */
+function SplitsTable({ splits }: { splits: CardioDetail["splits"] }) {
+  const paces = splits.map((s) => s.pace_s_per_km);
+  const fastest = Math.min(...paces);
+  const slowest = Math.max(...paces);
+  const span = Math.max(slowest - fastest, 1);
+
+  return (
+    <section className="mt-4">
+      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-faint">
+        Km-varv
+      </h4>
+      <ul className="space-y-1">
+        {splits.map((s, i) => {
+          const partial = s.distance_m < 900; // sista biten är sällan hel km
+          // Snabbast = längst stapel (75–100 % av bredden)
+          const frac = 1 - ((s.pace_s_per_km - fastest) / span) * 0.6;
+          return (
+            <li key={i} className="flex items-center gap-2 text-sm">
+              <span className="w-8 shrink-0 text-right text-xs font-semibold text-faint">
+                {partial
+                  ? `${(s.distance_m / 1000).toFixed(1)}`
+                  : (s.km ?? i + 1)}
+              </span>
+              <div className="h-5 min-w-0 flex-1 rounded bg-shell dark:bg-night-shell">
+                <div
+                  className={`flex h-5 items-center rounded px-1.5 ${
+                    s.pace_s_per_km === fastest ? "bg-lime" : "bg-navy-soft dark:bg-night-strong"
+                  }`}
+                  style={{ width: `${Math.round(frac * 100)}%` }}
+                >
+                  <span
+                    className={`whitespace-nowrap text-[11px] font-bold tabular-nums ${
+                      s.pace_s_per_km === fastest
+                        ? "text-lime-ink"
+                        : "text-ink dark:text-night-ink"
+                    }`}
+                  >
+                    {fmtPace(s.pace_s_per_km).replace(" /km", "")}
+                  </span>
+                </div>
+              </div>
+              <span className="w-16 shrink-0 text-right text-xs tabular-nums text-muted dark:text-faint">
+                {s.hr ? `❤️ ${s.hr}` : ""}
+              </span>
+              <span className="w-10 shrink-0 text-right text-xs tabular-nums text-faint">
+                {typeof s.elev_diff_m === "number"
+                  ? `${s.elev_diff_m > 0 ? "+" : ""}${Math.round(s.elev_diff_m)}m`
+                  : ""}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="mt-1.5 text-[11px] text-faint">
+        Tempo per km · 🟢 = snabbaste varvet · ❤️ snittpuls · höjdändring
+      </p>
+    </section>
+  );
 }
 
 function fmtPace(sPerKm: number): string {
@@ -224,6 +293,8 @@ export default function ActivityDetail({
               ))}
             </div>
           )}
+
+          {d && d.splits.length > 0 && <SplitsTable splits={d.splits} />}
         </div>
       </div>
 

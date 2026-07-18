@@ -60,7 +60,10 @@ async def list_geo_activities(
 ) -> list[CardioGeoOut]:
     rows = await db.scalars(
         select(CardioActivity)
-        .where(CardioActivity.user_id == user.id)
+        .where(
+            CardioActivity.user_id == user.id,
+            CardioActivity.linked_session_id.is_(None),
+        )
         .order_by(CardioActivity.started_at.desc())
         .limit(min(limit, 5000))
     )
@@ -81,6 +84,33 @@ async def list_geo_activities(
                 distance_m=float(a.distance_m) if a.distance_m else None,
                 polyline=polyline,
                 start=start if isinstance(start, list) and len(start) == 2 else None,
+            )
+        )
+
+    # Shapiqo-loggade styrkepass med position — gymmet syns på kartan
+    from app.models import WorkoutSession
+
+    sessions = await db.scalars(
+        select(WorkoutSession).where(
+            WorkoutSession.user_id == user.id,
+            WorkoutSession.start_lat.is_not(None),
+            WorkoutSession.start_lng.is_not(None),
+        )
+    )
+    for ws in sessions:
+        duration = 0
+        if ws.finished_at is not None:
+            duration = max(int((ws.finished_at - ws.started_at).total_seconds()), 0)
+        result.append(
+            CardioGeoOut(
+                id=ws.id,
+                type="strength",
+                name=ws.program_day.name if ws.program_day else "Styrkepass",
+                started_at=ws.started_at,
+                duration_s=duration,
+                distance_m=None,
+                polyline=None,
+                start=[float(ws.start_lat), float(ws.start_lng)],
             )
         )
     return result
@@ -155,7 +185,10 @@ async def list_activities(
 ) -> list[CardioActivity]:
     rows = await db.scalars(
         select(CardioActivity)
-        .where(CardioActivity.user_id == user.id)
+        .where(
+            CardioActivity.user_id == user.id,
+            CardioActivity.linked_session_id.is_(None),
+        )
         .order_by(CardioActivity.started_at.desc())
         .limit(min(limit, 5000))
         .offset(offset)
@@ -199,6 +232,41 @@ class CardioDetailOut(CardioOut):
     polyline: str | None = None
     start: list[float] | None = None
     extras: dict = {}
+    splits: list[dict] = []
+
+
+async def _enrich_from_strava(
+    activity: CardioActivity, user: User, db: AsyncSession
+) -> None:
+    """Backfillen ger bara summeringar — km-varv (splits) finns i
+    detaljsvaret. Hämtas en gång när passet öppnas och cacheas i raw."""
+    from app.integrations import strava
+    from app.models import OAuthConnection
+
+    conn = await db.scalar(
+        select(OAuthConnection).where(
+            OAuthConnection.user_id == user.id,
+            OAuthConnection.provider == "strava",
+        )
+    )
+    if conn is None or not activity.external_id:
+        return
+    try:
+        detail = await strava.fetch_activity(conn, db, activity.external_id)
+    except Exception:
+        return  # nätverksfel/kvot — visa det vi har, försök igen nästa gång
+    if not detail:
+        return
+    fields = strava.normalize_activity(detail)
+    merged = dict(activity.raw or {})
+    for key, value in fields["raw"].items():
+        if value is not None:
+            merged[key] = value
+    merged.setdefault("splits", [])  # markera som hämtat — ingen omhämtning
+    activity.raw = merged
+    if fields.get("calories"):
+        activity.calories = fields["calories"]
+    await db.commit()
 
 
 @router.get("/{activity_id}", response_model=CardioDetailOut)
@@ -211,16 +279,21 @@ async def get_activity(
     if activity is None or activity.user_id != user.id:
         raise HTTPException(404, "Aktiviteten finns inte.")
     raw = activity.raw or {}
+    if activity.source == "strava" and "splits" not in raw:
+        await _enrich_from_strava(activity, user, db)
+        raw = activity.raw or {}
     start = raw.get("start_latlng")
     extras = {
         key: value
         for key, value in raw.items()
-        if key not in ("polyline", "start_latlng") and value not in (None, 0, "")
+        if key not in ("polyline", "start_latlng", "splits")
+        and value not in (None, 0, "")
     }
     out = CardioDetailOut.model_validate(activity)
     out.polyline = raw.get("polyline") or None
     out.start = start if isinstance(start, list) and len(start) == 2 else None
     out.extras = extras
+    out.splits = raw.get("splits") or []
     return out
 
 
