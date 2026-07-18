@@ -70,6 +70,8 @@ export default function Home() {
         </button>
       )}
 
+      {me && <CalorieCard />}
+
       {me && <StepsCard />}
 
       {me && <TodayCard />}
@@ -215,6 +217,148 @@ function StepsCard() {
         <p className="mt-2 text-xs text-faint">
           Inga steg registrerade idag ännu — synkas från Withings/Apple Health.
         </p>
+      )}
+    </section>
+  );
+}
+
+type DayLogLite = {
+  totals: { kcal: number; protein_g: number; carbs_g: number; fat_g: number };
+  targets: { kcal: number; protein_g: number; carbs_g: number; fat_g: number };
+};
+
+/** Kaloriräknaren — appens nav: ätit idag, målet och vad som är kvar. */
+function CalorieCard() {
+  const [log, setLog] = useState<DayLogLite | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [goal, setGoal] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const load = () =>
+    api<DayLogLite>("/api/meals")
+      .then(setLog)
+      .catch(() => {});
+  useEffect(() => {
+    load();
+  }, []);
+
+  if (!log) return null;
+  const eaten = Math.round(log.totals.kcal);
+  const target = log.targets.kcal;
+  const left = target - eaten;
+  const over = left < 0;
+  const pct = Math.min(eaten / Math.max(target, 1), 1);
+
+  // Ring: 2πr med r=44
+  const CIRC = 2 * Math.PI * 44;
+
+  async function saveGoal() {
+    const kcal = parseInt(goal, 10);
+    if (!kcal || kcal < 500 || kcal > 10000 || !log) return;
+    setSaving(true);
+    try {
+      await api("/api/nutrition-targets", {
+        method: "PUT",
+        body: JSON.stringify({ ...log.targets, kcal }),
+      });
+      setEditing(false);
+      await load();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="rounded-2xl border-2 border-navy-line bg-white p-4 shadow-card dark:border-night-strong dark:bg-night-card">
+      <div className="flex items-center gap-4">
+        <div className="relative h-28 w-28 shrink-0">
+          <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
+            <circle
+              cx="50"
+              cy="50"
+              r="44"
+              fill="none"
+              strokeWidth="10"
+              className="stroke-shell dark:stroke-night-shell"
+            />
+            <circle
+              cx="50"
+              cy="50"
+              r="44"
+              fill="none"
+              strokeWidth="10"
+              strokeLinecap="round"
+              stroke={over ? "#dc2626" : "#7fc22b"}
+              strokeDasharray={`${pct * CIRC} ${CIRC}`}
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span
+              className={`text-xl font-bold tabular-nums ${over ? "text-red-600 dark:text-red-400" : ""}`}
+            >
+              {Math.abs(left).toLocaleString("sv-SE")}
+            </span>
+            <span className="text-[10px] font-medium uppercase tracking-wide text-faint">
+              {over ? "över målet" : "kcal kvar"}
+            </span>
+          </div>
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold uppercase tracking-wide text-faint">
+            🔥 Kalorier idag
+          </p>
+          <p className="text-2xl font-bold tabular-nums">
+            {eaten.toLocaleString("sv-SE")}
+            <span className="text-base font-semibold text-muted dark:text-faint">
+              {" "}
+              / {target.toLocaleString("sv-SE")}
+            </span>
+          </p>
+          <p className="mt-0.5 text-xs text-muted dark:text-faint">
+            {Math.round(log.totals.protein_g)} g protein ·{" "}
+            {Math.round(log.totals.carbs_g)} g kolh ·{" "}
+            {Math.round(log.totals.fat_g)} g fett
+          </p>
+          <div className="mt-2 flex gap-2">
+            <a
+              href="/food"
+              className="rounded-lg bg-navy px-3 py-1.5 text-xs font-semibold text-white"
+            >
+              + Logga måltid
+            </a>
+            <button
+              onClick={() => {
+                setGoal(String(target));
+                setEditing((v) => !v);
+              }}
+              className="rounded-lg bg-shell px-3 py-1.5 text-xs font-semibold text-muted dark:bg-night-shell dark:text-night-muted"
+            >
+              🎯 Ändra mål
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {editing && (
+        <div className="mt-3 flex items-center gap-2 border-t border-line pt-3 dark:border-night-shell">
+          <input
+            type="number"
+            inputMode="numeric"
+            value={goal}
+            onChange={(e) => setGoal(e.target.value)}
+            className="w-28 rounded-xl border border-line-strong bg-transparent px-3 py-2 text-sm dark:border-night-strong"
+            placeholder="kcal/dag"
+          />
+          <span className="text-xs text-faint">kcal per dag</span>
+          <button
+            onClick={saveGoal}
+            disabled={saving}
+            className="ml-auto rounded-lg bg-navy px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
+          >
+            {saving ? "Sparar…" : "Spara mål"}
+          </button>
+        </div>
       )}
     </section>
   );
