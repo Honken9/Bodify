@@ -2,7 +2,7 @@
  * AI-analysen mångdubbelt långsammare utan att träffsäkerheten blir bättre.
  * Max 1280 px på längsta sidan och JPEG ~85 % räcker gott för vision-modellen. */
 export async function downscaleImage(
-  file: File,
+  file: Blob,
   maxDim = 1280,
   quality = 0.85
 ): Promise<Blob> {

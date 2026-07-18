@@ -11,6 +11,7 @@ const BarcodeScanner = dynamic(() => import("../components/BarcodeScanner"), {
     <p className="py-6 text-center text-sm text-faint">Laddar skannern…</p>
   ),
 });
+import CameraCapture from "../components/CameraCapture";
 import type { FoodItem, MealKey, MealTemplate, RecentFood } from "../lib/types";
 
 type Tab = "quick" | "search" | "scan" | "photo" | "templates" | "new";
@@ -93,7 +94,7 @@ export default function FoodPicker({
         className="flex max-h-[85dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-white p-5 dark:bg-night-card"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex shrink-0 items-center justify-between">
           <h3 className="text-lg font-bold">Lägg till livsmedel</h3>
           <button onClick={onClose} className="p-1 text-faint">
             ✕
@@ -109,7 +110,7 @@ export default function FoodPicker({
           />
         ) : (
           <>
-            <div className="mb-3 flex gap-1 overflow-x-auto">
+            <div className="mb-3 flex shrink-0 gap-1 overflow-x-auto">
               {(
                 [
                   ["quick", "⭐ Snabb"],
@@ -523,8 +524,19 @@ function MealPhotoTab({
   const fileRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<AnalyzedItem[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [showCamera, setShowCamera] = useState(false);
+  const [hasWebcam, setHasWebcam] = useState(false);
 
-  async function analyze(file: File) {
+  useEffect(() => {
+    // På datorer öppnar filväljaren inte kameran — visa webbkameraknapp
+    setHasWebcam(
+      typeof navigator !== "undefined" &&
+        !!navigator.mediaDevices?.getUserMedia &&
+        window.matchMedia("(pointer: fine)").matches
+    );
+  }, []);
+
+  async function analyze(file: Blob) {
     setBusy("Analyserar fotot…");
     setItems(null);
     try {
@@ -613,6 +625,24 @@ function MealPhotoTab({
           e.target.value = "";
         }}
       />
+
+      {hasWebcam && !busy && (
+        <button
+          onClick={() => setShowCamera(true)}
+          className="mt-2 w-full rounded-xl border border-line-strong py-2.5 text-sm font-semibold text-muted dark:border-night-strong dark:text-night-muted"
+        >
+          📷 Använd webbkameran
+        </button>
+      )}
+      {showCamera && (
+        <CameraCapture
+          onCapture={(photo) => {
+            setShowCamera(false);
+            analyze(photo);
+          }}
+          onClose={() => setShowCamera(false)}
+        />
+      )}
 
       {items && (
         <div className="mt-3">
