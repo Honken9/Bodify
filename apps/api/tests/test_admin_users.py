@@ -86,3 +86,24 @@ async def test_cannot_delete_self(client, make_token, admin_user):
         f"/api/admin/users/{admin_user.id}", headers=auth(make_token)
     )
     assert resp.status_code == 400
+
+
+def test_cloudflare_policy_routing(monkeypatch):
+    """Återanvändbara policies ska uppdateras via kontonivå-API:t."""
+    from app.config import get_settings
+    from app.integrations import cloudflare
+
+    s = get_settings()
+    monkeypatch.setattr(s, "cf_account_id", "acc-1")
+    monkeypatch.setattr(s, "cf_access_app_id", "app-1")
+
+    assert cloudflare._is_reusable({"reusable": True})
+    assert not cloudflare._is_reusable({})
+    assert (
+        cloudflare._account_policy_url("pol-1")
+        == "/accounts/acc-1/access/policies/pol-1"
+    )
+    assert (
+        cloudflare._app_policy_url("pol-1")
+        == "/accounts/acc-1/access/apps/app-1/policies/pol-1"
+    )
