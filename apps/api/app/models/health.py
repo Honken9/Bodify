@@ -87,10 +87,13 @@ METRICS = {
     "pwv",  # m/s (pulsvågshastighet)
     "resting_hr",  # slag/min
     "hrv",  # ms (SDNN från Apple Health)
-    "vo2max",  # ml/kg/min
+    "vo2max",  # ml/kg/min (konditionsnivå)
     "steps",  # antal/dag
     "diastolic_bp",  # mmHg
     "systolic_bp",  # mmHg
+    "spo2",  # % syremättnad
+    "sleep_duration",  # timmar sömn per natt
+    "sleep_score",  # 0–100 (Withings sömnpoäng)
 }
 
 

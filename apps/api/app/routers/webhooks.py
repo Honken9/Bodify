@@ -143,6 +143,65 @@ async def _sync_withings_workouts_and_steps(
     return {"workouts": len(workouts), "step_days": len(steps)}
 
 
+async def _sync_withings_sleep(
+    conn: OAuthConnection, db: AsyncSession, days_back: int = 7
+) -> dict:
+    """Nattsömn → SleepSession (readiness-coachen) + sömngrafer i Hälsa."""
+    from app.models import SleepSession
+
+    nights = await withings.fetch_sleep(conn, db, days_back=days_back)
+    for n in nights:
+        existing = await db.scalar(
+            select(SleepSession).where(
+                SleepSession.user_id == conn.user_id,
+                SleepSession.start_at == n["start_at"],
+                SleepSession.source == "withings",
+            )
+        )
+        if existing is not None:
+            existing.end_at = n["end_at"]
+            existing.deep_s = n["deep_s"]
+            existing.rem_s = n["rem_s"]
+            existing.light_s = n["light_s"]
+            existing.awake_s = n["awake_s"]
+        else:
+            db.add(
+                SleepSession(
+                    user_id=conn.user_id,
+                    start_at=n["start_at"],
+                    end_at=n["end_at"],
+                    deep_s=n["deep_s"],
+                    rem_s=n["rem_s"],
+                    light_s=n["light_s"],
+                    awake_s=n["awake_s"],
+                    source="withings",
+                )
+            )
+        # Grafvänliga mätetal — dagstämplas på uppvakningsmorgonen
+        morning = n["end_at"].replace(hour=0, minute=0, second=0, microsecond=0)
+        await db.merge(
+            BodyMetric(
+                user_id=conn.user_id,
+                metric="sleep_duration",
+                measured_at=morning,
+                source="withings",
+                value=round(n["total_s"] / 3600, 2),
+            )
+        )
+        if n["score"] is not None:
+            await db.merge(
+                BodyMetric(
+                    user_id=conn.user_id,
+                    metric="sleep_score",
+                    measured_at=morning,
+                    source="withings",
+                    value=float(n["score"]),
+                )
+            )
+    await db.commit()
+    return {"sleep_nights": len(nights)}
+
+
 @router.post("/withings")
 async def withings_event(
     userid: str = Form(...),
@@ -160,9 +219,12 @@ async def withings_event(
     if conn is None:
         return {"ok": True, "ignored": True}
 
-    # appli 16 = aktivitet (pass + steg); övriga = kroppsmätningar
+    # appli 16 = aktivitet (pass + steg), 44 = sömn; övriga = kroppsmätningar
     if appli == 16:
         counts = await _sync_withings_workouts_and_steps(conn, db)
+        return {"ok": True, **counts}
+    if appli == 44:
+        counts = await _sync_withings_sleep(conn, db)
         return {"ok": True, **counts}
 
     measures = await withings.fetch_measures(conn, db, startdate, enddate)

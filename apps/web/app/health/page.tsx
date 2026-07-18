@@ -15,8 +15,11 @@ const METRIC_META: Record<
   pwv: { label: "Pulsvågshastighet", unit: "m/s", decimals: 1 },
   resting_hr: { label: "Vilopuls", unit: "bpm", decimals: 0 },
   hrv: { label: "HRV", unit: "ms", decimals: 0 },
-  vo2max: { label: "VO₂max", unit: "ml/kg/min", decimals: 1 },
+  vo2max: { label: "Kondition (VO₂max)", unit: "ml/kg/min", decimals: 1 },
   steps: { label: "Steg", unit: "/dag", decimals: 0 },
+  sleep_duration: { label: "Sömn", unit: "h", decimals: 1 },
+  sleep_score: { label: "Sömnpoäng", unit: "/100", decimals: 0 },
+  spo2: { label: "Syremättnad", unit: "%", decimals: 0 },
 };
 
 type Latest = Record<

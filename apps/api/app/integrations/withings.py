@@ -31,6 +31,8 @@ MEASTYPE_MAP = {
     11: "resting_hr",
     9: "diastolic_bp",
     10: "systolic_bp",
+    54: "spo2",
+    123: "vo2max",  # konditionsnivå — mäts av klockan vid löpning/promenad
 }
 
 # user.metrics = kroppsmätningar, user.activity = träningspass/aktivitet
@@ -135,12 +137,12 @@ async def get_access_token(conn: OAuthConnection, db: AsyncSession) -> str:
 
 async def subscribe_notifications(conn: OAuthConnection, db: AsyncSession) -> None:
     """Prenumerera på notiser: appli 1 = kroppsmätningar, 4 = hjärta/blodtryck,
-    16 = aktivitet/träningspass."""
+    16 = aktivitet/träningspass, 44 = sömn."""
     settings = get_settings()
     token = await get_access_token(conn, db)
     callback = f"{settings.public_base_url}/api/webhooks/withings"
     async with httpx.AsyncClient(timeout=15) as client:
-        for appli in (1, 4, 16):
+        for appli in (1, 4, 16, 44):
             resp = await client.post(
                 f"{API_URL}/notify",
                 headers={"Authorization": f"Bearer {token}"},
@@ -252,12 +254,16 @@ def normalize_workouts(series: list[dict]) -> list[dict]:
 
 
 async def _fetch_paginated(
-    token: str, data: dict, list_key: str, max_pages: int = 50
+    token: str,
+    data: dict,
+    list_key: str,
+    max_pages: int = 50,
+    path: str = "/v2/measure",
 ) -> list[dict]:
     """Withings paginerar med more/offset — loopa tills allt är hämtat."""
     items: list[dict] = []
     for _ in range(max_pages):
-        body = await _api_post(token, "/v2/measure", data)
+        body = await _api_post(token, path, data)
         items.extend(body.get(list_key, []))
         if not body.get("more"):
             break
@@ -285,6 +291,59 @@ async def fetch_workouts(
         "series",
     )
     return normalize_workouts(series)
+
+
+async def fetch_sleep(
+    conn: OAuthConnection,
+    db: AsyncSession,
+    days_back: int = 90,
+) -> list[dict]:
+    """Nattsömn från Sleep v2 getsummary → sömnfaser, poäng och tider.
+
+    Returnerar [{start_at, end_at, deep_s, rem_s, light_s, awake_s,
+    total_s, score}, ...] — en post per natt."""
+    token = await get_access_token(conn, db)
+    today = datetime.now(timezone.utc).date()
+    series = await _fetch_paginated(
+        token,
+        {
+            "action": "getsummary",
+            "startdateymd": (today - timedelta(days=days_back)).isoformat(),
+            "enddateymd": today.isoformat(),
+            "data_fields": (
+                "total_sleep_time,deepsleepduration,lightsleepduration,"
+                "remsleepduration,wakeupduration,sleep_score,hr_average"
+            ),
+        },
+        "series",
+        path="/v2/sleep",
+    )
+    results = []
+    for night in series:
+        data = night.get("data", {}) or {}
+        deep = int(data.get("deepsleepduration") or 0)
+        light = int(data.get("lightsleepduration") or 0)
+        rem = int(data.get("remsleepduration") or 0)
+        total = int(data.get("total_sleep_time") or 0) or (deep + light + rem)
+        if not total:
+            continue
+        results.append(
+            {
+                "start_at": datetime.fromtimestamp(
+                    int(night["startdate"]), tz=timezone.utc
+                ),
+                "end_at": datetime.fromtimestamp(
+                    int(night["enddate"]), tz=timezone.utc
+                ),
+                "deep_s": deep,
+                "light_s": light,
+                "rem_s": rem,
+                "awake_s": int(data.get("wakeupduration") or 0),
+                "total_s": total,
+                "score": data.get("sleep_score"),
+            }
+        )
+    return results
 
 
 async def fetch_daily_steps(

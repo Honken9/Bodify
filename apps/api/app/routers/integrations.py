@@ -133,7 +133,8 @@ async def withings_sync(
     db: AsyncSession = Depends(get_session),
 ) -> dict:
     """Hämta senaste från Withings på begäran — mätvärden (30 dagar),
-    pass och steg (7 dagar). Idempotent, så knappen kan tryckas fritt."""
+    pass och steg (7 dagar), sömn (30 dagar). Idempotent, så knappen
+    kan tryckas fritt."""
     conn = await db.scalar(
         select(OAuthConnection).where(
             OAuthConnection.user_id == user.id,
@@ -160,7 +161,10 @@ async def withings_sync(
         )
     await db.commit()
     counts = await _sync_withings_workouts_and_steps(conn, db, days_back=7)
-    return {"ok": True, "measures": len(measures), **counts}
+    from app.routers.webhooks import _sync_withings_sleep
+
+    sleep_counts = await _sync_withings_sleep(conn, db, days_back=30)
+    return {"ok": True, "measures": len(measures), **counts, **sleep_counts}
 
 
 @router.post("/strava/sync")
@@ -230,6 +234,13 @@ async def withings_callback(
         from app.routers.webhooks import _sync_withings_workouts_and_steps
 
         await _sync_withings_workouts_and_steps(conn, db, days_back=3650)
+    except Exception:
+        pass
+    # Sömnhistorik — faser, timmar och sömnpoäng
+    try:
+        from app.routers.webhooks import _sync_withings_sleep
+
+        await _sync_withings_sleep(conn, db, days_back=3650)
     except Exception:
         pass
     return RedirectResponse(url="/settings?connected=withings", status_code=302)

@@ -819,9 +819,24 @@ async def test_withings_manual_sync(
             }
         ]
 
+    async def fake_sleep(conn, db, days_back=7):
+        return [
+            {
+                "start_at": datetime(2026, 7, 17, 21, 45, tzinfo=timezone.utc),
+                "end_at": datetime(2026, 7, 18, 5, 30, tzinfo=timezone.utc),
+                "deep_s": 5400,
+                "light_s": 14400,
+                "rem_s": 6300,
+                "awake_s": 1200,
+                "total_s": 26100,
+                "score": 82,
+            }
+        ]
+
     monkeypatch.setattr(withings_mod, "fetch_measures", fake_measures)
     monkeypatch.setattr(withings_mod, "fetch_workouts", fake_workouts)
     monkeypatch.setattr(withings_mod, "fetch_daily_steps", fake_steps)
+    monkeypatch.setattr(withings_mod, "fetch_sleep", fake_sleep)
 
     resp = await client.post(
         "/api/integrations/withings/sync", headers=auth(make_token)
@@ -830,12 +845,52 @@ async def test_withings_manual_sync(
     body = resp.json()
     assert body["measures"] == 1
     assert body["step_days"] == 1
+    assert body["sleep_nights"] == 1
 
     latest = (
         await client.get("/api/metrics/latest", headers=auth(make_token))
     ).json()
     assert latest["weight"]["value"] == 82.1
     assert latest["steps"]["value"] == 5200.0
+    assert latest["sleep_duration"]["value"] == 7.25  # 26 100 s
+    assert latest["sleep_score"]["value"] == 82.0
+
+    # Körs igen → uppdaterar samma natt, ingen dubblett
+    resp = await client.post(
+        "/api/integrations/withings/sync", headers=auth(make_token)
+    )
+    assert resp.json()["sleep_nights"] == 1
+
+
+async def test_withings_sleep_webhook_appli_44(
+    client, make_token, known_user, withings_conn, monkeypatch
+):
+    async def fake_sleep(conn, db, days_back=7):
+        return [
+            {
+                "start_at": datetime(2026, 7, 16, 22, 0, tzinfo=timezone.utc),
+                "end_at": datetime(2026, 7, 17, 6, 0, tzinfo=timezone.utc),
+                "deep_s": 6000,
+                "light_s": 15000,
+                "rem_s": 5000,
+                "awake_s": 900,
+                "total_s": 26000,
+                "score": None,  # äldre mätare saknar poäng — får inte krascha
+            }
+        ]
+
+    monkeypatch.setattr(withings_mod, "fetch_sleep", fake_sleep)
+    resp = await client.post(
+        "/api/webhooks/withings", data={"userid": "w-99", "appli": "44"}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["sleep_nights"] == 1
+
+    latest = (
+        await client.get("/api/metrics/latest", headers=auth(make_token))
+    ).json()
+    assert latest["sleep_duration"]["value"] == 7.22
+    assert "sleep_score" not in latest
 
 
 async def test_withings_sync_requires_connection(client, make_token, known_user):
