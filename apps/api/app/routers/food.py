@@ -124,10 +124,17 @@ async def lookup_barcode(
     if cached is not None:
         return cached
 
-    product = await openfoodfacts.fetch_product(barcode)
+    try:
+        product = await openfoodfacts.fetch_product(barcode)
+    except openfoodfacts.OFFUnavailable:
+        raise HTTPException(
+            502,
+            "Livsmedelsdatabasen (Open Food Facts) svarar inte just nu — "
+            "prova igen om en stund.",
+        )
     if product is None:
         raise HTTPException(
-            404, "Produkten hittades inte — lägg gärna in den manuellt."
+            404, "Produkten finns inte i Open Food Facts — lägg in den manuellt."
         )
 
     item = FoodItem(
@@ -201,7 +208,18 @@ async def create_food(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_session),
 ) -> FoodItem:
+    barcode = payload.barcode
+    if barcode:
+        # Streckkoden är unik — finns varan redan återanvänds den
+        existing = await db.scalar(
+            select(FoodItem).where(FoodItem.barcode == barcode)
+        )
+        if existing is not None:
+            if existing.source in SHARED_SOURCES or existing.created_by == user.id:
+                return existing
+            barcode = None  # koden ägs av någon annans privata post
     item = FoodItem(
+        barcode=barcode,
         name=payload.name,
         brand=payload.brand,
         source="custom",

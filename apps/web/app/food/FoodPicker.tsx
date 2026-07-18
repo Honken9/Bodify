@@ -476,15 +476,109 @@ function ScanTab({
   onError: (msg: string) => void;
 }) {
   const [status, setStatus] = useState<string | null>(null);
+  const [missingCode, setMissingCode] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    name: "",
+    kcal: "",
+    protein_g: "",
+    carbs_g: "",
+    fat_g: "",
+  });
+  const [saving, setSaving] = useState(false);
 
   async function handleDetected(code: string) {
+    if (missingCode) return; // formuläret är öppet — skanna inte vidare
     setStatus(`Slår upp ${code}…`);
     try {
       const food = await api<FoodItem>(`/api/food/barcode/${code}`);
       onPick(food);
     } catch (e) {
-      setStatus((e as Error).message);
+      const msg = (e as Error).message;
+      setStatus(msg);
+      if (msg.includes("finns inte")) setMissingCode(code); // 404 → lägg in själv
     }
+  }
+
+  async function saveMissing() {
+    if (!missingCode || !form.name.trim() || !form.kcal) return;
+    setSaving(true);
+    try {
+      const food = await api<FoodItem>("/api/food", {
+        method: "POST",
+        body: JSON.stringify({
+          name: form.name.trim(),
+          barcode: missingCode,
+          per_100g: {
+            kcal: Number(form.kcal) || 0,
+            protein_g: Number(form.protein_g) || 0,
+            carbs_g: Number(form.carbs_g) || 0,
+            fat_g: Number(form.fat_g) || 0,
+          },
+        }),
+      });
+      onPick(food); // nästa skanning av samma vara hittar den direkt
+    } catch (e) {
+      setStatus((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (missingCode) {
+    return (
+      <div className="space-y-2">
+        <p className="rounded-lg bg-sand p-2.5 text-sm text-sand-ink dark:bg-night-shell dark:text-lime">
+          Streckkoden <strong>{missingCode}</strong> finns inte i databasen.
+          Fyll i från förpackningens näringstabell (per 100 g) — nästa gång
+          hittas varan direkt.
+        </p>
+        <input
+          autoFocus
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          placeholder="Namn, t.ex. Kvarg vanilj"
+          className="w-full rounded-xl border border-line-strong bg-transparent px-3 py-2 text-sm dark:border-night-strong"
+        />
+        <div className="grid grid-cols-4 gap-2">
+          {(
+            [
+              ["kcal", "kcal"],
+              ["protein_g", "Protein"],
+              ["carbs_g", "Kolh."],
+              ["fat_g", "Fett"],
+            ] as const
+          ).map(([key, label]) => (
+            <input
+              key={key}
+              type="number"
+              inputMode="decimal"
+              value={form[key]}
+              onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+              placeholder={label}
+              className="rounded-xl border border-line-strong bg-transparent px-2 py-2 text-sm dark:border-night-strong"
+            />
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              setMissingCode(null);
+              setStatus(null);
+            }}
+            className="flex-1 rounded-xl border border-line-strong py-2.5 text-sm font-semibold text-muted dark:border-night-strong dark:text-night-muted"
+          >
+            Skanna igen
+          </button>
+          <button
+            onClick={saveMissing}
+            disabled={saving || !form.name.trim() || !form.kcal}
+            className="flex-1 rounded-xl bg-navy py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+          >
+            {saving ? "Sparar…" : "Spara & välj"}
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

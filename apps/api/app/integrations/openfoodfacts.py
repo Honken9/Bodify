@@ -35,7 +35,16 @@ _MICRO_MAP = [
 
 def _normalize(product: dict) -> dict | None:
     nutriments = product.get("nutriments") or {}
-    name = product.get("product_name_sv") or product.get("product_name")
+    # Svenska produkter saknar ofta product_name men har namnet i andra
+    # fält — prova hela kedjan innan produkten döms ut som namnlös.
+    name = (
+        product.get("product_name_sv")
+        or product.get("product_name")
+        or product.get("generic_name_sv")
+        or product.get("generic_name")
+        or product.get("abbreviated_product_name")
+        or (product.get("brands") or "").split(",")[0].strip()
+    )
     if not name:
         return None
 
@@ -79,15 +88,25 @@ def _normalize(product: dict) -> dict | None:
     }
 
 
+class OFFUnavailable(Exception):
+    """Open Food Facts svarar inte — skilj från 'produkten finns inte'."""
+
+
 async def fetch_product(barcode: str) -> dict | None:
-    """Slå upp en produkt på streckkod. Returnerar normaliserad dict eller None."""
-    async with httpx.AsyncClient(timeout=8, headers=_HEADERS) as client:
-        resp = await client.get(f"{BASE_URL}/api/v2/product/{barcode}.json")
-    if resp.status_code == 404:
-        return None
-    resp.raise_for_status()
-    data = resp.json()
+    """Slå upp en produkt på streckkod. Returnerar normaliserad dict,
+    None om produkten inte finns, eller OFFUnavailable vid driftfel."""
+    try:
+        async with httpx.AsyncClient(timeout=8, headers=_HEADERS) as client:
+            resp = await client.get(f"{BASE_URL}/api/v2/product/{barcode}.json")
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+        data = resp.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.warning("OFF-uppslag %s misslyckades: %s", barcode, exc)
+        raise OFFUnavailable() from exc
     if data.get("status") != 1:
+        logger.info("OFF: streckkod %s finns inte i databasen.", barcode)
         return None
     return _normalize(data["product"])
 

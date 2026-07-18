@@ -29,6 +29,9 @@ class FoodItemCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     brand: str | None = Field(default=None, max_length=120)
     per_100g: Per100g
+    # Sätts när produkten läggs in efter en misslyckad skanning —
+    # nästa skanning av samma vara hittar den direkt
+    barcode: str | None = Field(default=None, pattern=r"^\d{6,14}$")
 
 
 class RecentFood(BaseModel):
