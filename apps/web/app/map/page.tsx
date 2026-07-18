@@ -7,6 +7,10 @@ import ActivityDetail from "../components/ActivityDetail";
 import type { GeoActivity } from "../components/ActivityMap";
 import type { CardioActivity } from "../lib/types";
 
+const LocationPicker = dynamic(() => import("../components/LocationPicker"), {
+  ssr: false,
+});
+
 // Leaflet kräver window — ladda kartan först i webbläsaren
 const ActivityMap = dynamic(() => import("../components/ActivityMap"), {
   ssr: false,
@@ -38,6 +42,9 @@ export default function MapPage() {
   const [filter, setFilter] = useState("all");
   const [focusId, setFocusId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkPicker, setBulkPicker] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -102,6 +109,34 @@ export default function MapPage() {
   });
 
   const focusIdx = mapActivities.findIndex((a) => a.id === focusId);
+
+  function toggleSelected(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function bulkAssign([lat, lng]: [number, number]) {
+    try {
+      const res = await api<{ updated: number }>(
+        "/api/cardio/location-bulk",
+        {
+          method: "PATCH",
+          body: JSON.stringify({ lat, lng, ids: Array.from(selected) }),
+        }
+      );
+      setBulkPicker(false);
+      setSelected(new Set());
+      setSyncResult(`✅ ${res.updated} pass platssatta — nu syns de på kartan!`);
+      await load();
+    } catch (e) {
+      setBulkPicker(false);
+      setError((e as Error).message);
+    }
+  }
 
   function step(delta: number) {
     if (mapActivities.length === 0) return;
@@ -219,7 +254,19 @@ export default function MapPage() {
                 ›
               </button>
             </div>
-            <ActivityMap activities={mapActivities} focusId={focusId} />
+            {!fullscreen && (
+              <div className="relative">
+                <ActivityMap activities={mapActivities} focusId={focusId} />
+                <button
+                  onClick={() => setFullscreen(true)}
+                  aria-label="Helskärm"
+                  title="Visa kartan i helskärm"
+                  className="absolute right-2 top-2 z-[500] rounded-lg bg-white/90 px-2.5 py-1.5 text-sm font-bold shadow-card dark:bg-night-card/90"
+                >
+                  ⛶
+                </button>
+              </div>
+            )}
             <p className="mt-2 text-xs text-muted dark:text-faint">
               {mapActivities.length} på kartan · {routes} med rutt · linje =
               GPS-spår, prick = plats.{" "}
@@ -239,6 +286,32 @@ export default function MapPage() {
                 ? `Pass utan GPS (${listItems.length})`
                 : `Alla aktiviteter (${listItems.length})`}
             </h2>
+
+            {filter === "nogps" && listItems.length > 0 && (
+              <div className="mb-2 flex items-center gap-2 rounded-xl bg-cream-deep px-3 py-2 dark:bg-night-shell/60">
+                <button
+                  onClick={() =>
+                    setSelected((prev) =>
+                      prev.size === listItems.length
+                        ? new Set()
+                        : new Set(listItems.map((a) => a.id))
+                    )
+                  }
+                  className="text-xs font-semibold text-navy dark:text-lime"
+                >
+                  {selected.size === listItems.length
+                    ? "Rensa urval"
+                    : `Välj alla (${listItems.length})`}
+                </button>
+                <button
+                  disabled={selected.size === 0}
+                  onClick={() => setBulkPicker(true)}
+                  className="ml-auto rounded-lg bg-navy px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+                >
+                  📍 Sätt plats för {selected.size} valda
+                </button>
+              </div>
+            )}
             <ul className="max-h-[50dvh] space-y-1.5 overflow-y-auto desktop:max-h-[70dvh]">
               {listItems.length === 0 && (
                 <p className="py-4 text-center text-sm text-faint">
@@ -258,9 +331,12 @@ export default function MapPage() {
                       }`}
                     >
                       <button
-                        onClick={() =>
-                          g ? setFocusId(a.id) : setDetailId(a.id)
-                        }
+                        onClick={() => {
+                          // Klick på passet → detaljkortet med all data;
+                          // kartan fokuserar samtidigt om GPS finns
+                          if (g) setFocusId(a.id);
+                          setDetailId(a.id);
+                        }}
                         className="flex min-w-0 flex-1 items-center gap-3 text-left"
                       >
                         <span className="text-lg">
@@ -285,13 +361,25 @@ export default function MapPage() {
                           </span>
                         </span>
                       </button>
-                      <button
-                        onClick={() => setDetailId(a.id)}
-                        aria-label="Visa detaljer"
-                        className="shrink-0 rounded-full bg-shell px-2.5 py-1.5 text-xs font-bold text-muted dark:bg-night-shell dark:text-night-muted"
-                      >
-                        ⓘ
-                      </button>
+                      {filter === "nogps" ? (
+                        <input
+                          type="checkbox"
+                          checked={selected.has(a.id)}
+                          onChange={() => toggleSelected(a.id)}
+                          className="h-5 w-5 shrink-0 accent-[#23588a]"
+                          aria-label="Välj pass"
+                        />
+                      ) : (
+                        g && (
+                          <button
+                            onClick={() => setFocusId(a.id)}
+                            aria-label="Visa på kartan"
+                            className="shrink-0 rounded-full bg-shell px-2.5 py-1.5 text-xs font-bold text-muted dark:bg-night-shell dark:text-night-muted"
+                          >
+                            🗺
+                          </button>
+                        )
+                      )}
                     </div>
                   </li>
                 );
@@ -299,6 +387,78 @@ export default function MapPage() {
             </ul>
           </section>
         </div>
+      )}
+
+      {fullscreen && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-cream dark:bg-night">
+          <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-2">
+            <button
+              onClick={() => step(-1)}
+              disabled={mapActivities.length === 0}
+              className="px-3 py-1.5 text-xl leading-none disabled:opacity-30"
+              aria-label="Föregående pass"
+            >
+              ‹
+            </button>
+            <div className="flex min-w-0 items-center gap-2 text-sm">
+              {focusId && focusIdx >= 0 ? (
+                <>
+                  <span className="truncate font-semibold">
+                    {focusIdx + 1} av {mapActivities.length} ·{" "}
+                    {mapActivities[focusIdx].name ?? "Träning"}
+                  </span>
+                  <button
+                    onClick={() => setDetailId(focusId)}
+                    className="shrink-0 rounded-full bg-navy px-2.5 py-1 text-xs font-semibold text-white"
+                  >
+                    Detaljer
+                  </button>
+                  <button
+                    onClick={() => setFocusId(null)}
+                    className="shrink-0 rounded-full bg-shell px-2.5 py-1 text-xs font-semibold text-muted dark:bg-night-shell dark:text-night-muted"
+                  >
+                    Visa alla
+                  </button>
+                </>
+              ) : (
+                <span className="font-semibold">
+                  Alla {mapActivities.length} på kartan
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => step(1)}
+                disabled={mapActivities.length === 0}
+                className="px-3 py-1.5 text-xl leading-none disabled:opacity-30"
+                aria-label="Nästa pass"
+              >
+                ›
+              </button>
+              <button
+                onClick={() => setFullscreen(false)}
+                className="rounded-full bg-shell px-3 py-1.5 text-sm font-semibold dark:bg-night-shell"
+                aria-label="Stäng helskärm"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+          <div className="min-h-0 flex-1 px-2 pb-2">
+            <ActivityMap
+              activities={mapActivities}
+              focusId={focusId}
+              height="100%"
+            />
+          </div>
+        </div>
+      )}
+
+      {bulkPicker && (
+        <LocationPicker
+          onSave={bulkAssign}
+          onClose={() => setBulkPicker(false)}
+        />
       )}
 
       {detailId && (

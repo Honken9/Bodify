@@ -687,6 +687,114 @@ async def test_manual_location_puts_activity_on_map(
     assert denied.status_code == 404
 
 
+async def test_bulk_location(client, make_token, known_user, db_session):
+    from app.models import CardioActivity
+
+    def gym(n, raw=None):
+        return CardioActivity(
+            user_id=known_user.id,
+            type="other",
+            source="withings",
+            external_id=f"bulk-{n}",
+            name=f"Pass {n}",
+            started_at=datetime(2026, 7, 10 + n, 17, 0, tzinfo=timezone.utc),
+            duration_s=3600,
+            raw=raw,
+        )
+
+    a = gym(1)  # utan plats — ska platssättas via ids
+    b = gym(2)  # utan plats — ska platssättas via all_missing
+    c = gym(3, raw={"polyline": "abc", "start_latlng": [59.0, 18.0]})  # GPS-rutt — rörs ej
+    d = gym(4, raw={"start_latlng": [57.7, 11.9], "location_source": "manual"})  # redan satt
+    db_session.add_all([a, b, c, d])
+    await db_session.commit()
+
+    # Varken ids eller all_missing → fel
+    resp = await client.patch(
+        "/api/cardio/location-bulk",
+        headers=auth(make_token),
+        json={"lat": 59.243, "lng": 18.088},
+    )
+    assert resp.status_code == 400
+
+    # Valda id:n platssätts (SATS Farsta)
+    resp = await client.patch(
+        "/api/cardio/location-bulk",
+        headers=auth(make_token),
+        json={"lat": 59.243, "lng": 18.088, "ids": [str(a.id), str(c.id)]},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["updated"] == 1  # c skyddas av sin GPS-rutt
+
+    # "Alla som saknar plats" → bara b; d:s manuella plats skrivs inte över
+    resp = await client.patch(
+        "/api/cardio/location-bulk",
+        headers=auth(make_token),
+        json={"lat": 59.336, "lng": 18.071, "all_missing": True},
+    )
+    assert resp.json()["updated"] == 1
+
+    geo = {
+        g["name"]: g["start"]
+        for g in (
+            await client.get("/api/cardio/geo", headers=auth(make_token))
+        ).json()
+    }
+    assert geo["Pass 1"] == [59.243, 18.088]
+    assert geo["Pass 2"] == [59.336, 18.071]
+    assert geo["Pass 4"] == [57.7, 11.9]
+
+    # Någon annans pass kan inte bulk-platssättas
+    anna = auth(make_token, "anna2@example.com")
+    from app.models import User
+    from sqlalchemy import select
+
+    if await db_session.scalar(select(User).where(User.email == "anna2@example.com")) is None:
+        db_session.add(User(email="anna2@example.com"))
+        await db_session.commit()
+    resp = await client.patch(
+        "/api/cardio/location-bulk",
+        headers=anna,
+        json={"lat": 1, "lng": 1, "ids": [str(b.id)]},
+    )
+    assert resp.json()["updated"] == 0
+
+
+async def test_geo_search_short_query_returns_empty(client, make_token, known_user):
+    # Under 2 tecken → tom lista utan att Nominatim anropas
+    resp = await client.get("/api/cardio/geo-search?q=s", headers=auth(make_token))
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+async def test_geo_search_proxies_nominatim(client, make_token, known_user, monkeypatch):
+    import httpx
+
+    real_get = httpx.AsyncClient.get
+
+    async def fake_get(self, url, **kwargs):
+        if "nominatim" not in str(url):
+            return await real_get(self, url, **kwargs)  # testklientens egna anrop
+        assert kwargs["params"]["q"] == "SATS Farsta"
+        return httpx.Response(
+            200,
+            json=[
+                {"display_name": "SATS Farsta, Stockholm", "lat": "59.243", "lon": "18.088"},
+                {"display_name": "Utan koordinater"},
+            ],
+            request=httpx.Request("GET", str(url)),
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+    resp = await client.get(
+        "/api/cardio/geo-search?q=SATS%20Farsta", headers=auth(make_token)
+    )
+    assert resp.status_code == 200
+    assert resp.json() == [
+        {"name": "SATS Farsta, Stockholm", "lat": 59.243, "lng": 18.088}
+    ]
+
+
 async def test_withings_manual_sync(
     client, make_token, known_user, withings_conn, monkeypatch
 ):

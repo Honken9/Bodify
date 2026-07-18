@@ -86,6 +86,53 @@ async def list_geo_activities(
     return result
 
 
+class PlaceOut(BaseModel):
+    name: str
+    lat: float
+    lng: float
+
+
+@router.get("/geo-search", response_model=list[PlaceOut])
+async def geo_search(
+    q: str,
+    user: User = Depends(get_current_user),
+) -> list[PlaceOut]:
+    """Sök plats via OpenStreetMap/Nominatim (t.ex. "SATS Farsta") —
+    gratis och nyckellöst, i linje med kartan i övrigt."""
+    q = q.strip()
+    if len(q) < 2:
+        return []
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(
+            timeout=10,
+            headers={"User-Agent": "Shapiqo/1.0 (self-hosted fitness app)"},
+        ) as client:
+            resp = await client.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={
+                    "q": q,
+                    "format": "jsonv2",
+                    "limit": 6,
+                    "accept-language": "sv",
+                },
+            )
+        resp.raise_for_status()
+        rows = resp.json()
+    except httpx.HTTPError:
+        raise HTTPException(502, "Platssökningen svarar inte — försök igen.")
+    return [
+        PlaceOut(
+            name=(row.get("display_name") or "")[:160],
+            lat=float(row["lat"]),
+            lng=float(row["lon"]),
+        )
+        for row in rows
+        if row.get("lat") and row.get("lon")
+    ]
+
+
 @router.get("", response_model=list[CardioOut])
 async def list_activities(
     limit: int = 30,
@@ -162,6 +209,44 @@ async def get_activity(
     out.start = start if isinstance(start, list) and len(start) == 2 else None
     out.extras = extras
     return out
+
+
+class BulkLocationUpdate(BaseModel):
+    """Platssätt flera pass i ett svep — valda id:n eller alla som saknar
+    plats. Pass med GPS-rutt rörs aldrig."""
+
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+    ids: list[uuid.UUID] | None = None
+    all_missing: bool = False
+
+
+@router.patch("/location-bulk")
+async def set_location_bulk(
+    payload: BulkLocationUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    if not payload.all_missing and not payload.ids:
+        raise HTTPException(400, "Ange pass-id:n eller all_missing.")
+    stmt = select(CardioActivity).where(CardioActivity.user_id == user.id)
+    if not payload.all_missing:
+        stmt = stmt.where(CardioActivity.id.in_(payload.ids or []))
+    updated = 0
+    for activity in await db.scalars(stmt):
+        raw = activity.raw or {}
+        if raw.get("polyline"):
+            continue  # riktig GPS-rutt vinner alltid
+        if payload.all_missing and raw.get("start_latlng"):
+            continue  # "alla som saknar" ska inte skriva över satta platser
+        activity.raw = {
+            **raw,
+            "start_latlng": [payload.lat, payload.lng],
+            "location_source": "manual",
+        }
+        updated += 1
+    await db.commit()
+    return {"ok": True, "updated": updated}
 
 
 class LocationUpdate(BaseModel):

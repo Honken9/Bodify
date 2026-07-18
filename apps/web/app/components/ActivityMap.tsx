@@ -54,7 +54,7 @@ export default function ActivityMap({
   focusId = null,
 }: {
   activities: GeoActivity[];
-  height?: number;
+  height?: number | string;
   focusId?: string | null;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);

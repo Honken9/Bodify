@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { api } from "../lib/api";
+
+type Place = { name: string; lat: number; lng: number };
 
 /** Välj plats för ett pass utan GPS — tryck på kartan för att sätta
  * nålen, eller använd mobilens position. */
@@ -18,6 +21,40 @@ export default function LocationPicker({
   const markerRef = useRef<L.CircleMarker | null>(null);
   const [pos, setPos] = useState<[number, number] | null>(null);
   const [saving, setSaving] = useState(false);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<Place[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  function placeMarker(p: [number, number], zoom?: number) {
+    setPos(p);
+    const map = mapRef.current;
+    if (!map) return;
+    if (zoom != null) map.setView(p, zoom);
+    if (markerRef.current) markerRef.current.setLatLng(p);
+    else
+      markerRef.current = L.circleMarker(p, {
+        radius: 8,
+        color: "#19325b",
+        fillColor: "#a1e645",
+        fillOpacity: 1,
+        weight: 2,
+      }).addTo(map);
+  }
+
+  async function search() {
+    const q = query.trim();
+    if (q.length < 2) return;
+    setSearching(true);
+    try {
+      setResults(
+        await api<Place[]>(`/api/cardio/geo-search?q=${encodeURIComponent(q)}`)
+      );
+    } catch {
+      setResults([]);
+    } finally {
+      setSearching(false);
+    }
+  }
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -94,8 +131,42 @@ export default function LocationPicker({
             ✕
           </button>
         </div>
+        <div className="mb-2 flex gap-2">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && search()}
+            placeholder="Sök plats, t.ex. SATS Farsta…"
+            className="min-w-0 flex-1 rounded-xl border border-line-strong bg-transparent px-3 py-2 text-sm dark:border-night-strong"
+          />
+          <button
+            onClick={search}
+            disabled={searching || query.trim().length < 2}
+            className="rounded-xl bg-navy px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+          >
+            {searching ? "…" : "Sök"}
+          </button>
+        </div>
+        {results.length > 0 && (
+          <ul className="mb-2 max-h-28 overflow-y-auto rounded-xl border border-line text-sm dark:border-night-shell">
+            {results.map((r, i) => (
+              <li key={i}>
+                <button
+                  onClick={() => {
+                    placeMarker([r.lat, r.lng], 16);
+                    setResults([]);
+                    setQuery(r.name.split(",")[0]);
+                  }}
+                  className="w-full truncate px-3 py-2 text-left hover:bg-cream-deep dark:hover:bg-night-shell"
+                >
+                  📍 {r.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
         <p className="mb-2 text-xs text-muted dark:text-faint">
-          Tryck på kartan för att sätta nålen — zooma in för precision.
+          …eller tryck direkt på kartan — zooma in för precision.
         </p>
         <div
           ref={containerRef}
