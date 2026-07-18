@@ -148,3 +148,48 @@ async def test_dashboard_aggregates(client, make_token, known_user):
     assert dash["weight_delta_kg"] == -0.8
     assert dash["active_days"] >= 1
     assert len(dash["activity"]) == 7
+
+
+async def test_photo_phase_tagging(
+    client, make_token, known_user, tmp_path, monkeypatch
+):
+    import io
+
+    from app.auth import ACCESS_JWT_HEADER
+    from app.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "data_dir", str(tmp_path))
+    headers = {ACCESS_JWT_HEADER: make_token(email="daniel@example.com")}
+    png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+
+    # Ladda upp med fas
+    resp = await client.post(
+        "/api/photos",
+        headers=headers,
+        files={"file": ("a.png", io.BytesIO(png), "image/png")},
+        data={"pose": "front", "phase": "before"},
+    )
+    assert resp.status_code == 201
+    photo = resp.json()
+    assert photo["phase"] == "before"
+
+    # Ogiltig fas avvisas
+    bad = await client.post(
+        "/api/photos",
+        headers=headers,
+        files={"file": ("b.png", io.BytesIO(png), "image/png")},
+        data={"pose": "front", "phase": "sometime"},
+    )
+    assert bad.status_code == 400
+
+    # Flytta till "after"
+    moved = await client.patch(
+        f"/api/photos/{photo['id']}",
+        headers=headers,
+        json={"phase": "after"},
+    )
+    assert moved.status_code == 200
+    assert moved.json()["phase"] == "after"
+
+    listed = (await client.get("/api/photos", headers=headers)).json()
+    assert listed[0]["phase"] == "after"

@@ -24,12 +24,20 @@ EXT = {
 }
 
 
+PHASES = ("before", "during", "after")
+
+
 class PhotoOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
     taken_at: object
     pose: str
+    phase: str
+
+
+class PhaseUpdate(BaseModel):
+    phase: str
 
 
 def _photos_dir(user_id: uuid.UUID) -> Path:
@@ -55,11 +63,14 @@ async def list_photos(
 async def upload_photo(
     file: UploadFile = File(...),
     pose: str = Form("front"),
+    phase: str = Form("before"),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_session),
 ) -> ProgressPhoto:
     if pose not in ("front", "side", "back"):
         raise HTTPException(400, "Ogiltig pose.")
+    if phase not in PHASES:
+        raise HTTPException(400, "Ogiltig fas — före, mittemellan eller efter.")
 
     content = await file.read()
     if len(content) > MAX_SIZE:
@@ -78,10 +89,30 @@ async def upload_photo(
         id=photo_id,
         user_id=user.id,
         pose=pose,
+        phase=phase,
         file_path=str(path),
         content_type=content_type,
     )
     db.add(photo)
+    await db.commit()
+    await db.refresh(photo)
+    return photo
+
+
+@router.patch("/{photo_id}", response_model=PhotoOut)
+async def update_photo_phase(
+    photo_id: uuid.UUID,
+    payload: PhaseUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> ProgressPhoto:
+    """Flytta ett foto mellan grupperna före/mittemellan/efter."""
+    if payload.phase not in PHASES:
+        raise HTTPException(400, "Ogiltig fas — före, mittemellan eller efter.")
+    photo = await db.get(ProgressPhoto, photo_id)
+    if photo is None or photo.user_id != user.id:
+        raise HTTPException(404, "Fotot finns inte.")
+    photo.phase = payload.phase
     await db.commit()
     await db.refresh(photo)
     return photo

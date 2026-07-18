@@ -18,6 +18,8 @@ class ProgressPhoto(Base):
         DateTime(timezone=True), server_default=func.now()
     )
     pose: Mapped[str] = mapped_column(String(10), default="front")  # front|side|back
+    # Var i resan fotot hör hemma: before|during|after
+    phase: Mapped[str] = mapped_column(String(10), default="before")
     file_path: Mapped[str] = mapped_column(String(512))
     content_type: Mapped[str] = mapped_column(String(64), default="image/jpeg")
 
