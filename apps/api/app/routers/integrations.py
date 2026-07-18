@@ -107,7 +107,7 @@ async def strava_callback(
 ) -> RedirectResponse:
     _verify_state(state, user, "strava")
     data = await strava.exchange_code(code)
-    await _upsert_connection(
+    conn = await _upsert_connection(
         db,
         user,
         provider="strava",
@@ -117,7 +117,34 @@ async def strava_callback(
         external_user_id=str(data.get("athlete", {}).get("id", "")),
         scopes="activity:read_all",
     )
+    # Hämta hela historiken direkt så kartan/statistiken fylls från dag ett
+    try:
+        from app.services.strava_sync import backfill_activities
+
+        await backfill_activities(conn, db)
+    except Exception:
+        pass  # kan alltid köras om via /strava/sync
     return RedirectResponse(url="/settings?connected=strava", status_code=302)
+
+
+@router.post("/strava/sync")
+async def strava_sync(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    """Hämta om hela aktivitetshistoriken från Strava manuellt."""
+    conn = await db.scalar(
+        select(OAuthConnection).where(
+            OAuthConnection.user_id == user.id,
+            OAuthConnection.provider == "strava",
+        )
+    )
+    if conn is None:
+        raise HTTPException(404, "Strava är inte kopplat ännu.")
+    from app.services.strava_sync import backfill_activities
+
+    imported = await backfill_activities(conn, db)
+    return {"ok": True, "imported": imported}
 
 
 @router.get("/withings/callback")

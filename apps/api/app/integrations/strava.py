@@ -107,6 +107,22 @@ async def fetch_activity(
     return resp.json()
 
 
+async def fetch_activity_page(
+    conn: OAuthConnection, db: AsyncSession, page: int, per_page: int = 200
+) -> list[dict]:
+    """En sida ur atletens aktivitetslista (nyast först). Summorna
+    innehåller allt kartan behöver, inkl. summary_polyline."""
+    token = await get_access_token(conn, db)
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.get(
+            f"{API_URL}/athlete/activities",
+            headers={"Authorization": f"Bearer {token}"},
+            params={"page": page, "per_page": per_page},
+        )
+    resp.raise_for_status()
+    return resp.json()
+
+
 def normalize_activity(activity: dict) -> dict:
     """Strava-aktivitet → fält för cardio_activities."""
     distance_m = float(activity.get("distance") or 0)

@@ -566,3 +566,73 @@ async def test_integrations_status_and_isolation(
         )
     ).json()
     assert all(p["connected"] is False for p in anna["providers"])
+
+
+async def test_strava_backfill_paginates_and_dedupes(
+    client, make_token, known_user, db_session, monkeypatch
+):
+    from app.integrations import strava as strava_mod
+    from app.models import OAuthConnection
+    from app.security import encrypt
+
+    conn = OAuthConnection(
+        user_id=known_user.id,
+        provider="strava",
+        access_token_enc=encrypt("token"),
+        refresh_token_enc=encrypt("refresh"),
+        external_user_id="ath-1",
+    )
+    db_session.add(conn)
+    await db_session.commit()
+
+    def act(i, with_map=True):
+        return {
+            "id": i,
+            "type": "Run",
+            "name": f"Runda {i}",
+            "start_date": "2026-07-10T06:00:00Z",
+            "moving_time": 1800,
+            "distance": 5000,
+            "map": {"summary_polyline": "poly"} if with_map else {},
+            "start_latlng": [59.3, 18.1] if with_map else None,
+        }
+
+    # Full första sida (200 st) → hämtar vidare; kort andra sida → stopp
+    pages = {
+        1: [act(i) for i in range(1, 201)],
+        2: [act(201, with_map=False)],
+    }
+
+    async def fake_page(c, db, page, per_page=200):
+        return pages.get(page, [])
+
+    monkeypatch.setattr(strava_mod, "fetch_activity_page", fake_page)
+
+    resp = await client.post(
+        "/api/integrations/strava/sync", headers=auth(make_token)
+    )
+    assert resp.status_code == 200
+    assert resp.json()["imported"] == 201
+
+    # Kartan får bara de med GPS
+    geo = (
+        await client.get("/api/cardio/geo?limit=500", headers=auth(make_token))
+    ).json()
+    assert len(geo) == 200
+
+    # Körs igen → inga dubbletter, inget nytt importerat
+    resp = await client.post(
+        "/api/integrations/strava/sync", headers=auth(make_token)
+    )
+    assert resp.json()["imported"] == 0
+    geo = (
+        await client.get("/api/cardio/geo?limit=500", headers=auth(make_token))
+    ).json()
+    assert len(geo) == 200  # oförändrat — inga dubbletter skapades
+
+
+async def test_strava_sync_requires_connection(client, make_token, known_user):
+    resp = await client.post(
+        "/api/integrations/strava/sync", headers=auth(make_token)
+    )
+    assert resp.status_code == 404

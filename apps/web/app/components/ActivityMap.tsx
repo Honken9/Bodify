@@ -59,6 +59,7 @@ export default function ActivityMap({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const allBoundsRef = useRef<L.LatLngBounds | null>(null);
   const layersRef = useRef<
     Map<string, { layer: L.Polyline | L.CircleMarker; isRoute: boolean }>
   >(new Map());
@@ -131,8 +132,10 @@ export default function ActivityMap({
     }
 
     if (bounds.isValid()) {
+      allBoundsRef.current = bounds;
       map.fitBounds(bounds, { padding: [30, 30] });
     } else {
+      allBoundsRef.current = null;
       map.setView([59.334, 18.063], 5); // Sverige som utgångsvy
     }
 
@@ -144,10 +147,17 @@ export default function ActivityMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activities]);
 
-  // Klick i listan → zooma till aktiviteten och öppna dess ruta
+  // Klick i listan/bläddring → zooma till aktiviteten; null = visa alla
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !focusId) return;
+    if (!map) return;
+    if (!focusId) {
+      map.closePopup();
+      if (allBoundsRef.current) {
+        map.fitBounds(allBoundsRef.current, { padding: [30, 30] });
+      }
+      return;
+    }
     const entry = layersRef.current.get(focusId);
     if (!entry) return;
     if (entry.isRoute) {

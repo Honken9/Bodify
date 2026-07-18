@@ -33,6 +33,8 @@ export default function MapPage() {
   const [activities, setActivities] = useState<GeoActivity[] | null>(null);
   const [filter, setFilter] = useState("all");
   const [focusId, setFocusId] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -40,6 +42,33 @@ export default function MapPage() {
       .then(setActivities)
       .catch((e: Error) => setError(e.message));
   }, []);
+
+  async function syncHistory() {
+    setSyncing(true);
+    setSyncResult(null);
+    setError(null);
+    try {
+      const res = await api<{ imported: number }>(
+        "/api/integrations/strava/sync",
+        { method: "POST" }
+      );
+      setSyncResult(
+        res.imported > 0
+          ? `✅ ${res.imported} aktiviteter hämtade från Strava!`
+          : "✅ Historiken är redan komplett — inget nytt att hämta."
+      );
+      setActivities(await api<GeoActivity[]>("/api/cardio/geo"));
+    } catch (e) {
+      const msg = (e as Error).message;
+      setError(
+        msg.includes("inte kopplat")
+          ? "Strava är inte kopplat ännu — gör det under Kopplingar först."
+          : msg
+      );
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   const filtered = (activities ?? []).filter(
     (a) => filter === "all" || a.type === filter
@@ -60,6 +89,11 @@ export default function MapPage() {
       </div>
 
       {error && <p className="text-red-600 dark:text-red-400">{error}</p>}
+      {syncResult && (
+        <p className="rounded-xl bg-sand p-3 text-sm text-sand-ink dark:bg-night-shell dark:text-lime">
+          {syncResult}
+        </p>
+      )}
 
       <div className="flex gap-1.5 overflow-x-auto">
         {FILTERS.map(([key, label]) => (
@@ -89,14 +123,84 @@ export default function MapPage() {
             så ritas dina löprundor här. (Withings skickar tyvärr inte med
             GPS-data via sitt API.)
           </p>
+          <button
+            disabled={syncing}
+            onClick={syncHistory}
+            className="mt-4 rounded-xl bg-navy px-5 py-2.5 font-semibold text-white disabled:opacity-50"
+          >
+            {syncing ? "Hämtar historik…" : "🔄 Hämta historik från Strava"}
+          </button>
         </section>
       ) : (
         <div className="flex flex-col gap-4 desktop:grid desktop:grid-cols-[1fr_320px] desktop:items-start">
           <div>
+            {/* Bläddra pass för pass, eller zooma ut till allt */}
+            <div className="mb-2 flex items-center justify-between rounded-xl bg-cream-deep px-1 py-0.5 dark:bg-night-shell/60">
+              <button
+                onClick={() => {
+                  const idx = filtered.findIndex((a) => a.id === focusId);
+                  const next =
+                    idx <= 0 ? filtered[filtered.length - 1] : filtered[idx - 1];
+                  if (next) setFocusId(next.id);
+                }}
+                disabled={filtered.length === 0}
+                className="px-3 py-1.5 text-lg leading-none disabled:opacity-30"
+                aria-label="Föregående pass"
+              >
+                ‹
+              </button>
+              <div className="flex items-center gap-2 text-sm">
+                {focusId ? (
+                  <>
+                    <span className="font-semibold">
+                      {(() => {
+                        const idx = filtered.findIndex((a) => a.id === focusId);
+                        const a = filtered[idx];
+                        return a
+                          ? `${idx + 1} av ${filtered.length} · ${a.name ?? "Träning"}`
+                          : "";
+                      })()}
+                    </span>
+                    <button
+                      onClick={() => setFocusId(null)}
+                      className="rounded-full bg-shell px-2.5 py-1 text-xs font-semibold text-muted dark:bg-night-shell dark:text-night-muted"
+                    >
+                      Visa alla
+                    </button>
+                  </>
+                ) : (
+                  <span className="font-semibold">
+                    Alla {filtered.length} aktiviteter
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  const idx = filtered.findIndex((a) => a.id === focusId);
+                  const next =
+                    idx < 0 || idx === filtered.length - 1
+                      ? filtered[0]
+                      : filtered[idx + 1];
+                  if (next) setFocusId(next.id);
+                }}
+                disabled={filtered.length === 0}
+                className="px-3 py-1.5 text-lg leading-none disabled:opacity-30"
+                aria-label="Nästa pass"
+              >
+                ›
+              </button>
+            </div>
             <ActivityMap activities={filtered} focusId={focusId} />
             <p className="mt-2 text-xs text-muted dark:text-faint">
               {filtered.length} aktiviteter på kartan · {routes} med rutt.
-              Linje = runda med GPS-spår, prick = plats för passet.
+              Linje = runda med GPS-spår, prick = plats för passet.{" "}
+              <button
+                disabled={syncing}
+                onClick={syncHistory}
+                className="font-semibold text-navy underline-offset-2 hover:underline disabled:opacity-50 dark:text-lime"
+              >
+                {syncing ? "Hämtar…" : "🔄 Hämta historik"}
+              </button>
             </p>
           </div>
 
