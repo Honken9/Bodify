@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "../lib/api";
+import { quickPosition } from "../lib/geo";
 import type { SessionDetail } from "../lib/types";
 
 type Plan = {
@@ -68,9 +69,10 @@ export default function GenerateWorkout({ onClose }: { onClose: () => void }) {
         "/api/ai/generate-workout/accept",
         { method: "POST", body: JSON.stringify({ plan }) }
       );
+      const pos = await quickPosition();
       const session = await api<SessionDetail>("/api/sessions/start", {
         method: "POST",
-        body: JSON.stringify({ program_day_id }),
+        body: JSON.stringify({ program_day_id, ...pos }),
       });
       router.push(`/workout/${session.id}`);
     } catch (e) {

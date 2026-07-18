@@ -79,6 +79,12 @@ async def strava_event(
     else:
         db.add(CardioActivity(user_id=conn.user_id, source="strava", **fields))
     await db.commit()
+
+    from app.services.watch_link import autolink_watch_activities
+
+    user = await db.get(User, conn.user_id)
+    if user is not None:
+        await autolink_watch_activities(db, user)
     return {"ok": True}
 
 
@@ -149,6 +155,13 @@ async def _sync_withings_workouts_and_steps(
                 )
             )
     await db.commit()
+
+    # Slå ihop klockans gympass med Shapiqo-loggade styrkepass
+    from app.services.watch_link import autolink_watch_activities
+
+    user = await db.get(User, conn.user_id)
+    if user is not None:
+        await autolink_watch_activities(db, user)
     return {"workouts": len(workouts), "step_days": len(days)}
 
 

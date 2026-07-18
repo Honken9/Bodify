@@ -53,6 +53,26 @@ export default function HistoryPage() {
       .catch(() => {});
   }, []);
 
+  async function unlinkWatch(sessionId: string) {
+    if (
+      !window.confirm(
+        "Koppla isär klockpasset? Det blir ett eget pass igen och slås inte ihop automatiskt."
+      )
+    )
+      return;
+    try {
+      await api(`/api/sessions/${sessionId}/unlink-watch`, { method: "POST" });
+      const [s, c] = await Promise.all([
+        api<SessionSummary[]>("/api/sessions?limit=50"),
+        api<CardioActivity[]>("/api/cardio?limit=50"),
+      ]);
+      setSessions(s);
+      setCardio(c);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
   return (
     <main className="mx-auto flex max-w-md flex-col desktop:max-w-4xl gap-4 p-5">
       <h1 className="pt-2 text-2xl font-bold">Historik</h1>
@@ -110,12 +130,28 @@ export default function HistoryPage() {
                     {s.program_name ? `${s.program_name} · ` : ""}
                     {s.set_count} set · {Math.round(s.total_volume_kg)} kg volym
                   </p>
+                  {s.watch && (
+                    <p className="mt-0.5 text-sm text-muted dark:text-faint">
+                      ⌚ {s.watch.avg_hr ? `${Math.round(s.watch.avg_hr)} bpm snitt` : ""}
+                      {s.watch.max_hr ? ` · ${Math.round(s.watch.max_hr)} max` : ""}
+                      {s.watch.calories ? ` · ${Math.round(s.watch.calories)} kcal` : ""}
+                      {" · klockan"}
+                    </p>
+                  )}
                   {s.notes && (
                     <p className="mt-1 text-sm italic text-faint">
                       {s.notes}
                     </p>
                   )}
                 </Link>
+                {s.watch && (
+                  <button
+                    onClick={() => unlinkWatch(s.id)}
+                    className="mt-1 text-xs text-faint underline-offset-2 hover:underline"
+                  >
+                    Koppla isär klockpasset
+                  </button>
+                )}
               </li>
             ))}
           </ul>

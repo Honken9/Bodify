@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import ActivityDetail from "../components/ActivityDetail";
 import GenerateWorkout from "../components/GenerateWorkout";
 import { api } from "../lib/api";
+import { quickPosition } from "../lib/geo";
 import {
   LEVEL_LABELS,
   type CardioActivity,
@@ -204,9 +205,11 @@ function SingleSection({ onError }: { onError: (msg: string) => void }) {
     if (!p.days[0]) return;
     setStarting(p.id);
     try {
+      // Position (tyst, frivillig) → gympasset hamnar på träningskartan
+      const pos = await quickPosition();
       const session = await api<SessionDetail>("/api/sessions/start", {
         method: "POST",
-        body: JSON.stringify({ program_day_id: p.days[0].id }),
+        body: JSON.stringify({ program_day_id: p.days[0].id, ...pos }),
       });
       router.push(`/workout/${session.id}`);
     } catch (e) {

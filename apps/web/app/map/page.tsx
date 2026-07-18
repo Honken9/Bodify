@@ -161,10 +161,20 @@ export default function MapPage() {
     if (filter === "nogps") return !geoById.has(a.id);
     return filter === "all" || a.type === filter;
   });
-  // Kartan: de av listans pass som har GPS
-  const mapActivities = listItems
-    .map((a) => geoById.get(a.id))
-    .filter((g): g is GeoActivity => !!g);
+  // Kartan: de av listans pass som har GPS + styrkepass med position
+  const inRange = (iso: string) => {
+    if (!range) return true;
+    const t = new Date(iso);
+    return t >= range[0] && t < range[1];
+  };
+  const mapActivities = [
+    ...listItems
+      .map((a) => geoById.get(a.id))
+      .filter((g): g is GeoActivity => !!g),
+    ...(filter === "all"
+      ? geo.filter((g) => g.type === "strength" && inRange(g.started_at))
+      : []),
+  ];
   const routes = mapActivities.filter((a) => a.polyline).length;
 
   const fmtDate = new Intl.DateTimeFormat("sv-SE", {
@@ -343,12 +353,14 @@ export default function MapPage() {
                       {focusIdx + 1} av {mapActivities.length} ·{" "}
                       {mapActivities[focusIdx].name ?? "Träning"}
                     </span>
-                    <button
-                      onClick={() => setDetailId(focusId)}
-                      className="shrink-0 rounded-full bg-navy px-2.5 py-1 text-xs font-semibold text-white"
-                    >
-                      Detaljer
-                    </button>
+                    {mapActivities[focusIdx].type !== "strength" && (
+                      <button
+                        onClick={() => setDetailId(focusId)}
+                        className="shrink-0 rounded-full bg-navy px-2.5 py-1 text-xs font-semibold text-white"
+                      >
+                        Detaljer
+                      </button>
+                    )}
                     <button
                       onClick={() => setFocusId(null)}
                       className="shrink-0 rounded-full bg-shell px-2.5 py-1 text-xs font-semibold text-muted dark:bg-night-shell dark:text-night-muted"
@@ -524,12 +536,14 @@ export default function MapPage() {
                     {focusIdx + 1} av {mapActivities.length} ·{" "}
                     {mapActivities[focusIdx].name ?? "Träning"}
                   </span>
-                  <button
-                    onClick={() => setDetailId(focusId)}
-                    className="shrink-0 rounded-full bg-navy px-2.5 py-1 text-xs font-semibold text-white"
-                  >
-                    Detaljer
-                  </button>
+                  {mapActivities[focusIdx].type !== "strength" && (
+                    <button
+                      onClick={() => setDetailId(focusId)}
+                      className="shrink-0 rounded-full bg-navy px-2.5 py-1 text-xs font-semibold text-white"
+                    >
+                      Detaljer
+                    </button>
+                  )}
                   <button
                     onClick={() => setFocusId(null)}
                     className="shrink-0 rounded-full bg-shell px-2.5 py-1 text-xs font-semibold text-muted dark:bg-night-shell dark:text-night-muted"

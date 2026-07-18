@@ -138,6 +138,9 @@ class WorkoutSession(Base):
     )
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     notes: Mapped[str | None] = mapped_column(Text)
+    # Position när passet loggades — visar gympasset på träningskartan
+    start_lat: Mapped[float | None] = mapped_column(Numeric(9, 6))
+    start_lng: Mapped[float | None] = mapped_column(Numeric(9, 6))
 
     program_day: Mapped[ProgramDay | None] = relationship(lazy="selectin")
     sets: Mapped[list["WorkoutSet"]] = relationship(

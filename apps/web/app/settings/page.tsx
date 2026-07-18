@@ -124,15 +124,33 @@ export default function SettingsPage() {
   } | null>(null);
   const [syncing, setSyncing] = useState<string | null>(null);
   const [syncMsg, setSyncMsg] = useState<Record<string, string>>({});
+  const [autoMerge, setAutoMerge] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
     api<IntegrationsStatus>("/api/integrations")
       .then(setStatus)
       .catch((e: Error) => setError(e.message));
+    api<{ profile?: { auto_merge_watch?: boolean } }>("/api/me")
+      .then((me) => setAutoMerge(me.profile?.auto_merge_watch !== false))
+      .catch(() => {});
   }, []);
 
   useEffect(refresh, [refresh]);
+
+  async function toggleAutoMerge() {
+    const next = !autoMerge;
+    setAutoMerge(next);
+    try {
+      await api("/api/me", {
+        method: "PATCH",
+        body: JSON.stringify({ profile: { auto_merge_watch: next } }),
+      });
+    } catch (e) {
+      setAutoMerge(!next);
+      setError((e as Error).message);
+    }
+  }
 
   async function connect(provider: string) {
     try {
@@ -259,6 +277,34 @@ export default function SettingsPage() {
           </section>
         );
       })}
+
+      <section className="rounded-2xl border border-line bg-white p-5 dark:border-night-shell dark:bg-night-card">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="font-bold">⌚ Klockpass & styrkepass</h2>
+            <p className="mt-1 text-sm text-muted dark:text-faint">
+              Slå automatiskt ihop klockans gympass med pass du loggar i
+              Shapiqo — klockans puls och kalorier hängs på styrkepasset
+              istället för att räknas som ett eget pass. Enstaka pass kan
+              kopplas isär i Historiken.
+            </p>
+          </div>
+          <button
+            role="switch"
+            aria-checked={autoMerge}
+            onClick={toggleAutoMerge}
+            className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
+              autoMerge ? "bg-lime" : "bg-shell dark:bg-night-shell"
+            }`}
+          >
+            <span
+              className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ${
+                autoMerge ? "left-6" : "left-1"
+              }`}
+            />
+          </button>
+        </div>
+      </section>
 
       <section className="rounded-2xl border border-line bg-white p-5 dark:border-night-shell dark:bg-night-card">
         <h2 className="font-bold">Apple Health</h2>

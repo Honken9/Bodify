@@ -11,6 +11,8 @@ class ProfileUpdate(BaseModel):
     fav_workout: str | None = Field(default=None, max_length=120)
     fav_exercise: str | None = Field(default=None, max_length=120)
     goal: str | None = Field(default=None, max_length=200)
+    # Slå ihop klockinspelade gympass med loggade styrkepass (på som standard)
+    auto_merge_watch: bool | None = None
 
 
 class UserOut(BaseModel):

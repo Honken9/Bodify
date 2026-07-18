@@ -2,6 +2,7 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import (
+    Boolean,
     Date,
     DateTime,
     ForeignKey,
@@ -137,6 +138,12 @@ class CardioActivity(Base):
     avg_pace_s_per_km: Mapped[float | None] = mapped_column(Numeric(7, 1))
     calories: Mapped[float | None] = mapped_column(Numeric(7, 1))
     raw: Mapped[dict | None] = mapped_column(JSON)
+    # Klockinspelat gympass som slagits ihop med ett loggat styrkepass —
+    # länkade pass räknas inte som egna i statistik/listor
+    linked_session_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("workout_sessions.id", ondelete="SET NULL")
+    )
+    autolink_opt_out: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class Goal(Base):

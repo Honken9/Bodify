@@ -45,6 +45,7 @@ const TYPE_ICONS: Record<string, string> = {
   ride: "🚴",
   walk: "🚶",
   swim: "🏊",
+  strength: "🏋️",
   other: "💪",
 };
 

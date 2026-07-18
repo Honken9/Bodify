@@ -91,4 +91,12 @@ async def backfill_activities(
             break  # sista sidan
     if removed_dupes:
         logger.info("Rensade %s klock-dubbletter av Strava-pass.", removed_dupes)
+
+    # Slå ihop klockans gympass med Shapiqo-loggade styrkepass
+    from app.models import User
+    from app.services.watch_link import autolink_watch_activities
+
+    user = await db.get(User, conn.user_id)
+    if user is not None:
+        await autolink_watch_activities(db, user)
     return {"imported": imported, "paused": paused}

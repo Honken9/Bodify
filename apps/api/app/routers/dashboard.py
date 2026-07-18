@@ -53,6 +53,8 @@ async def dashboard(
         ).where(
             CardioActivity.user_id == user.id,
             CardioActivity.started_at >= since_dt,
+            # Klockpass ihopslagna med loggade styrkepass räknas inte dubbelt
+            CardioActivity.linked_session_id.is_(None),
         )
     )
     cardio_count, cardio_distance = cardio_rows.one()
@@ -114,6 +116,7 @@ async def dashboard(
             select(func.date(CardioActivity.started_at)).where(
                 CardioActivity.user_id == user.id,
                 CardioActivity.started_at >= since_dt,
+                CardioActivity.linked_session_id.is_(None),
             )
         )
     }

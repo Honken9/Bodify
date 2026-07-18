@@ -97,6 +97,15 @@ export type SessionExercisePlan = {
   previous: PreviousSets | null;
 };
 
+export type WatchData = {
+  activity_id: string;
+  source: string;
+  duration_s: number;
+  avg_hr: number | null;
+  max_hr: number | null;
+  calories: number | null;
+};
+
 export type SessionDetail = {
   id: string;
   started_at: string;
@@ -106,6 +115,7 @@ export type SessionDetail = {
   program_name: string | null;
   plan: SessionExercisePlan[];
   sets: WorkoutSet[];
+  watch: WatchData | null;
 };
 
 export type SessionSummary = {
@@ -117,6 +127,7 @@ export type SessionSummary = {
   program_name: string | null;
   set_count: number;
   total_volume_kg: number;
+  watch: WatchData | null;
 };
 
 export type FoodItem = {

@@ -134,6 +134,20 @@ class SessionExercisePlan(BaseModel):
 
 class SessionStart(BaseModel):
     program_day_id: uuid.UUID | None = None
+    # Position när passet startas (frivilligt) — visar gymmet på kartan
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
+
+
+class WatchData(BaseModel):
+    """Klockans version av samma pass — puls/kalorier från länkad aktivitet."""
+
+    activity_id: uuid.UUID
+    source: str
+    duration_s: int
+    avg_hr: float | None
+    max_hr: float | None
+    calories: float | None
 
 
 class SessionSummary(BaseModel):
@@ -147,6 +161,7 @@ class SessionSummary(BaseModel):
     program_name: str | None = None
     set_count: int = 0
     total_volume_kg: float = 0
+    watch: WatchData | None = None
 
 
 class SessionDetail(BaseModel):
@@ -158,6 +173,7 @@ class SessionDetail(BaseModel):
     program_name: str | None
     plan: list[SessionExercisePlan]
     sets: list[SetOut]
+    watch: WatchData | None = None
 
 
 class SessionFinish(BaseModel):

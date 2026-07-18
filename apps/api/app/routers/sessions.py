@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import get_current_user
 from app.db import get_session
 from app.models import (
+    CardioActivity,
     Exercise,
     ProgramDay,
     User,
@@ -25,6 +26,7 @@ from app.schemas_training import (
     SessionSummary,
     SetCreate,
     SetOut,
+    WatchData,
 )
 
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
@@ -78,6 +80,19 @@ async def _previous_sets(
     )
 
 
+def _watch_data(activity: CardioActivity | None) -> WatchData | None:
+    if activity is None:
+        return None
+    return WatchData(
+        activity_id=activity.id,
+        source=activity.source,
+        duration_s=activity.duration_s,
+        avg_hr=float(activity.avg_hr) if activity.avg_hr else None,
+        max_hr=float(activity.max_hr) if activity.max_hr else None,
+        calories=float(activity.calories) if activity.calories else None,
+    )
+
+
 async def _build_detail(
     ws: WorkoutSession, user: User, db: AsyncSession
 ) -> SessionDetail:
@@ -111,6 +126,9 @@ async def _build_detail(
             )
         )
 
+    linked = await db.scalar(
+        select(CardioActivity).where(CardioActivity.linked_session_id == ws.id)
+    )
     return SessionDetail(
         id=ws.id,
         started_at=ws.started_at,
@@ -120,6 +138,7 @@ async def _build_detail(
         program_name=ws.program_day.program.name if ws.program_day else None,
         plan=plan,
         sets=[SetOut.model_validate(s) for s in ws.sets],
+        watch=_watch_data(linked),
     )
 
 
@@ -138,7 +157,12 @@ async def start_session(
         if program.user_id is not None and program.user_id != user.id:
             raise HTTPException(404, "Träningsdagen finns inte.")
 
-    ws = WorkoutSession(user_id=user.id, program_day_id=program_day_id)
+    ws = WorkoutSession(
+        user_id=user.id,
+        program_day_id=program_day_id,
+        start_lat=payload.lat,
+        start_lng=payload.lng,
+    )
     db.add(ws)
     await db.commit()
     # Ladda om med eager-relationer (async-säkert efter commit)
@@ -183,6 +207,15 @@ async def list_sessions(
     )
     stats = {row[0]: (row[1], float(row[2])) for row in volume_rows}
 
+    linked_map = {
+        a.linked_session_id: a
+        for a in await db.scalars(
+            select(CardioActivity).where(
+                CardioActivity.linked_session_id.in_([s.id for s in sessions])
+            )
+        )
+    }
+
     return [
         SessionSummary(
             id=s.id,
@@ -193,6 +226,7 @@ async def list_sessions(
             program_name=s.program_day.program.name if s.program_day else None,
             set_count=stats.get(s.id, (0, 0.0))[0],
             total_volume_kg=stats.get(s.id, (0, 0.0))[1],
+            watch=_watch_data(linked_map.get(s.id)),
         )
         for s in sessions
     ]
@@ -297,4 +331,29 @@ async def finish_session(
 
     await db.commit()
     await db.refresh(ws)
+
+    # Fanns ett klockinspelat gympass med samma starttid? Slå ihop direkt.
+    from app.services.watch_link import autolink_watch_activities
+
+    await autolink_watch_activities(db, user)
+    return await _build_detail(ws, user, db)
+
+
+@router.post("/{session_id}/unlink-watch", response_model=SessionDetail)
+async def unlink_watch(
+    session_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> SessionDetail:
+    """Koppla isär klockpasset från styrkepasset — klockans version blir
+    ett eget pass igen och länkas aldrig om automatiskt."""
+    ws = await _get_own_session(session_id, user, db)
+    activity = await db.scalar(
+        select(CardioActivity).where(CardioActivity.linked_session_id == ws.id)
+    )
+    if activity is None:
+        raise HTTPException(404, "Inget klockpass är kopplat till passet.")
+    activity.linked_session_id = None
+    activity.autolink_opt_out = True
+    await db.commit()
     return await _build_detail(ws, user, db)
