@@ -44,6 +44,7 @@ class CardioGeoOut(BaseModel):
 
     id: uuid.UUID
     type: str
+    source: str
     name: str | None
     started_at: datetime
     duration_s: int
@@ -78,6 +79,7 @@ async def list_geo_activities(
             CardioGeoOut(
                 id=a.id,
                 type=a.type,
+                source=a.source,
                 name=a.name,
                 started_at=a.started_at,
                 duration_s=a.duration_s,
@@ -105,6 +107,7 @@ async def list_geo_activities(
             CardioGeoOut(
                 id=ws.id,
                 type="strength",
+                source="shapiqo",
                 name=ws.program_day.name if ws.program_day else "Styrkepass",
                 started_at=ws.started_at,
                 duration_s=duration,

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import LineChart from "../components/LineChart";
 import { api, formatDate } from "../lib/api";
+import { sourceLabel } from "../lib/sources";
 
 const METRIC_META: Record<
   string,
@@ -148,18 +149,22 @@ export default function HealthPage() {
     values.length > 0
       ? values.reduce((a, b) => a + b, 0) / values.length
       : null;
+  const windowSources = [
+    ...new Set(series.map((p) => sourceLabel(p.source)).filter(Boolean)),
+  ].join(" + ");
   const summary =
     values.length === 0
       ? null
-      : selected === "steps"
-        ? `Totalt ${Math.round(values.reduce((a, b) => a + b, 0)).toLocaleString("sv-SE")} · snitt ${Math.round(
-            values.reduce((a, b) => a + b, 0) / values.length
-          ).toLocaleString("sv-SE")}/dag`
-        : `Snitt ${(values.reduce((a, b) => a + b, 0) / values.length).toFixed(
-            meta?.decimals ?? 1
-          )} · lägst ${Math.min(...values).toFixed(meta?.decimals ?? 1)} · högst ${Math.max(
-            ...values
-          ).toFixed(meta?.decimals ?? 1)} ${meta?.unit ?? ""}`;
+      : (selected === "steps"
+          ? `Totalt ${Math.round(values.reduce((a, b) => a + b, 0)).toLocaleString("sv-SE")} · snitt ${Math.round(
+              values.reduce((a, b) => a + b, 0) / values.length
+            ).toLocaleString("sv-SE")}/dag`
+          : `Snitt ${(values.reduce((a, b) => a + b, 0) / values.length).toFixed(
+              meta?.decimals ?? 1
+            )} · lägst ${Math.min(...values).toFixed(meta?.decimals ?? 1)} · högst ${Math.max(
+              ...values
+            ).toFixed(meta?.decimals ?? 1)} ${meta?.unit ?? ""}`) +
+        (windowSources ? ` · via ${windowSources}` : "");
   const goalForSelected = goals.find(
     (g) => g.kind === "body_metric" && g.target.metric === selected
   );
@@ -204,6 +209,11 @@ export default function HealthPage() {
                   {m.unit}
                 </span>
               </p>
+              {v && (
+                <p className="truncate text-[9px] text-faint">
+                  {sourceLabel(v.source)}
+                </p>
+              )}
             </button>
           );
         })}

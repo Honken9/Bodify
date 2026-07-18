@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, formatDate } from "./lib/api";
+import { sourceLabel } from "./lib/sources";
 import type { Me, SessionSummary, UserProgram } from "./lib/types";
 
 export default function Home() {
@@ -149,25 +150,33 @@ export default function Home() {
 type MetricPoint = { measured_at: string; value: number; source: string };
 
 function StepsCard() {
-  const [days, setDays] = useState<{ day: string; steps: number }[] | null>(
-    null
-  );
+  const [days, setDays] = useState<
+    { day: string; steps: number; source: string }[] | null
+  >(null);
 
   useEffect(() => {
     api<MetricPoint[]>("/api/metrics/steps?days=8")
       .then((points) => {
         // En stapel per dag — högsta värdet vinner om flera källor rapporterar
-        const byDay = new Map<string, number>();
+        const byDay = new Map<string, { steps: number; source: string }>();
         for (const p of points) {
           const day = p.measured_at.slice(0, 10);
-          byDay.set(day, Math.max(byDay.get(day) ?? 0, p.value));
+          const prev = byDay.get(day);
+          if (!prev || p.value > prev.steps) {
+            byDay.set(day, { steps: p.value, source: p.source });
+          }
         }
-        const result: { day: string; steps: number }[] = [];
+        const result: { day: string; steps: number; source: string }[] = [];
         for (let i = 6; i >= 0; i--) {
           const d = new Date();
           d.setDate(d.getDate() - i);
           const key = d.toLocaleDateString("sv-SE");
-          result.push({ day: key, steps: byDay.get(key) ?? 0 });
+          const best = byDay.get(key);
+          result.push({
+            day: key,
+            steps: best?.steps ?? 0,
+            source: best?.source ?? "",
+          });
         }
         setDays(result);
       })
@@ -191,6 +200,11 @@ function StepsCard() {
               ? Math.round(today.steps).toLocaleString("sv-SE")
               : "—"}
           </p>
+          {today.steps > 0 && today.source && (
+            <p className="text-[10px] text-faint">
+              via {sourceLabel(today.source)}
+            </p>
+          )}
         </div>
         <div className="flex items-end gap-1.5">
           {days.map((d, i) => (
@@ -385,6 +399,8 @@ function TodayCard() {
 
   const hr = (k: string) =>
     isToday(k) ? String(Math.round(latest[k].value)) : "–";
+  const srcSub = (k: string, base: string) =>
+    isToday(k) ? `${base} · ${sourceLabel(latest[k].source)}` : base;
 
   const sleep = latest["sleep_duration"];
   const sleepFresh =
@@ -409,18 +425,31 @@ function TodayCard() {
         </a>
       </div>
       <div className="grid grid-cols-3 gap-2">
-        <Stat label="❤️ Snittpuls" value={hr("hr_avg")} sub="bpm idag" />
-        <Stat label="🔺 Maxpuls" value={hr("hr_max")} sub="bpm idag" />
-        <Stat label="🔻 Lägsta" value={hr("hr_min")} sub="bpm idag" />
+        <Stat
+          label="❤️ Snittpuls"
+          value={hr("hr_avg")}
+          sub={srcSub("hr_avg", "bpm idag")}
+        />
+        <Stat
+          label="🔺 Maxpuls"
+          value={hr("hr_max")}
+          sub={srcSub("hr_max", "bpm idag")}
+        />
+        <Stat
+          label="🔻 Lägsta"
+          value={hr("hr_min")}
+          sub={srcSub("hr_min", "bpm idag")}
+        />
       </div>
       <div className="mt-2 grid grid-cols-2 gap-2">
         <Stat
           label="😴 Sömn i natt"
           value={sleepText}
           sub={
-            sleepFresh && score && isToday("sleep_score")
+            (sleepFresh && score && isToday("sleep_score")
               ? `sömnpoäng ${Math.round(score.value)}/100`
-              : "senaste natten"
+              : "senaste natten") +
+            (sleepFresh && sleep ? ` · ${sourceLabel(sleep.source)}` : "")
           }
         />
         <Stat
@@ -428,7 +457,7 @@ function TodayCard() {
           value={vo2 ? vo2.value.toFixed(1) : "–"}
           sub={
             vo2
-              ? `VO₂max · ${formatDate(vo2.measured_at)}`
+              ? `VO₂max · ${formatDate(vo2.measured_at)} · ${sourceLabel(vo2.source)}`
               : "VO₂max saknas ännu"
           }
         />

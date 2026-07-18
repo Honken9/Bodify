@@ -7,12 +7,21 @@ import "leaflet/dist/leaflet.css";
 export type GeoActivity = {
   id: string;
   type: string;
+  source?: string;
   name: string | null;
   started_at: string;
   duration_s: number;
   distance_m: number | null;
   polyline: string | null;
   start: [number, number] | null;
+};
+
+const SOURCE_LABELS: Record<string, string> = {
+  withings: "Withings",
+  strava: "Strava",
+  apple_health: "Apple Health",
+  manual: "Manuellt",
+  shapiqo: "Shapiqo",
 };
 
 /** Google/Strava-kodad polyline → [lat, lng][] */
@@ -161,7 +170,11 @@ export default function ActivityMap({
         new Date(a.started_at)
       )}${a.distance_m ? ` · ${(a.distance_m / 1000).toFixed(1)} km` : ""} · ${Math.round(
         a.duration_s / 60
-      )} min`;
+      )} min${
+        a.source && SOURCE_LABELS[a.source]
+          ? `<br><span style="opacity:.65">via ${SOURCE_LABELS[a.source]}</span>`
+          : ""
+      }`;
 
       if (a.polyline) {
         // Rundan ritas som linje — navy med lime-startpunkt

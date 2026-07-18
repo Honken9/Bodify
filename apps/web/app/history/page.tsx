@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, formatDate } from "../lib/api";
+import { sourceLabel } from "../lib/sources";
 import type { SessionSummary } from "../lib/types";
 
 type CardioActivity = {
@@ -135,7 +136,7 @@ export default function HistoryPage() {
                       ⌚ {s.watch.avg_hr ? `${Math.round(s.watch.avg_hr)} bpm snitt` : ""}
                       {s.watch.max_hr ? ` · ${Math.round(s.watch.max_hr)} max` : ""}
                       {s.watch.calories ? ` · ${Math.round(s.watch.calories)} kcal` : ""}
-                      {" · klockan"}
+                      {` · klockan via ${sourceLabel(s.watch.source)}`}
                     </p>
                   )}
                   {s.notes && (
@@ -191,12 +192,7 @@ export default function HistoryPage() {
                   {a.avg_hr ? ` · ${Math.round(a.avg_hr)} bpm` : ""}
                 </p>
                 <p className="mt-0.5 text-xs text-faint">
-                  via{" "}
-                  {a.source === "strava"
-                    ? "Strava"
-                    : a.source === "apple_health"
-                      ? "Apple Health"
-                      : "manuell"}
+                  via {sourceLabel(a.source)}
                 </p>
               </li>
             ))}

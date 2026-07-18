@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
+import { sourceLabel } from "../lib/sources";
 import ActivityDetail from "../components/ActivityDetail";
 import type { GeoActivity } from "../components/ActivityMap";
 import type { CardioActivity } from "../lib/types";
@@ -487,6 +488,7 @@ export default function MapPage() {
                               : g
                                 ? " · 📍 plats"
                                 : ""}
+                            {` · ${sourceLabel(a.source)}`}
                           </span>
                         </span>
                       </button>
