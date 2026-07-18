@@ -17,11 +17,15 @@ function initialsOf(me: Me): string {
 
 export default function TopBar() {
   const [initials, setInitials] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const { resolved, wideScreen, setMode } = useLayoutMode();
 
   useEffect(() => {
     api<Me>("/api/me")
-      .then((me) => setInitials(initialsOf(me)))
+      .then((me) => {
+        setInitials(initialsOf(me));
+        setAvatarUrl(me.avatar_url);
+      })
       .catch(() => {});
   }, []);
 
@@ -39,11 +43,20 @@ export default function TopBar() {
           </button>
         )}
         <a
-          href="/settings"
-          aria-label="Inställningar & kopplingar"
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-shell text-[11px] font-semibold text-sand-ink dark:bg-night-shell dark:text-night-muted"
+          href="/profile"
+          aria-label="Min profil"
+          className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-shell text-[11px] font-semibold text-sand-ink dark:bg-night-shell dark:text-night-muted"
         >
-          {initials ?? "•"}
+          {avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={avatarUrl}
+              alt="Profil"
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            initials ?? "•"
+          )}
         </a>
       </div>
     </header>

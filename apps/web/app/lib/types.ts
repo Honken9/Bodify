@@ -1,8 +1,17 @@
+export type Profile = {
+  city?: string;
+  fav_workout?: string;
+  fav_exercise?: string;
+  goal?: string;
+};
+
 export type Me = {
   id: string;
   email: string;
   display_name: string | null;
   is_admin: boolean;
+  profile: Profile;
+  avatar_url: string | null;
 };
 
 export type Exercise = {

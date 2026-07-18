@@ -18,6 +18,7 @@ const ITEMS = [
   { href: "/history", label: "Historik", icon: "🕘" },
   { href: "/social", label: "Socialt", icon: "🏆" },
   { href: "/photos", label: "Foton", icon: "📸" },
+  { href: "/profile", label: "Profil", icon: "👤" },
   { href: "/settings", label: "Kopplingar", icon: "⚙️" },
 ];
 

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, String, Uuid, func
+from sqlalchemy import JSON, Boolean, DateTime, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -16,6 +16,10 @@ class User(Base):
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     units: Mapped[str] = mapped_column(String(10), default="metric")
     locale: Mapped[str] = mapped_column(String(10), default="sv-SE")
+    # Profil: foto + ort och favoritträningsfrågor
+    # {"city": ..., "fav_workout": ..., "fav_exercise": ..., "goal": ...}
+    avatar_path: Mapped[str | None] = mapped_column(String(300))
+    profile: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
