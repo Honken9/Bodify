@@ -36,7 +36,14 @@ async def chat(
         user_msg["images"] = images_b64
     messages.append(user_msg)
 
-    payload: dict = {"model": model, "messages": messages, "stream": False}
+    # keep_alive: håll modellen i minnet efter användning — annars lastas
+    # den ur efter 5 min och nästa anrop får betala uppvärmningen igen.
+    payload: dict = {
+        "model": model,
+        "messages": messages,
+        "stream": False,
+        "keep_alive": "2h",
+    }
     if json_format:
         payload["format"] = "json"
 
