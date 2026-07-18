@@ -127,6 +127,42 @@ async def strava_callback(
     return RedirectResponse(url="/settings?connected=strava", status_code=302)
 
 
+@router.post("/withings/sync")
+async def withings_sync(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    """Hämta senaste från Withings på begäran — mätvärden (30 dagar),
+    pass och steg (7 dagar). Idempotent, så knappen kan tryckas fritt."""
+    conn = await db.scalar(
+        select(OAuthConnection).where(
+            OAuthConnection.user_id == user.id,
+            OAuthConnection.provider == "withings",
+        )
+    )
+    if conn is None:
+        raise HTTPException(404, "Withings är inte kopplat ännu.")
+
+    from app.models import BodyMetric
+    from app.routers.webhooks import _sync_withings_workouts_and_steps
+
+    since = int((datetime.now(timezone.utc) - timedelta(days=30)).timestamp())
+    measures = await withings.fetch_measures(conn, db, startdate=since)
+    for m in measures:
+        await db.merge(
+            BodyMetric(
+                user_id=user.id,
+                metric=m["metric"],
+                measured_at=m["measured_at"],
+                source="withings",
+                value=m["value"],
+            )
+        )
+    await db.commit()
+    counts = await _sync_withings_workouts_and_steps(conn, db, days_back=7)
+    return {"ok": True, "measures": len(measures), **counts}
+
+
 @router.post("/strava/sync")
 async def strava_sync(
     user: User = Depends(get_current_user),

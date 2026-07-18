@@ -685,3 +685,53 @@ async def test_manual_location_puts_activity_on_map(
         json={"lat": 1, "lng": 1},
     )
     assert denied.status_code == 404
+
+
+async def test_withings_manual_sync(
+    client, make_token, known_user, withings_conn, monkeypatch
+):
+    async def fake_measures(conn, db, startdate=None, enddate=None):
+        assert startdate is not None  # bara senaste 30 dagarna hämtas
+        return [
+            {
+                "metric": "weight",
+                "measured_at": datetime(2026, 7, 18, 7, 0, tzinfo=timezone.utc),
+                "value": 82.1,
+            }
+        ]
+
+    async def fake_workouts(conn, db, days_back=7):
+        return []
+
+    async def fake_steps(conn, db, days_back=7):
+        return [
+            {
+                "measured_at": datetime(2026, 7, 18, tzinfo=timezone.utc),
+                "value": 5200.0,
+            }
+        ]
+
+    monkeypatch.setattr(withings_mod, "fetch_measures", fake_measures)
+    monkeypatch.setattr(withings_mod, "fetch_workouts", fake_workouts)
+    monkeypatch.setattr(withings_mod, "fetch_daily_steps", fake_steps)
+
+    resp = await client.post(
+        "/api/integrations/withings/sync", headers=auth(make_token)
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["measures"] == 1
+    assert body["step_days"] == 1
+
+    latest = (
+        await client.get("/api/metrics/latest", headers=auth(make_token))
+    ).json()
+    assert latest["weight"]["value"] == 82.1
+    assert latest["steps"]["value"] == 5200.0
+
+
+async def test_withings_sync_requires_connection(client, make_token, known_user):
+    resp = await client.post(
+        "/api/integrations/withings/sync", headers=auth(make_token)
+    )
+    assert resp.status_code == 404

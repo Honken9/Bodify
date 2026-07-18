@@ -122,6 +122,8 @@ export default function SettingsPage() {
     token: string;
     endpoint: string;
   } | null>(null);
+  const [syncing, setSyncing] = useState<string | null>(null);
+  const [syncMsg, setSyncMsg] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
@@ -147,6 +149,35 @@ export default function SettingsPage() {
     if (!window.confirm(`Koppla från ${PROVIDER_META[provider]?.name}?`)) return;
     await api(`/api/integrations/${provider}`, { method: "DELETE" });
     refresh();
+  }
+
+  async function syncNow(provider: string) {
+    setSyncing(provider);
+    setSyncMsg((m) => ({ ...m, [provider]: "" }));
+    try {
+      const res = await api<{
+        measures?: number;
+        workouts?: number;
+        step_days?: number;
+        imported?: number;
+      }>(`/api/integrations/${provider}/sync`, { method: "POST" });
+      const parts: string[] = [];
+      if (res.measures) parts.push(`${res.measures} mätvärden`);
+      if (res.workouts) parts.push(`${res.workouts} pass`);
+      if (res.step_days) parts.push(`steg för ${res.step_days} dagar`);
+      if (res.imported) parts.push(`${res.imported} aktiviteter`);
+      setSyncMsg((m) => ({
+        ...m,
+        [provider]:
+          parts.length > 0
+            ? `✅ Hämtat: ${parts.join(", ")}`
+            : "✅ Redan i kapp — inget nytt hos källan ännu.",
+      }));
+    } catch (e) {
+      setSyncMsg((m) => ({ ...m, [provider]: `⚠️ ${(e as Error).message}` }));
+    } finally {
+      setSyncing(null);
+    }
   }
 
   async function createToken() {
@@ -196,18 +227,35 @@ export default function SettingsPage() {
             <p className="mt-1 text-sm text-muted dark:text-faint">
               {meta?.blurb}
             </p>
-            <button
-              onClick={() =>
-                p.connected ? disconnect(p.provider) : connect(p.provider)
-              }
-              className={`mt-3 w-full rounded-xl py-2.5 font-semibold ${
-                p.connected
-                  ? "border border-line-strong text-muted dark:border-night-strong dark:text-night-muted"
-                  : "bg-navy text-white"
-              }`}
-            >
-              {p.connected ? "Koppla från" : `Anslut ${meta?.name}`}
-            </button>
+            {p.connected ? (
+              <>
+                <button
+                  disabled={syncing === p.provider}
+                  onClick={() => syncNow(p.provider)}
+                  className="mt-3 w-full rounded-xl bg-navy py-2.5 font-semibold text-white disabled:opacity-50"
+                >
+                  {syncing === p.provider ? "Synkar…" : "🔄 Synka nu"}
+                </button>
+                {syncMsg[p.provider] && (
+                  <p className="mt-2 text-xs text-muted dark:text-faint">
+                    {syncMsg[p.provider]}
+                  </p>
+                )}
+                <button
+                  onClick={() => disconnect(p.provider)}
+                  className="mt-2 w-full rounded-xl border border-line-strong py-2.5 font-semibold text-muted dark:border-night-strong dark:text-night-muted"
+                >
+                  Koppla från
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => connect(p.provider)}
+                className="mt-3 w-full rounded-xl bg-navy py-2.5 font-semibold text-white"
+              >
+                Anslut {meta?.name}
+              </button>
+            )}
           </section>
         );
       })}
