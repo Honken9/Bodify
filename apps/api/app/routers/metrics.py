@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -50,18 +50,33 @@ async def latest_metrics(
 async def metric_series(
     metric: str,
     days: int = 90,
+    start: date | None = None,
+    end: date | None = None,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_session),
 ) -> list[BodyMetric]:
+    """Serie för ett mätetal. Antingen `days` bakåt från nu, eller ett
+    exakt fönster med `start`/`end` (båda inklusive) — används av
+    dag/vecko/månadsvyerna som bläddrar ett steg i taget."""
     if metric not in METRICS:
         raise HTTPException(404, "Okänt mätetal.")
-    since = datetime.now(timezone.utc) - timedelta(days=min(max(days, 1), 3660))
+    if start is not None and end is not None:
+        since = datetime.combine(start, time.min, tzinfo=timezone.utc)
+        until = datetime.combine(
+            end + timedelta(days=1), time.min, tzinfo=timezone.utc
+        )
+    else:
+        since = datetime.now(timezone.utc) - timedelta(
+            days=min(max(days, 1), 3660)
+        )
+        until = datetime.now(timezone.utc) + timedelta(days=1)
     rows = await db.scalars(
         select(BodyMetric)
         .where(
             BodyMetric.user_id == user.id,
             BodyMetric.metric == metric,
             BodyMetric.measured_at >= since,
+            BodyMetric.measured_at < until,
         )
         .order_by(BodyMetric.measured_at)
     )

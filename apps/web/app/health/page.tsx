@@ -34,16 +34,82 @@ type Goal = {
   current: Record<string, unknown>;
 };
 
+type View = "day" | "week" | "month" | "year";
+
+const VIEW_LABELS: Record<View, string> = {
+  day: "Dag",
+  week: "Vecka",
+  month: "Månad",
+  year: "År",
+};
+
+function isoDay(d: Date): string {
+  return d.toLocaleDateString("sv-SE");
+}
+
+/** Fönstrets [start, slut] (inklusive) för en vy runt ett ankardatum. */
+function windowFor(view: View, anchor: Date): [Date, Date] {
+  const a = new Date(anchor);
+  if (view === "day") return [a, a];
+  if (view === "week") {
+    const start = new Date(a);
+    start.setDate(a.getDate() - ((a.getDay() + 6) % 7)); // måndag
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return [start, end];
+  }
+  if (view === "month")
+    return [
+      new Date(a.getFullYear(), a.getMonth(), 1),
+      new Date(a.getFullYear(), a.getMonth() + 1, 0),
+    ];
+  return [new Date(a.getFullYear(), 0, 1), new Date(a.getFullYear(), 11, 31)];
+}
+
+function shiftAnchor(view: View, anchor: Date, delta: number): Date {
+  const a = new Date(anchor);
+  if (view === "day") a.setDate(a.getDate() + delta);
+  else if (view === "week") a.setDate(a.getDate() + delta * 7);
+  else if (view === "month") a.setMonth(a.getMonth() + delta);
+  else a.setFullYear(a.getFullYear() + delta);
+  return a;
+}
+
+function windowLabel(view: View, start: Date, end: Date): string {
+  const today = isoDay(new Date());
+  if (view === "day") {
+    if (isoDay(start) === today) return "Idag";
+    return new Intl.DateTimeFormat("sv-SE", {
+      weekday: "long",
+      day: "numeric",
+      month: "short",
+    }).format(start);
+  }
+  if (view === "week") {
+    const fmt = (d: Date) =>
+      new Intl.DateTimeFormat("sv-SE", { day: "numeric", month: "short" }).format(d);
+    return `${fmt(start)} – ${fmt(end)}`;
+  }
+  if (view === "month")
+    return new Intl.DateTimeFormat("sv-SE", {
+      month: "long",
+      year: "numeric",
+    }).format(start);
+  return String(start.getFullYear());
+}
+
 export default function HealthPage() {
   const [latest, setLatest] = useState<Latest>({});
   const [selected, setSelected] = useState("weight");
   const [series, setSeries] = useState<
-    { measured_at: string; value: number }[]
+    { measured_at: string; value: number; source?: string }[]
   >([]);
-  const [days, setDays] = useState(90);
+  const [view, setView] = useState<View>("month");
+  const [anchor, setAnchor] = useState(() => new Date());
   const [goals, setGoals] = useState<Goal[]>([]);
   const [showGoalForm, setShowGoalForm] = useState(false);
   const [showManual, setShowManual] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
@@ -53,15 +119,34 @@ export default function HealthPage() {
 
   useEffect(refresh, [refresh]);
 
+  const [winStart, winEnd] = windowFor(view, anchor);
+
   useEffect(() => {
-    api<{ measured_at: string; value: number }[]>(
-      `/api/metrics/${selected}?days=${days}`
+    api<{ measured_at: string; value: number; source?: string }[]>(
+      `/api/metrics/${selected}?start=${isoDay(winStart)}&end=${isoDay(winEnd)}`
     )
       .then(setSeries)
       .catch(() => setSeries([]));
-  }, [selected, days]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, view, anchor]);
 
   const meta = METRIC_META[selected];
+  const atPresent = winEnd >= new Date(new Date().setHours(0, 0, 0, 0));
+
+  // Sammanfattning för fönstret — steg summeras, övrigt visar snitt/min/max
+  const values = series.map((p) => p.value);
+  const summary =
+    values.length === 0
+      ? null
+      : selected === "steps"
+        ? `Totalt ${Math.round(values.reduce((a, b) => a + b, 0)).toLocaleString("sv-SE")} · snitt ${Math.round(
+            values.reduce((a, b) => a + b, 0) / values.length
+          ).toLocaleString("sv-SE")}/dag`
+        : `Snitt ${(values.reduce((a, b) => a + b, 0) / values.length).toFixed(
+            meta?.decimals ?? 1
+          )} · lägst ${Math.min(...values).toFixed(meta?.decimals ?? 1)} · högst ${Math.max(
+            ...values
+          ).toFixed(meta?.decimals ?? 1)} ${meta?.unit ?? ""}`;
   const goalForSelected = goals.find(
     (g) => g.kind === "body_metric" && g.target.metric === selected
   );
@@ -113,30 +198,95 @@ export default function HealthPage() {
 
       <section className="rounded-2xl border border-line bg-white p-4 dark:border-night-shell dark:bg-night-card">
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="font-bold">{meta?.label}</h2>
+          <h2 className="font-bold">
+            {meta?.label}
+            <button
+              onClick={() => setExpanded(true)}
+              className="ml-2 align-middle text-sm text-faint"
+              aria-label="Förstora grafen"
+              title="Förstora grafen"
+            >
+              ⤢
+            </button>
+          </h2>
           <div className="flex gap-1">
-            {[30, 90, 365].map((d) => (
+            {(Object.keys(VIEW_LABELS) as View[]).map((v) => (
               <button
-                key={d}
-                onClick={() => setDays(d)}
+                key={v}
+                onClick={() => {
+                  setView(v);
+                  setAnchor(new Date());
+                }}
                 className={`rounded-lg px-2 py-1 text-xs font-medium ${
-                  days === d
+                  view === v
                     ? "bg-navy text-white"
                     : "bg-shell text-muted dark:bg-night-shell"
                 }`}
               >
-                {d === 365 ? "1 år" : `${d} d`}
+                {VIEW_LABELS[v]}
               </button>
             ))}
           </div>
         </div>
-        <LineChart
-          data={series}
-          unit={meta?.unit}
-          goalValue={
-            goalForSelected ? Number(goalForSelected.target.value) : null
-          }
-        />
+
+        <div className="mb-2 flex items-center justify-between rounded-xl bg-cream-deep px-1 py-0.5 dark:bg-night-shell/60">
+          <button
+            onClick={() => setAnchor(shiftAnchor(view, anchor, -1))}
+            className="px-3 py-1.5 text-lg leading-none"
+            aria-label="Föregående period"
+          >
+            ‹
+          </button>
+          <span className="text-sm font-semibold first-letter:uppercase">
+            {windowLabel(view, winStart, winEnd)}
+          </span>
+          <button
+            onClick={() => setAnchor(shiftAnchor(view, anchor, 1))}
+            disabled={atPresent}
+            className="px-3 py-1.5 text-lg leading-none disabled:opacity-30"
+            aria-label="Nästa period"
+          >
+            ›
+          </button>
+        </div>
+
+        {view === "day" && series.length > 0 ? (
+          <ul className="divide-y divide-line text-sm dark:divide-night-shell">
+            {series.map((p, i) => (
+              <li key={i} className="flex items-center justify-between py-2">
+                <span className="text-muted dark:text-night-muted">
+                  {new Date(p.measured_at).toLocaleTimeString("sv-SE", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                  {p.source ? ` · ${p.source}` : ""}
+                </span>
+                <span className="font-semibold tabular-nums">
+                  {p.value.toFixed(meta?.decimals ?? 1)} {meta?.unit}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <LineChart
+            data={series}
+            unit={meta?.unit}
+            bars={selected === "steps"}
+            decimals={meta?.decimals ?? 1}
+            goalValue={
+              goalForSelected ? Number(goalForSelected.target.value) : null
+            }
+          />
+        )}
+
+        {series.length === 0 && view === "day" && (
+          <p className="py-4 text-center text-sm text-faint">
+            Inga mätningar den här dagen.
+          </p>
+        )}
+        {summary && (
+          <p className="mt-2 text-xs text-muted dark:text-faint">{summary}</p>
+        )}
       </section>
 
       <section>
@@ -200,6 +350,42 @@ export default function HealthPage() {
           ))}
         </ul>
       </section>
+
+      {expanded && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3"
+          onClick={() => setExpanded(false)}
+        >
+          <div
+            className="w-full max-w-2xl rounded-3xl bg-white p-5 dark:bg-night-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-lg font-bold">
+                {meta?.label} · {windowLabel(view, winStart, winEnd)}
+              </h3>
+              <button onClick={() => setExpanded(false)} className="p-1 text-faint">
+                ✕
+              </button>
+            </div>
+            <LineChart
+              data={series}
+              height={300}
+              unit={meta?.unit}
+              bars={selected === "steps"}
+              decimals={meta?.decimals ?? 1}
+              goalValue={
+                goalForSelected ? Number(goalForSelected.target.value) : null
+              }
+            />
+            {summary && (
+              <p className="mt-2 text-sm text-muted dark:text-faint">
+                {summary} · {series.length} mätningar
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {showGoalForm && (
         <GoalForm

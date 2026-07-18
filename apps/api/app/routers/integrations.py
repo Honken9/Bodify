@@ -162,11 +162,11 @@ async def withings_callback(
         await db.commit()
     except Exception:
         pass
-    # Träningspass + stegräkning (kräver user.activity-scopet)
+    # Träningspass + stegräkning — hela historiken (kräver user.activity)
     try:
         from app.routers.webhooks import _sync_withings_workouts_and_steps
 
-        await _sync_withings_workouts_and_steps(conn, db, days_back=90)
+        await _sync_withings_workouts_and_steps(conn, db, days_back=3650)
     except Exception:
         pass
     return RedirectResponse(url="/settings?connected=withings", status_code=302)

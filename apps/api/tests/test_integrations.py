@@ -251,6 +251,37 @@ async def test_withings_activity_event_stores_workouts_and_steps(
     assert len(cardio) == 1
 
 
+async def test_metric_series_windowed(client, make_token, known_user):
+    for day, value in [("2026-07-10", 84.0), ("2026-07-15", 83.2), ("2026-07-17", 82.9)]:
+        await client.post(
+            "/api/metrics",
+            headers=auth(make_token),
+            json={
+                "metric": "weight",
+                "value": value,
+                "measured_at": f"{day}T07:00:00Z",
+            },
+        )
+
+    # Veckofönster 13–19 juli → två mätningar
+    window = (
+        await client.get(
+            "/api/metrics/weight?start=2026-07-13&end=2026-07-19",
+            headers=auth(make_token),
+        )
+    ).json()
+    assert [p["value"] for p in window] == [83.2, 82.9]
+
+    # Dagfönster → exakt en
+    day = (
+        await client.get(
+            "/api/metrics/weight?start=2026-07-15&end=2026-07-15",
+            headers=auth(make_token),
+        )
+    ).json()
+    assert [p["value"] for p in day] == [83.2]
+
+
 HAE_PAYLOAD = {
     "data": {
         "metrics": [

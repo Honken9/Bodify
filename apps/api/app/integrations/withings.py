@@ -169,19 +169,25 @@ async def fetch_measures(
     if enddate:
         data["enddate"] = enddate
 
-    async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.post(
-            f"{API_URL}/measure",
-            headers={"Authorization": f"Bearer {token}"},
-            data=data,
-        )
-    resp.raise_for_status()
-    body = resp.json()
-    if body.get("status") != 0:
-        raise RuntimeError(f"Withings-fel: {body}")
+    groups: list[dict] = []
+    for _ in range(50):  # paginering: more/offset tills hela historiken hämtats
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                f"{API_URL}/measure",
+                headers={"Authorization": f"Bearer {token}"},
+                data=data,
+            )
+        resp.raise_for_status()
+        body = resp.json()
+        if body.get("status") != 0:
+            raise RuntimeError(f"Withings-fel: {body}")
+        groups.extend(body["body"].get("measuregrps", []))
+        if not body["body"].get("more"):
+            break
+        data = {**data, "offset": body["body"].get("offset", 0)}
 
     results = []
-    for group in body["body"].get("measuregrps", []):
+    for group in groups:
         measured_at = datetime.fromtimestamp(group["date"], tz=timezone.utc)
         for measure in group.get("measures", []):
             metric = MEASTYPE_MAP.get(measure["type"])
@@ -245,25 +251,40 @@ def normalize_workouts(series: list[dict]) -> list[dict]:
     return results
 
 
+async def _fetch_paginated(
+    token: str, data: dict, list_key: str, max_pages: int = 50
+) -> list[dict]:
+    """Withings paginerar med more/offset — loopa tills allt är hämtat."""
+    items: list[dict] = []
+    for _ in range(max_pages):
+        body = await _api_post(token, "/v2/measure", data)
+        items.extend(body.get(list_key, []))
+        if not body.get("more"):
+            break
+        data = {**data, "offset": body.get("offset", 0)}
+    return items
+
+
 async def fetch_workouts(
     conn: OAuthConnection,
     db: AsyncSession,
     days_back: int = 90,
 ) -> list[dict]:
-    """Hämta träningspass (kräver user.activity-scope)."""
+    """Hämta träningspass (kräver user.activity-scope). Paginerar så hela
+    historiken kommer med vid stora intervall."""
     token = await get_access_token(conn, db)
     today = datetime.now(timezone.utc).date()
-    body = await _api_post(
+    series = await _fetch_paginated(
         token,
-        "/v2/measure",
         {
             "action": "getworkouts",
             "startdateymd": (today - timedelta(days=days_back)).isoformat(),
             "enddateymd": today.isoformat(),
             "data_fields": "calories,distance,hr_average,hr_max,steps",
         },
+        "series",
     )
-    return normalize_workouts(body.get("series", []))
+    return normalize_workouts(series)
 
 
 async def fetch_daily_steps(
@@ -274,18 +295,18 @@ async def fetch_daily_steps(
     """Daglig stegräkning → [{measured_at, value}, ...] för metric 'steps'."""
     token = await get_access_token(conn, db)
     today = datetime.now(timezone.utc).date()
-    body = await _api_post(
+    activities = await _fetch_paginated(
         token,
-        "/v2/measure",
         {
             "action": "getactivity",
             "startdateymd": (today - timedelta(days=days_back)).isoformat(),
             "enddateymd": today.isoformat(),
             "data_fields": "steps",
         },
+        "activities",
     )
     results = []
-    for day in body.get("activities", []):
+    for day in activities:
         steps = day.get("steps")
         if steps is None:
             continue
