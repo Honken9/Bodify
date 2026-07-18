@@ -161,7 +161,20 @@ export default function ExercisesPage() {
               {isOpen && (
                 <div className="mt-3 border-t border-line pt-3 dark:border-night-shell">
                   {e.muscle_groups.length > 0 && (
-                    <MuscleMap groups={e.muscle_groups} height={140} />
+                    <>
+                      <MuscleMap groups={e.muscle_groups} height={140} />
+                      <p className="mt-1 text-center text-xs">
+                        <span className="font-semibold">💪 Tränar: </span>
+                        <span className="capitalize text-muted dark:text-night-muted">
+                          {e.muscle_groups.join(", ")}
+                        </span>
+                        {e.equipment.length > 0 && (
+                          <span className="capitalize text-faint">
+                            {" · "}🏋️ {e.equipment.join(", ")}
+                          </span>
+                        )}
+                      </p>
+                    </>
                   )}
                   {e.description ? (
                     <p className="mt-2 text-sm leading-relaxed text-muted dark:text-night-muted">
