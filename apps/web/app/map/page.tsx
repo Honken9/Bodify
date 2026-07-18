@@ -305,6 +305,7 @@ export default function MapPage() {
         <ActivityDetail
           activityId={detailId}
           onClose={() => setDetailId(null)}
+          onChanged={() => load().catch(() => {})}
         />
       )}
     </main>

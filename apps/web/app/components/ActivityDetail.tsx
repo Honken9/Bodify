@@ -5,6 +5,9 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 
 const ActivityMap = dynamic(() => import("./ActivityMap"), { ssr: false });
+const LocationPicker = dynamic(() => import("./LocationPicker"), {
+  ssr: false,
+});
 
 export type CardioDetail = {
   id: string;
@@ -53,11 +56,14 @@ function fmtPace(sPerKm: number): string {
 export default function ActivityDetail({
   activityId,
   onClose,
+  onChanged,
 }: {
   activityId: string;
   onClose: () => void;
+  onChanged?: () => void;
 }) {
   const [detail, setDetail] = useState<CardioDetail | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -65,6 +71,21 @@ export default function ActivityDetail({
       .then(setDetail)
       .catch((e: Error) => setError(e.message));
   }, [activityId]);
+
+  async function saveLocation([lat, lng]: [number, number]) {
+    try {
+      const updated = await api<CardioDetail>(
+        `/api/cardio/${activityId}/location`,
+        { method: "PATCH", body: JSON.stringify({ lat, lng }) }
+      );
+      setDetail(updated);
+      setShowPicker(false);
+      onChanged?.();
+    } catch (e) {
+      setError((e as Error).message);
+      setShowPicker(false);
+    }
+  }
 
   const d = detail;
   const [icon, typeLabel] = TYPE_META[d?.type ?? "other"] ?? TYPE_META.other;
@@ -179,6 +200,15 @@ export default function ActivityDetail({
             </div>
           )}
 
+          {d && !d.polyline && !d.start && (
+            <button
+              onClick={() => setShowPicker(true)}
+              className="mb-3 w-full rounded-xl border border-dashed border-line-strong py-2.5 text-sm font-semibold text-muted dark:border-night-strong dark:text-night-muted"
+            >
+              📍 Sätt plats — visa passet på kartan
+            </button>
+          )}
+
           {d && (
             <div className="grid grid-cols-2 gap-2">
               {stats.map(([label, value]) => (
@@ -196,6 +226,13 @@ export default function ActivityDetail({
           )}
         </div>
       </div>
+
+      {showPicker && (
+        <LocationPicker
+          onSave={saveLocation}
+          onClose={() => setShowPicker(false)}
+        />
+      )}
     </div>
   );
 }

@@ -164,6 +164,34 @@ async def get_activity(
     return out
 
 
+class LocationUpdate(BaseModel):
+    """Manuell plats för pass utan GPS — så även gympass kan visas på
+    kartan (Strava skickar bara position för GPS-inspelade pass)."""
+
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+
+
+@router.patch("/{activity_id}/location", response_model=CardioDetailOut)
+async def set_location(
+    activity_id: uuid.UUID,
+    payload: LocationUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> CardioDetailOut:
+    activity = await db.get(CardioActivity, activity_id)
+    if activity is None or activity.user_id != user.id:
+        raise HTTPException(404, "Aktiviteten finns inte.")
+    activity.raw = {
+        **(activity.raw or {}),
+        "start_latlng": [payload.lat, payload.lng],
+        "location_source": "manual",
+    }
+    await db.commit()
+    await db.refresh(activity)
+    return await get_activity(activity_id, user, db)
+
+
 @router.delete("/{activity_id}", status_code=204)
 async def delete_activity(
     activity_id: uuid.UUID,

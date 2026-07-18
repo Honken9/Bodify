@@ -135,6 +135,10 @@ export default function HealthPage() {
 
   // Sammanfattning för fönstret — steg summeras, övrigt visar snitt/min/max
   const values = series.map((p) => p.value);
+  const mean =
+    values.length > 0
+      ? values.reduce((a, b) => a + b, 0) / values.length
+      : null;
   const summary =
     values.length === 0
       ? null
@@ -273,6 +277,7 @@ export default function HealthPage() {
             unit={meta?.unit}
             bars={selected === "steps"}
             decimals={meta?.decimals ?? 1}
+            meanValue={mean}
             goalValue={
               goalForSelected ? Number(goalForSelected.target.value) : null
             }
@@ -374,6 +379,7 @@ export default function HealthPage() {
               unit={meta?.unit}
               bars={selected === "steps"}
               decimals={meta?.decimals ?? 1}
+              meanValue={mean}
               goalValue={
                 goalForSelected ? Number(goalForSelected.target.value) : null
               }

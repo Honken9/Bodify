@@ -27,6 +27,7 @@ export default function LineChart({
   height = 180,
   unit,
   goalValue,
+  meanValue,
   bars = false,
   decimals = 1,
 }: {
@@ -34,6 +35,7 @@ export default function LineChart({
   height?: number;
   unit?: string;
   goalValue?: number | null;
+  meanValue?: number | null; // periodens medel — ritas som streckad linje
   bars?: boolean; // staplar (t.ex. steg) i stället för linje
   decimals?: number;
 }) {
@@ -120,6 +122,35 @@ export default function LineChart({
           </g>
         );
       })}
+
+      {meanValue != null &&
+        data.length > 1 &&
+        (() => {
+          const y = toY(meanValue);
+          if (y <= pad.top || y >= height - pad.bottom) return null;
+          return (
+            <g>
+              <line
+                x1={pad.left}
+                x2={width - pad.right}
+                y1={y}
+                y2={y}
+                className="stroke-navy"
+                strokeWidth="1.2"
+                strokeDasharray="2 4"
+                opacity="0.6"
+              />
+              <text
+                x={pad.left + 3}
+                y={y - 3}
+                className="fill-navy text-[9px] font-semibold"
+                opacity="0.8"
+              >
+                Ø {fmtVal(meanValue)}
+              </text>
+            </g>
+          );
+        })()}
 
       {goalY != null && goalY > pad.top && goalY < height - pad.bottom && (
         <g>

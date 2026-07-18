@@ -636,3 +636,52 @@ async def test_strava_sync_requires_connection(client, make_token, known_user):
         "/api/integrations/strava/sync", headers=auth(make_token)
     )
     assert resp.status_code == 404
+
+
+async def test_manual_location_puts_activity_on_map(
+    client, make_token, known_user, db_session
+):
+    from app.models import CardioActivity
+
+    gym = CardioActivity(
+        user_id=known_user.id,
+        type="other",
+        source="withings",
+        external_id="gym-1",
+        name="Styrketräning",
+        started_at=datetime(2026, 7, 16, 17, 0, tzinfo=timezone.utc),
+        duration_s=3600,
+    )
+    db_session.add(gym)
+    await db_session.commit()
+
+    # Utan plats → inte på kartan
+    geo = (await client.get("/api/cardio/geo", headers=auth(make_token))).json()
+    assert geo == []
+
+    resp = await client.patch(
+        f"/api/cardio/{gym.id}/location",
+        headers=auth(make_token),
+        json={"lat": 59.332, "lng": 18.015},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["start"] == [59.332, 18.015]
+
+    geo = (await client.get("/api/cardio/geo", headers=auth(make_token))).json()
+    assert len(geo) == 1
+    assert geo[0]["start"] == [59.332, 18.015]
+
+    # Någon annans pass går inte att platssätta
+    anna = auth(make_token, "anna@example.com")
+    from app.models import User
+    from sqlalchemy import select
+
+    if await db_session.scalar(select(User).where(User.email == "anna@example.com")) is None:
+        db_session.add(User(email="anna@example.com"))
+        await db_session.commit()
+    denied = await client.patch(
+        f"/api/cardio/{gym.id}/location",
+        headers=anna,
+        json={"lat": 1, "lng": 1},
+    )
+    assert denied.status_code == 404
