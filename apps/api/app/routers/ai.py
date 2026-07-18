@@ -163,10 +163,11 @@ async def generate_workout(
         raw = await ollama.chat(prompt, json_format=True)
         plan = _LLMPlan.model_validate(json.loads(raw))
     except AIUnavailable as exc:
+        logger.warning("AI otillgänglig: %s", exc)
         raise HTTPException(
             503,
-            "AI-tjänsten är inte igång. Starta Ollama: "
-            "docker compose --profile ai up -d ollama",
+            "AI-tjänsten svarar inte just nu — kontrollera att Ollama är "
+            "igång och har modellen laddad.",
         ) from exc
     except (json.JSONDecodeError, ValidationError) as exc:
         logger.warning("Ogiltigt AI-svar: %s", exc)
@@ -280,10 +281,11 @@ async def meal_vision(
         )
         meal = _LLMMeal.model_validate(json.loads(raw))
     except AIUnavailable as exc:
+        logger.warning("AI otillgänglig: %s", exc)
         raise HTTPException(
             503,
-            "AI-tjänsten är inte igång. Starta Ollama: "
-            "docker compose --profile ai up -d ollama",
+            "AI-tjänsten svarar inte just nu — kontrollera att Ollama är "
+            "igång och har modellen laddad.",
         ) from exc
     except (json.JSONDecodeError, ValidationError) as exc:
         logger.warning("Ogiltigt måltidssvar från AI: %s", exc)
@@ -334,10 +336,11 @@ async def gym_vision(
         )
         detected = json.loads(raw).get("equipment", [])
     except AIUnavailable as exc:
+        logger.warning("AI otillgänglig: %s", exc)
         raise HTTPException(
             503,
-            "AI-tjänsten är inte igång. Starta Ollama: "
-            "docker compose --profile ai up -d ollama",
+            "AI-tjänsten svarar inte just nu — kontrollera att Ollama är "
+            "igång och har modellen laddad.",
         ) from exc
     except (json.JSONDecodeError, AttributeError):
         raise HTTPException(502, "AI:n gav ett oanvändbart svar — försök igen.")
