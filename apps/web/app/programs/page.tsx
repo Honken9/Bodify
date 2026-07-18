@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import ActivityDetail from "../components/ActivityDetail";
 import GenerateWorkout from "../components/GenerateWorkout";
 import { api } from "../lib/api";
 import {
@@ -351,6 +352,7 @@ function CardioSection({
   });
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   const isMine = (a: CardioActivity) =>
     kind === "other" ? a.type === "other" : a.type !== "other";
@@ -528,7 +530,10 @@ function CardioSection({
                 className="flex items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 shadow-card dark:border-night-shell dark:bg-night-card"
               >
                 <span className="text-xl">{TYPE_ICONS[a.type]}</span>
-                <div className="min-w-0 flex-1">
+                <button
+                  onClick={() => setDetailId(a.id)}
+                  className="min-w-0 flex-1 text-left"
+                >
                   <p className="truncate text-sm font-semibold">
                     {a.name ?? TYPE_LABELS[a.type]}
                   </p>
@@ -543,7 +548,7 @@ function CardioSection({
                     {pace ? ` · ${pace}` : ""}
                     {a.source !== "manual" ? ` · ${a.source}` : ""}
                   </p>
-                </div>
+                </button>
                 {a.source === "manual" && (
                   <button
                     onClick={() => remove(a.id)}
@@ -558,6 +563,13 @@ function CardioSection({
           })}
         </ul>
       </section>
+
+      {detailId && (
+        <ActivityDetail
+          activityId={detailId}
+          onClose={() => setDetailId(null)}
+        />
+      )}
     </>
   );
 }

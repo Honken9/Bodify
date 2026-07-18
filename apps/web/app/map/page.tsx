@@ -3,7 +3,9 @@
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
+import ActivityDetail from "../components/ActivityDetail";
 import type { GeoActivity } from "../components/ActivityMap";
+import type { CardioActivity } from "../lib/types";
 
 // Leaflet kräver window — ladda kartan först i webbläsaren
 const ActivityMap = dynamic(() => import("../components/ActivityMap"), {
@@ -19,6 +21,7 @@ const FILTERS: [string, string][] = [
   ["ride", "🚴 Cykling"],
   ["walk", "🚶 Promenad"],
   ["other", "💪 Övrigt"],
+  ["nogps", "📋 Ej på karta"],
 ];
 
 const TYPE_ICONS: Record<string, string> = {
@@ -30,17 +33,26 @@ const TYPE_ICONS: Record<string, string> = {
 };
 
 export default function MapPage() {
-  const [activities, setActivities] = useState<GeoActivity[] | null>(null);
+  const [all, setAll] = useState<CardioActivity[] | null>(null);
+  const [geo, setGeo] = useState<GeoActivity[]>([]);
   const [filter, setFilter] = useState("all");
   const [focusId, setFocusId] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  async function load() {
+    const [allActs, geoActs] = await Promise.all([
+      api<CardioActivity[]>("/api/cardio?limit=5000"),
+      api<GeoActivity[]>("/api/cardio/geo?limit=5000"),
+    ]);
+    setAll(allActs);
+    setGeo(geoActs);
+  }
+
   useEffect(() => {
-    api<GeoActivity[]>("/api/cardio/geo?limit=5000")
-      .then(setActivities)
-      .catch((e: Error) => setError(e.message));
+    load().catch((e: Error) => setError(e.message));
   }, []);
 
   async function syncHistory() {
@@ -57,7 +69,7 @@ export default function MapPage() {
           ? `✅ ${res.imported} aktiviteter hämtade från Strava!`
           : "✅ Historiken är redan komplett — inget nytt att hämta."
       );
-      setActivities(await api<GeoActivity[]>("/api/cardio/geo?limit=5000"));
+      await load();
     } catch (e) {
       const msg = (e as Error).message;
       setError(
@@ -70,14 +82,39 @@ export default function MapPage() {
     }
   }
 
-  const filtered = (activities ?? []).filter(
-    (a) => filter === "all" || a.type === filter
-  );
-  const routes = filtered.filter((a) => a.polyline).length;
+  const geoById = new Map(geo.map((g) => [g.id, g]));
+
+  // Listan: alla pass (typfilter), "nogps" = bara de utan GPS
+  const listItems = (all ?? []).filter((a) => {
+    if (filter === "nogps") return !geoById.has(a.id);
+    return filter === "all" || a.type === filter;
+  });
+  // Kartan: de av listans pass som har GPS
+  const mapActivities = listItems
+    .map((a) => geoById.get(a.id))
+    .filter((g): g is GeoActivity => !!g);
+  const routes = mapActivities.filter((a) => a.polyline).length;
+
   const fmtDate = new Intl.DateTimeFormat("sv-SE", {
     day: "numeric",
     month: "short",
+    year: "numeric",
   });
+
+  const focusIdx = mapActivities.findIndex((a) => a.id === focusId);
+
+  function step(delta: number) {
+    if (mapActivities.length === 0) return;
+    const next =
+      focusIdx < 0
+        ? delta > 0
+          ? mapActivities[0]
+          : mapActivities[mapActivities.length - 1]
+        : mapActivities[
+            (focusIdx + delta + mapActivities.length) % mapActivities.length
+          ];
+    setFocusId(next.id);
+  }
 
   return (
     <main className="mx-auto flex max-w-md flex-col desktop:max-w-4xl gap-4 p-5">
@@ -99,7 +136,10 @@ export default function MapPage() {
         {FILTERS.map(([key, label]) => (
           <button
             key={key}
-            onClick={() => setFilter(key)}
+            onClick={() => {
+              setFilter(key);
+              setFocusId(null);
+            }}
             className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${
               filter === key
                 ? "bg-navy text-white"
@@ -111,17 +151,17 @@ export default function MapPage() {
         ))}
       </div>
 
-      {activities !== null && activities.length === 0 ? (
+      {all !== null && all.length === 0 ? (
         <section className="rounded-2xl border border-dashed border-line-strong p-6 text-center dark:border-night-strong">
           <p className="text-3xl">🗺️</p>
-          <p className="mt-2 font-semibold">Inga GPS-spår ännu</p>
+          <p className="mt-2 font-semibold">Ingen träningshistorik ännu</p>
           <p className="mt-1 text-sm text-muted dark:text-faint">
-            Rundor och platser hämtas från pass med GPS — koppla{" "}
+            Koppla{" "}
             <a href="/settings" className="font-semibold text-navy dark:text-lime">
               Strava
             </a>{" "}
-            så ritas dina löprundor här. (Withings skickar tyvärr inte med
-            GPS-data via sitt API.)
+            och hämta historiken — rundor med GPS ritas på kartan, övriga
+            pass hamnar i listan.
           </p>
           <button
             disabled={syncing}
@@ -133,67 +173,56 @@ export default function MapPage() {
         </section>
       ) : (
         <div className="flex flex-col gap-4 desktop:grid desktop:grid-cols-[1fr_320px] desktop:items-start">
-          <div>
+          <div className={filter === "nogps" ? "hidden desktop:block" : ""}>
             {/* Bläddra pass för pass, eller zooma ut till allt */}
             <div className="mb-2 flex items-center justify-between rounded-xl bg-cream-deep px-1 py-0.5 dark:bg-night-shell/60">
               <button
-                onClick={() => {
-                  const idx = filtered.findIndex((a) => a.id === focusId);
-                  const next =
-                    idx <= 0 ? filtered[filtered.length - 1] : filtered[idx - 1];
-                  if (next) setFocusId(next.id);
-                }}
-                disabled={filtered.length === 0}
+                onClick={() => step(-1)}
+                disabled={mapActivities.length === 0}
                 className="px-3 py-1.5 text-lg leading-none disabled:opacity-30"
                 aria-label="Föregående pass"
               >
                 ‹
               </button>
-              <div className="flex items-center gap-2 text-sm">
-                {focusId ? (
+              <div className="flex min-w-0 items-center gap-2 text-sm">
+                {focusId && focusIdx >= 0 ? (
                   <>
-                    <span className="font-semibold">
-                      {(() => {
-                        const idx = filtered.findIndex((a) => a.id === focusId);
-                        const a = filtered[idx];
-                        return a
-                          ? `${idx + 1} av ${filtered.length} · ${a.name ?? "Träning"}`
-                          : "";
-                      })()}
+                    <span className="truncate font-semibold">
+                      {focusIdx + 1} av {mapActivities.length} ·{" "}
+                      {mapActivities[focusIdx].name ?? "Träning"}
                     </span>
                     <button
+                      onClick={() => setDetailId(focusId)}
+                      className="shrink-0 rounded-full bg-navy px-2.5 py-1 text-xs font-semibold text-white"
+                    >
+                      Detaljer
+                    </button>
+                    <button
                       onClick={() => setFocusId(null)}
-                      className="rounded-full bg-shell px-2.5 py-1 text-xs font-semibold text-muted dark:bg-night-shell dark:text-night-muted"
+                      className="shrink-0 rounded-full bg-shell px-2.5 py-1 text-xs font-semibold text-muted dark:bg-night-shell dark:text-night-muted"
                     >
                       Visa alla
                     </button>
                   </>
                 ) : (
                   <span className="font-semibold">
-                    Alla {filtered.length} aktiviteter
+                    Alla {mapActivities.length} på kartan
                   </span>
                 )}
               </div>
               <button
-                onClick={() => {
-                  const idx = filtered.findIndex((a) => a.id === focusId);
-                  const next =
-                    idx < 0 || idx === filtered.length - 1
-                      ? filtered[0]
-                      : filtered[idx + 1];
-                  if (next) setFocusId(next.id);
-                }}
-                disabled={filtered.length === 0}
+                onClick={() => step(1)}
+                disabled={mapActivities.length === 0}
                 className="px-3 py-1.5 text-lg leading-none disabled:opacity-30"
                 aria-label="Nästa pass"
               >
                 ›
               </button>
             </div>
-            <ActivityMap activities={filtered} focusId={focusId} />
+            <ActivityMap activities={mapActivities} focusId={focusId} />
             <p className="mt-2 text-xs text-muted dark:text-faint">
-              {filtered.length} aktiviteter på kartan · {routes} med rutt.
-              Linje = runda med GPS-spår, prick = plats för passet.{" "}
+              {mapActivities.length} på kartan · {routes} med rutt · linje =
+              GPS-spår, prick = plats.{" "}
               <button
                 disabled={syncing}
                 onClick={syncHistory}
@@ -206,46 +235,77 @@ export default function MapPage() {
 
           <section>
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-faint">
-              Alla aktiviteter
+              {filter === "nogps"
+                ? `Pass utan GPS (${listItems.length})`
+                : `Alla aktiviteter (${listItems.length})`}
             </h2>
             <ul className="max-h-[50dvh] space-y-1.5 overflow-y-auto desktop:max-h-[70dvh]">
-              {filtered.map((a) => {
+              {listItems.length === 0 && (
+                <p className="py-4 text-center text-sm text-faint">
+                  Inga pass i den här vyn.
+                </p>
+              )}
+              {listItems.map((a) => {
+                const g = geoById.get(a.id);
                 const active = focusId === a.id;
                 return (
                   <li key={a.id}>
-                    <button
-                      onClick={() => setFocusId(a.id)}
-                      className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left ${
+                    <div
+                      className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2.5 ${
                         active
                           ? "border-navy bg-navy-soft dark:border-lime dark:bg-night-shell"
                           : "border-line bg-white dark:border-night-shell dark:bg-night-card"
                       }`}
                     >
-                      <span className="text-lg">
-                        {TYPE_ICONS[a.type] ?? "💪"}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold">
-                          {a.name ?? "Träning"}
+                      <button
+                        onClick={() =>
+                          g ? setFocusId(a.id) : setDetailId(a.id)
+                        }
+                        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                      >
+                        <span className="text-lg">
+                          {TYPE_ICONS[a.type] ?? "💪"}
                         </span>
-                        <span className="block text-xs text-muted dark:text-faint">
-                          {fmtDate.format(new Date(a.started_at))}
-                          {a.distance_m
-                            ? ` · ${(a.distance_m / 1000).toFixed(1)} km`
-                            : ""}
-                          {" · "}
-                          {Math.round(a.duration_s / 60)} min
-                          {a.polyline ? " · 📍 rutt" : ""}
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold">
+                            {a.name ?? "Träning"}
+                          </span>
+                          <span className="block text-xs text-muted dark:text-faint">
+                            {fmtDate.format(new Date(a.started_at))}
+                            {a.distance_m
+                              ? ` · ${(a.distance_m / 1000).toFixed(1)} km`
+                              : ""}
+                            {" · "}
+                            {Math.round(a.duration_s / 60)} min
+                            {g?.polyline
+                              ? " · 📍 rutt"
+                              : g
+                                ? " · 📍 plats"
+                                : ""}
+                          </span>
                         </span>
-                      </span>
-                      <span className="text-faint">›</span>
-                    </button>
+                      </button>
+                      <button
+                        onClick={() => setDetailId(a.id)}
+                        aria-label="Visa detaljer"
+                        className="shrink-0 rounded-full bg-shell px-2.5 py-1.5 text-xs font-bold text-muted dark:bg-night-shell dark:text-night-muted"
+                      >
+                        ⓘ
+                      </button>
+                    </div>
                   </li>
                 );
               })}
             </ul>
           </section>
         </div>
+      )}
+
+      {detailId && (
+        <ActivityDetail
+          activityId={detailId}
+          onClose={() => setDetailId(null)}
+        />
       )}
     </main>
   );

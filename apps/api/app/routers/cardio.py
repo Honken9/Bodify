@@ -97,7 +97,7 @@ async def list_activities(
         select(CardioActivity)
         .where(CardioActivity.user_id == user.id)
         .order_by(CardioActivity.started_at.desc())
-        .limit(min(limit, 100))
+        .limit(min(limit, 5000))
         .offset(offset)
     )
     return list(rows)
@@ -130,6 +130,38 @@ async def add_activity(
     await db.commit()
     await db.refresh(activity)
     return activity
+
+
+class CardioDetailOut(CardioOut):
+    """Full passvy: allt vi vet om aktiviteten, inkl. Strava-extras."""
+
+    source: str
+    polyline: str | None = None
+    start: list[float] | None = None
+    extras: dict = {}
+
+
+@router.get("/{activity_id}", response_model=CardioDetailOut)
+async def get_activity(
+    activity_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> CardioDetailOut:
+    activity = await db.get(CardioActivity, activity_id)
+    if activity is None or activity.user_id != user.id:
+        raise HTTPException(404, "Aktiviteten finns inte.")
+    raw = activity.raw or {}
+    start = raw.get("start_latlng")
+    extras = {
+        key: value
+        for key, value in raw.items()
+        if key not in ("polyline", "start_latlng") and value not in (None, 0, "")
+    }
+    out = CardioDetailOut.model_validate(activity)
+    out.polyline = raw.get("polyline") or None
+    out.start = start if isinstance(start, list) and len(start) == 2 else None
+    out.extras = extras
+    return out
 
 
 @router.delete("/{activity_id}", status_code=204)

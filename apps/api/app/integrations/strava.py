@@ -149,5 +149,16 @@ def normalize_activity(activity: dict) -> dict:
             "polyline": (activity.get("map") or {}).get("polyline")
             or (activity.get("map") or {}).get("summary_polyline"),
             "start_latlng": activity.get("start_latlng"),
+            # Extra detaljer till passvyn
+            "average_speed": activity.get("average_speed"),
+            "max_speed": activity.get("max_speed"),
+            "average_cadence": activity.get("average_cadence"),
+            "average_watts": activity.get("average_watts"),
+            "elev_high": activity.get("elev_high"),
+            "elev_low": activity.get("elev_low"),
+            "suffer_score": activity.get("suffer_score"),
+            "kudos_count": activity.get("kudos_count"),
+            "pr_count": activity.get("pr_count"),
+            "achievement_count": activity.get("achievement_count"),
         },
     }
