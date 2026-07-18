@@ -528,8 +528,10 @@ function MealPhotoTab({
     setBusy("Analyserar fotot…");
     setItems(null);
     try {
+      const { downscaleImage } = await import("../lib/image");
+      const small = await downscaleImage(file);
       const form = new FormData();
-      form.append("file", file);
+      form.append("file", small, "mat.jpg");
       const res = await fetch("/api/ai/meal-vision", {
         method: "POST",
         body: form,
