@@ -267,6 +267,16 @@ async def withings_event(
 # ── Apple Health (Health Auto Export) ─────────────────────────
 
 
+@router.get("/apple-health")
+async def apple_health_ping() -> dict:
+    """HAE provtrycker URL:en med GET före export — svara vänligt
+    istället för 405 så appens anslutningstest inte ser trasigt ut."""
+    return {
+        "ok": True,
+        "hint": "Skicka exporten som POST med headern Authorization: Bearer <token>.",
+    }
+
+
 @router.post("/apple-health")
 async def apple_health_ingest(
     payload: dict,
@@ -274,6 +284,12 @@ async def apple_health_ingest(
     db: AsyncSession = Depends(get_session),
 ) -> dict:
     if not authorization or not authorization.lower().startswith("bearer "):
+        # Skriv ut vad som faktiskt kom (utan värden) — skiljer "glömt
+        # headern" från "fel format" vid felsökning i loggen
+        logger.warning(
+            "Apple Health-ingest nekad: Authorization-header %s.",
+            "saknas" if not authorization else "har fel format (börjar inte med 'Bearer ')",
+        )
         raise HTTPException(401, "Bearer-token saknas.")
     token = authorization.split(" ", 1)[1].strip()
 
@@ -281,6 +297,10 @@ async def apple_health_ingest(
         select(IngestToken).where(IngestToken.token_hash == hash_token(token))
     )
     if ingest_token is None:
+        logger.warning(
+            "Apple Health-ingest nekad: token matchar ingen registrerad "
+            "(fel token eller extra tecken från kopieringen)."
+        )
         raise HTTPException(401, "Ogiltig token.")
 
     user = await db.get(User, ingest_token.user_id)
