@@ -138,7 +138,7 @@ async def withings_callback(
         expires_at=datetime.now(timezone.utc)
         + timedelta(seconds=int(body.get("expires_in", 10800))),
         external_user_id=str(body.get("userid", "")),
-        scopes="user.metrics",
+        scopes=withings.SCOPES,
     )
     try:
         await withings.subscribe_notifications(conn, db)
@@ -160,6 +160,13 @@ async def withings_callback(
                 )
             )
         await db.commit()
+    except Exception:
+        pass
+    # Träningspass + stegräkning (kräver user.activity-scopet)
+    try:
+        from app.routers.webhooks import _sync_withings_workouts_and_steps
+
+        await _sync_withings_workouts_and_steps(conn, db, days_back=90)
     except Exception:
         pass
     return RedirectResponse(url="/settings?connected=withings", status_code=302)

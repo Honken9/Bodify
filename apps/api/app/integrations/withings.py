@@ -33,13 +33,49 @@ MEASTYPE_MAP = {
     10: "systolic_bp",
 }
 
+# user.metrics = kroppsmätningar, user.activity = träningspass/aktivitet
+SCOPES = "user.metrics,user.activity"
+
+# Withings workout-kategori → (vår typ, svenskt namn)
+WORKOUT_CATEGORIES: dict[int, tuple[str, str]] = {
+    1: ("walk", "Promenad"),
+    2: ("run", "Löpning"),
+    3: ("walk", "Vandring"),
+    6: ("ride", "Cykling"),
+    7: ("swim", "Simning"),
+    12: ("other", "Tennis"),
+    14: ("other", "Squash"),
+    15: ("other", "Badminton"),
+    16: ("other", "Styrketräning"),
+    17: ("other", "Kroppsviktsträning"),
+    18: ("other", "Crosstrainer"),
+    19: ("other", "Pilates"),
+    20: ("other", "Basket"),
+    21: ("other", "Fotboll"),
+    27: ("other", "Golf"),
+    28: ("other", "Yoga"),
+    29: ("other", "Dans"),
+    30: ("other", "Boxning"),
+    33: ("other", "Kampsport"),
+    34: ("other", "Skidåkning"),
+    35: ("other", "Snowboard"),
+    187: ("other", "Rodd"),
+    188: ("other", "Zumba"),
+    192: ("other", "Handboll"),
+    194: ("other", "Ishockey"),
+    195: ("other", "Klättring"),
+    306: ("walk", "Promenad (inomhus)"),
+    307: ("run", "Löpband"),
+    308: ("ride", "Spinning"),
+}
+
 
 def authorize_url(state: str) -> str:
     settings = get_settings()
     params = {
         "response_type": "code",
         "client_id": settings.withings_client_id,
-        "scope": "user.metrics",
+        "scope": SCOPES,
         "redirect_uri": f"{settings.public_base_url}/api/integrations/withings/callback",
         "state": state,
     }
@@ -98,12 +134,13 @@ async def get_access_token(conn: OAuthConnection, db: AsyncSession) -> str:
 
 
 async def subscribe_notifications(conn: OAuthConnection, db: AsyncSession) -> None:
-    """Prenumerera på notiser: appli 1 = kroppsmätningar, 4 = hjärta/blodtryck."""
+    """Prenumerera på notiser: appli 1 = kroppsmätningar, 4 = hjärta/blodtryck,
+    16 = aktivitet/träningspass."""
     settings = get_settings()
     token = await get_access_token(conn, db)
     callback = f"{settings.public_base_url}/api/webhooks/withings"
     async with httpx.AsyncClient(timeout=15) as client:
-        for appli in (1, 4):
+        for appli in (1, 4, 16):
             resp = await client.post(
                 f"{API_URL}/notify",
                 headers={"Authorization": f"Bearer {token}"},
@@ -158,4 +195,106 @@ async def fetch_measures(
                     "value": round(value, 3),
                 }
             )
+    return results
+
+
+async def _api_post(token: str, path: str, data: dict) -> dict:
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.post(
+            f"{API_URL}{path}",
+            headers={"Authorization": f"Bearer {token}"},
+            data=data,
+        )
+    resp.raise_for_status()
+    body = resp.json()
+    if body.get("status") != 0:
+        raise RuntimeError(f"Withings-fel: {body}")
+    return body["body"]
+
+
+def normalize_workouts(series: list[dict]) -> list[dict]:
+    """Withings getworkouts-serie → fält för CardioActivity."""
+    results = []
+    for w in series:
+        wtype, name = WORKOUT_CATEGORIES.get(
+            int(w.get("category", 0)), ("other", "Träning")
+        )
+        start = int(w["startdate"])
+        duration = max(int(w["enddate"]) - start, 0)
+        data = w.get("data", {}) or {}
+        distance = data.get("distance") or None
+        pace = (
+            round(duration / (float(distance) / 1000), 1)
+            if distance and float(distance) > 100 and duration
+            else None
+        )
+        results.append(
+            {
+                "external_id": str(w["id"]),
+                "type": wtype,
+                "name": name,
+                "started_at": datetime.fromtimestamp(start, tz=timezone.utc),
+                "duration_s": duration,
+                "distance_m": float(distance) if distance else None,
+                "calories": data.get("calories") or None,
+                "avg_hr": data.get("hr_average") or None,
+                "max_hr": data.get("hr_max") or None,
+                "avg_pace_s_per_km": pace,
+            }
+        )
+    return results
+
+
+async def fetch_workouts(
+    conn: OAuthConnection,
+    db: AsyncSession,
+    days_back: int = 90,
+) -> list[dict]:
+    """Hämta träningspass (kräver user.activity-scope)."""
+    token = await get_access_token(conn, db)
+    today = datetime.now(timezone.utc).date()
+    body = await _api_post(
+        token,
+        "/v2/measure",
+        {
+            "action": "getworkouts",
+            "startdateymd": (today - timedelta(days=days_back)).isoformat(),
+            "enddateymd": today.isoformat(),
+            "data_fields": "calories,distance,hr_average,hr_max,steps",
+        },
+    )
+    return normalize_workouts(body.get("series", []))
+
+
+async def fetch_daily_steps(
+    conn: OAuthConnection,
+    db: AsyncSession,
+    days_back: int = 90,
+) -> list[dict]:
+    """Daglig stegräkning → [{measured_at, value}, ...] för metric 'steps'."""
+    token = await get_access_token(conn, db)
+    today = datetime.now(timezone.utc).date()
+    body = await _api_post(
+        token,
+        "/v2/measure",
+        {
+            "action": "getactivity",
+            "startdateymd": (today - timedelta(days=days_back)).isoformat(),
+            "enddateymd": today.isoformat(),
+            "data_fields": "steps",
+        },
+    )
+    results = []
+    for day in body.get("activities", []):
+        steps = day.get("steps")
+        if steps is None:
+            continue
+        results.append(
+            {
+                "measured_at": datetime.fromisoformat(day["date"]).replace(
+                    tzinfo=timezone.utc
+                ),
+                "value": float(steps),
+            }
+        )
     return results

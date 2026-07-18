@@ -85,6 +85,42 @@ async def withings_head() -> PlainTextResponse:
     return PlainTextResponse("")
 
 
+async def _sync_withings_workouts_and_steps(
+    conn: OAuthConnection, db: AsyncSession, days_back: int = 7
+) -> dict:
+    """Hämta träningspass + daglig stegräkning och upserta idempotent."""
+    workouts = await withings.fetch_workouts(conn, db, days_back=days_back)
+    for fields in workouts:
+        existing = await db.scalar(
+            select(CardioActivity).where(
+                CardioActivity.user_id == conn.user_id,
+                CardioActivity.source == "withings",
+                CardioActivity.external_id == fields["external_id"],
+            )
+        )
+        if existing is not None:
+            for key, value in fields.items():
+                setattr(existing, key, value)
+        else:
+            db.add(
+                CardioActivity(user_id=conn.user_id, source="withings", **fields)
+            )
+
+    steps = await withings.fetch_daily_steps(conn, db, days_back=days_back)
+    for s in steps:
+        await db.merge(
+            BodyMetric(
+                user_id=conn.user_id,
+                metric="steps",
+                measured_at=s["measured_at"],
+                source="withings",
+                value=s["value"],
+            )
+        )
+    await db.commit()
+    return {"workouts": len(workouts), "step_days": len(steps)}
+
+
 @router.post("/withings")
 async def withings_event(
     userid: str = Form(...),
@@ -101,6 +137,11 @@ async def withings_event(
     )
     if conn is None:
         return {"ok": True, "ignored": True}
+
+    # appli 16 = aktivitet (pass + steg); övriga = kroppsmätningar
+    if appli == 16:
+        counts = await _sync_withings_workouts_and_steps(conn, db)
+        return {"ok": True, **counts}
 
     measures = await withings.fetch_measures(conn, db, startdate, enddate)
     for m in measures:

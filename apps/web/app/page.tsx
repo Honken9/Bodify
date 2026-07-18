@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, formatDate } from "./lib/api";
-import type { Me, SessionDetail, SessionSummary, UserProgram } from "./lib/types";
+import type { Me, SessionSummary, UserProgram } from "./lib/types";
 
 export default function Home() {
   const router = useRouter();
@@ -11,7 +11,6 @@ export default function Home() {
   const [active, setActive] = useState<UserProgram | null>(null);
   const [recent, setRecent] = useState<SessionSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [starting, setStarting] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -31,20 +30,6 @@ export default function Home() {
   const nextDay = active
     ? active.program.days[active.next_day_position % active.program.days.length]
     : null;
-
-  async function startSession(programDayId: string | null) {
-    setStarting(true);
-    try {
-      const session = await api<SessionDetail>("/api/sessions/start", {
-        method: "POST",
-        body: JSON.stringify({ program_day_id: programDayId }),
-      });
-      router.push(`/workout/${session.id}`);
-    } catch (e) {
-      setError((e as Error).message);
-      setStarting(false);
-    }
-  }
 
   if (error) {
     return (
@@ -85,50 +70,20 @@ export default function Home() {
         </button>
       )}
 
+      {me && <StepsCard />}
+
       {nextDay && !ongoing && (
-        <section className="rounded-2xl border border-line bg-white p-5 shadow-card dark:border-night-shell dark:bg-night-card">
-          <p className="text-xs font-semibold uppercase tracking-wide text-faint">
-            Nästa pass · {active!.program.name}
-          </p>
-          <h2 className="mt-1 text-xl font-bold">{nextDay.name}</h2>
-          <ul className="mt-3 space-y-1 text-sm text-muted dark:text-night-muted">
-            {nextDay.exercises.map((ex) => (
-              <li key={ex.id}>
-                {ex.exercise.name} · {ex.target_sets} × {ex.target_reps}
-              </li>
-            ))}
-          </ul>
-          <button
-            disabled={starting}
-            onClick={() => startSession(nextDay.id)}
-            className="mt-4 w-full rounded-xl bg-navy py-3 font-semibold text-white active:bg-navy-deep disabled:opacity-50"
-          >
-            {starting ? "Startar…" : "Starta passet"}
-          </button>
-        </section>
-      )}
-
-      {!active && !ongoing && me && (
-        <section className="rounded-2xl border border-dashed border-line-strong p-5 text-center dark:border-night-strong">
-          <p className="text-muted dark:text-night-muted">
-            Du har inget aktivt program ännu.
-          </p>
-          <button
-            onClick={() => router.push("/programs")}
-            className="mt-3 rounded-xl bg-navy px-5 py-2 font-semibold text-white"
-          >
-            Välj program
-          </button>
-        </section>
-      )}
-
-      {!ongoing && me && (
         <button
-          disabled={starting}
-          onClick={() => startSession(null)}
-          className="rounded-xl border border-line-strong py-3 font-semibold text-night-strong dark:border-night-strong dark:text-night-muted"
+          onClick={() => router.push("/programs")}
+          className="flex items-center justify-between rounded-2xl border border-line bg-white px-5 py-4 text-left shadow-card dark:border-night-shell dark:bg-night-card"
         >
-          Starta fritt pass
+          <span>
+            <p className="text-xs font-semibold uppercase tracking-wide text-faint">
+              Nästa pass · {active!.program.name}
+            </p>
+            <p className="mt-0.5 font-bold">{nextDay.name}</p>
+          </span>
+          <span className="text-faint">›</span>
         </button>
       )}
 
@@ -184,6 +139,82 @@ export default function Home() {
         </div>
       )}
     </main>
+  );
+}
+
+type MetricPoint = { measured_at: string; value: number; source: string };
+
+function StepsCard() {
+  const [days, setDays] = useState<{ day: string; steps: number }[] | null>(
+    null
+  );
+
+  useEffect(() => {
+    api<MetricPoint[]>("/api/metrics/steps?days=8")
+      .then((points) => {
+        // En stapel per dag — högsta värdet vinner om flera källor rapporterar
+        const byDay = new Map<string, number>();
+        for (const p of points) {
+          const day = p.measured_at.slice(0, 10);
+          byDay.set(day, Math.max(byDay.get(day) ?? 0, p.value));
+        }
+        const result: { day: string; steps: number }[] = [];
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          const key = d.toLocaleDateString("sv-SE");
+          result.push({ day: key, steps: byDay.get(key) ?? 0 });
+        }
+        setDays(result);
+      })
+      .catch(() => {});
+  }, []);
+
+  if (!days) return null;
+  const today = days[days.length - 1];
+  const max = Math.max(...days.map((d) => d.steps), 1);
+  const weekdays = ["sön", "mån", "tis", "ons", "tor", "fre", "lör"];
+
+  return (
+    <section className="rounded-2xl border border-line bg-white p-4 shadow-card dark:border-night-shell dark:bg-night-card">
+      <div className="flex items-end justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-faint">
+            👟 Steg idag
+          </p>
+          <p className="text-3xl font-bold tabular-nums">
+            {today.steps > 0
+              ? Math.round(today.steps).toLocaleString("sv-SE")
+              : "—"}
+          </p>
+        </div>
+        <div className="flex items-end gap-1.5">
+          {days.map((d, i) => (
+            <div key={d.day} className="flex flex-col items-center gap-0.5">
+              <div
+                title={`${d.day}: ${Math.round(d.steps).toLocaleString("sv-SE")} steg`}
+                className={`w-5 rounded-sm ${
+                  i === days.length - 1
+                    ? "bg-lime"
+                    : "bg-shell dark:bg-night-shell"
+                }`}
+                style={{
+                  height: `${Math.max(6, Math.round((d.steps / max) * 48))}px`,
+                }}
+              />
+              <span className="text-[9px] text-faint">
+                {weekdays[new Date(d.day).getDay()]}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+      {today.steps === 0 && (
+        <p className="mt-2 text-xs text-faint">
+          Inga steg registrerade idag ännu — synkas från Withings/Apple Health.
+        </p>
+      )}
+    </section>
   );
 }
 

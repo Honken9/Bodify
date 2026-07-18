@@ -2,6 +2,56 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+
+def test_withings_normalize_workouts():
+    from app.integrations.withings import normalize_workouts
+
+    series = [
+        {
+            "id": 12345,
+            "category": 2,  # löpning
+            "startdate": 1752730000,
+            "enddate": 1752731560,  # 26 min
+            "data": {
+                "distance": 4000,
+                "calories": 320,
+                "hr_average": 152,
+                "hr_max": 178,
+            },
+        },
+        {
+            "id": 12346,
+            "category": 16,  # styrketräning
+            "startdate": 1752800000,
+            "enddate": 1752803600,
+            "data": {"calories": 250},
+        },
+        {
+            "id": 12347,
+            "category": 9999,  # okänd kategori → other
+            "startdate": 1752810000,
+            "enddate": 1752811800,
+            "data": {},
+        },
+    ]
+    runs, gym, unknown = normalize_workouts(series)
+
+    assert runs["type"] == "run"
+    assert runs["name"] == "Löpning"
+    assert runs["external_id"] == "12345"
+    assert runs["duration_s"] == 1560
+    assert runs["distance_m"] == 4000.0
+    assert runs["avg_pace_s_per_km"] == 390.0  # 6:30 min/km
+    assert runs["avg_hr"] == 152
+
+    assert gym["type"] == "other"
+    assert gym["name"] == "Styrketräning"
+    assert gym["distance_m"] is None
+    assert gym["avg_pace_s_per_km"] is None
+
+    assert unknown["type"] == "other"
+    assert unknown["name"] == "Träning"
+
 from app.auth import ACCESS_JWT_HEADER
 from app.integrations import strava as strava_mod
 from app.integrations import withings as withings_mod
@@ -143,6 +193,62 @@ async def test_withings_event_stores_metrics(
         await client.get("/api/metrics/weight?days=30", headers=auth(make_token))
     ).json()
     assert len(series) == 1
+
+
+async def test_withings_activity_event_stores_workouts_and_steps(
+    client, make_token, known_user, withings_conn, monkeypatch
+):
+    async def fake_workouts(conn, db, days_back=7):
+        return [
+            {
+                "external_id": "w-run-1",
+                "type": "run",
+                "name": "Löpning",
+                "started_at": datetime(2026, 7, 17, 6, 15, tzinfo=timezone.utc),
+                "duration_s": 1560,
+                "distance_m": 4000.0,
+                "calories": 320,
+                "avg_hr": 152,
+                "max_hr": 178,
+                "avg_pace_s_per_km": 390.0,
+            }
+        ]
+
+    async def fake_steps(conn, db, days_back=7):
+        return [
+            {
+                "measured_at": datetime(2026, 7, 17, tzinfo=timezone.utc),
+                "value": 9450.0,
+            }
+        ]
+
+    monkeypatch.setattr(withings_mod, "fetch_workouts", fake_workouts)
+    monkeypatch.setattr(withings_mod, "fetch_daily_steps", fake_steps)
+
+    resp = await client.post(
+        "/api/webhooks/withings", data={"userid": "w-99", "appli": "16"}
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"ok": True, "workouts": 1, "step_days": 1}
+
+    cardio = (await client.get("/api/cardio", headers=auth(make_token))).json()
+    assert len(cardio) == 1
+    assert cardio[0]["type"] == "run"
+    assert cardio[0]["source"] == "withings"
+    assert cardio[0]["distance_m"] == 4000.0
+
+    latest = (
+        await client.get("/api/metrics/latest", headers=auth(make_token))
+    ).json()
+    assert latest["steps"]["value"] == 9450.0
+    assert latest["steps"]["source"] == "withings"
+
+    # Samma notis igen → uppdatering, inga dubbletter
+    await client.post(
+        "/api/webhooks/withings", data={"userid": "w-99", "appli": "16"}
+    )
+    cardio = (await client.get("/api/cardio", headers=auth(make_token))).json()
+    assert len(cardio) == 1
 
 
 HAE_PAYLOAD = {
