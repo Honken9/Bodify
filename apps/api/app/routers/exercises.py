@@ -41,6 +41,7 @@ async def create_exercise(
         name=payload.name,
         muscle_groups=payload.muscle_groups,
         equipment=payload.equipment,
+        description=payload.description,
         is_global=False,
         created_by=user.id,
     )

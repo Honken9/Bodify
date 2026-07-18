@@ -60,6 +60,12 @@ async def strava_event(
         return {"ok": True, "ignored": True}
 
     fields = strava.normalize_activity(activity)
+    # Klockans GPS-lösa kopia av samma pass ska bort — Strava vinner
+    from app.services.strava_sync import remove_non_strava_duplicates
+
+    await remove_non_strava_duplicates(
+        db, conn.user_id, fields["type"], fields["started_at"]
+    )
     existing = await db.scalar(
         select(CardioActivity).where(
             CardioActivity.user_id == conn.user_id,
@@ -88,7 +94,12 @@ async def withings_head() -> PlainTextResponse:
 async def _sync_withings_workouts_and_steps(
     conn: OAuthConnection, db: AsyncSession, days_back: int = 7
 ) -> dict:
-    """Hämta träningspass + daglig stegräkning och upserta idempotent."""
+    """Hämta träningspass + daglig stegräkning och upserta idempotent.
+
+    Pass som redan finns via Strava (samma typ, start inom ±20 min)
+    hoppas över — Strava-versionen har GPS och rikast data."""
+    from app.services.strava_sync import DUP_WINDOW
+
     workouts = await withings.fetch_workouts(conn, db, days_back=days_back)
     for fields in workouts:
         existing = await db.scalar(
@@ -101,10 +112,21 @@ async def _sync_withings_workouts_and_steps(
         if existing is not None:
             for key, value in fields.items():
                 setattr(existing, key, value)
-        else:
-            db.add(
-                CardioActivity(user_id=conn.user_id, source="withings", **fields)
+            continue
+        strava_twin = await db.scalar(
+            select(CardioActivity).where(
+                CardioActivity.user_id == conn.user_id,
+                CardioActivity.source == "strava",
+                CardioActivity.type == fields["type"],
+                CardioActivity.started_at >= fields["started_at"] - DUP_WINDOW,
+                CardioActivity.started_at <= fields["started_at"] + DUP_WINDOW,
             )
+        )
+        if strava_twin is not None:
+            continue
+        db.add(
+            CardioActivity(user_id=conn.user_id, source="withings", **fields)
+        )
 
     steps = await withings.fetch_daily_steps(conn, db, days_back=days_back)
     for s in steps:

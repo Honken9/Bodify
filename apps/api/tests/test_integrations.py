@@ -735,3 +735,71 @@ async def test_withings_sync_requires_connection(client, make_token, known_user)
         "/api/integrations/withings/sync", headers=auth(make_token)
     )
     assert resp.status_code == 404
+
+
+async def test_strava_wins_over_watch_duplicates(
+    client, make_token, known_user, withings_conn, strava_conn, monkeypatch
+):
+    from app.models import CardioActivity
+
+    run_start = datetime(2026, 7, 13, 7, 0, tzinfo=timezone.utc)
+
+    # 1) Klockans GPS-lösa version finns redan (importerad via Withings)
+    async def watch_workout(conn, db, days_back=7):
+        return [
+            {
+                "external_id": "w-run-13",
+                "type": "run",
+                "name": "Löpning",
+                "started_at": run_start + timedelta(minutes=3),
+                "duration_s": 3300,
+                "distance_m": 10300.0,
+                "calories": 700,
+                "avg_hr": 155,
+                "max_hr": 175,
+                "avg_pace_s_per_km": 320.0,
+            }
+        ]
+
+    async def no_steps(conn, db, days_back=7):
+        return []
+
+    monkeypatch.setattr(withings_mod, "fetch_workouts", watch_workout)
+    monkeypatch.setattr(withings_mod, "fetch_daily_steps", no_steps)
+    await client.post(
+        "/api/webhooks/withings", data={"userid": "w-99", "appli": "16"}
+    )
+
+    # 2) Strava-backfill hittar samma runda MED GPS → dubbletten rensas
+    async def strava_page(c, db, page, per_page=200):
+        if page > 1:
+            return []
+        return [
+            {
+                "id": 555,
+                "type": "Run",
+                "name": "Söndagsrunda 10,3 km",
+                "start_date": "2026-07-13T07:00:00Z",
+                "moving_time": 3300,
+                "distance": 10300,
+                "map": {"summary_polyline": "gpsdata"},
+                "start_latlng": [59.33, 18.06],
+            }
+        ]
+
+    monkeypatch.setattr(strava_mod, "fetch_activity_page", strava_page)
+    await client.post("/api/integrations/strava/sync", headers=auth(make_token))
+
+    cardio = (await client.get("/api/cardio", headers=auth(make_token))).json()
+    assert len(cardio) == 1  # bara Strava-versionen kvar
+    assert cardio[0]["source"] == "strava"
+
+    geo = (await client.get("/api/cardio/geo", headers=auth(make_token))).json()
+    assert len(geo) == 1 and geo[0]["polyline"] == "gpsdata"
+
+    # 3) Kommer klockans version IGEN efteråt → hoppas över
+    await client.post(
+        "/api/webhooks/withings", data={"userid": "w-99", "appli": "16"}
+    )
+    cardio = (await client.get("/api/cardio", headers=auth(make_token))).json()
+    assert len(cardio) == 1

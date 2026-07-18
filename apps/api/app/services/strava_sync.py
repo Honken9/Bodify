@@ -6,6 +6,7 @@ dag ett. Idempotent: befintliga aktiviteter uppdateras på externt id.
 """
 
 import logging
+from datetime import timedelta
 
 import httpx
 from sqlalchemy import select
@@ -16,6 +17,31 @@ from app.models import CardioActivity, OAuthConnection
 
 logger = logging.getLogger(__name__)
 
+# Samma pass rapporteras ofta av både klockan (Withings) och Strava.
+# Strava-versionen har GPS och rikast data — den vinner alltid.
+DUP_WINDOW = timedelta(minutes=20)
+
+
+async def remove_non_strava_duplicates(
+    db: AsyncSession, user_id, activity_type: str, started_at
+) -> int:
+    """Ta bort Withings/Apple Health-kopior av ett Strava-pass (samma typ,
+    start inom ±20 min). Manuellt loggade pass rörs aldrig."""
+    dupes = list(
+        await db.scalars(
+            select(CardioActivity).where(
+                CardioActivity.user_id == user_id,
+                CardioActivity.source.in_(("withings", "apple_health")),
+                CardioActivity.type == activity_type,
+                CardioActivity.started_at >= started_at - DUP_WINDOW,
+                CardioActivity.started_at <= started_at + DUP_WINDOW,
+            )
+        )
+    )
+    for dup in dupes:
+        await db.delete(dup)
+    return len(dupes)
+
 MAX_PAGES = 100  # 100 × 200 = 20 000 aktiviteter — hela arkivet i praktiken
 
 
@@ -23,6 +49,7 @@ async def backfill_activities(
     conn: OAuthConnection, db: AsyncSession, max_pages: int = MAX_PAGES
 ) -> int:
     imported = 0
+    removed_dupes = 0
     for page in range(1, max_pages + 1):
         try:
             activities = await strava.fetch_activity_page(conn, db, page)
@@ -37,6 +64,9 @@ async def backfill_activities(
             break
         for activity in activities:
             fields = strava.normalize_activity(activity)
+            removed_dupes += await remove_non_strava_duplicates(
+                db, conn.user_id, fields["type"], fields["started_at"]
+            )
             existing = await db.scalar(
                 select(CardioActivity).where(
                     CardioActivity.user_id == conn.user_id,
@@ -57,4 +87,6 @@ async def backfill_activities(
         await db.commit()
         if len(activities) < 200:
             break  # sista sidan
+    if removed_dupes:
+        logger.info("Rensade %s klock-dubbletter av Strava-pass.", removed_dupes)
     return imported

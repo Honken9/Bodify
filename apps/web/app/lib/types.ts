@@ -19,6 +19,7 @@ export type Exercise = {
   name: string;
   muscle_groups: string[];
   equipment: string[];
+  description: string | null;
   is_global: boolean;
 };
 

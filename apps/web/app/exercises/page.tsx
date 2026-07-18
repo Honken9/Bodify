@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import GymVision from "../components/GymVision";
+import MuscleMap from "../components/MuscleMap";
 import { api } from "../lib/api";
 import type { Exercise } from "../lib/types";
 
@@ -20,6 +21,7 @@ export default function ExercisesPage() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [search, setSearch] = useState("");
   const [muscle, setMuscle] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [showVision, setShowVision] = useState(false);
   const [newName, setNewName] = useState("");
@@ -126,25 +128,55 @@ export default function ExercisesPage() {
         ))}
       </div>
 
-      <ul className="space-y-2 desktop:grid desktop:grid-cols-2 desktop:gap-3 desktop:space-y-0">
-        {filtered.map((e) => (
-          <li
-            key={e.id}
-            className="rounded-xl border border-line bg-white px-4 py-3 dark:border-night-shell dark:bg-night-card"
-          >
-            <p className="font-medium">
-              {e.name}
-              {!e.is_global && (
-                <span className="ml-2 text-xs text-navy dark:text-lime">
-                  egen
-                </span>
+      <ul className="space-y-2 desktop:grid desktop:grid-cols-2 desktop:gap-3 desktop:space-y-0 desktop:items-start">
+        {filtered.map((e) => {
+          const isOpen = expanded === e.id;
+          return (
+            <li
+              key={e.id}
+              className="rounded-xl border border-line bg-white px-4 py-3 dark:border-night-shell dark:bg-night-card"
+            >
+              <button
+                onClick={() => setExpanded(isOpen ? null : e.id)}
+                className="w-full text-left"
+              >
+                <div className="flex items-center justify-between">
+                  <p className="font-medium">
+                    {e.name}
+                    {!e.is_global && (
+                      <span className="ml-2 text-xs text-navy dark:text-lime">
+                        egen
+                      </span>
+                    )}
+                  </p>
+                  <span className="text-xs text-faint">
+                    {isOpen ? "▴" : "▾"}
+                  </span>
+                </div>
+                <p className="text-xs capitalize text-muted dark:text-faint">
+                  {[...e.muscle_groups, ...e.equipment].join(" · ")}
+                </p>
+              </button>
+
+              {isOpen && (
+                <div className="mt-3 border-t border-line pt-3 dark:border-night-shell">
+                  {e.muscle_groups.length > 0 && (
+                    <MuscleMap groups={e.muscle_groups} height={140} />
+                  )}
+                  {e.description ? (
+                    <p className="mt-2 text-sm leading-relaxed text-muted dark:text-night-muted">
+                      {e.description}
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-xs text-faint">
+                      Ingen beskrivning ännu för den här övningen.
+                    </p>
+                  )}
+                </div>
               )}
-            </p>
-            <p className="text-xs capitalize text-muted dark:text-faint">
-              {[...e.muscle_groups, ...e.equipment].join(" · ")}
-            </p>
-          </li>
-        ))}
+            </li>
+          );
+        })}
         {filtered.length === 0 && (
           <p className="py-8 text-center text-sm text-faint">
             Inga övningar matchar.

@@ -26,6 +26,8 @@ class Exercise(Base):
     name: Mapped[str] = mapped_column(String(120), index=True)
     muscle_groups: Mapped[list[str]] = mapped_column(JSON, default=list)
     equipment: Mapped[list[str]] = mapped_column(JSON, default=list)
+    # Kort utförandebeskrivning som visas i övningsbiblioteket
+    description: Mapped[str | None] = mapped_column(Text)
     is_global: Mapped[bool] = mapped_column(Boolean, default=False)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("users.id", ondelete="SET NULL")

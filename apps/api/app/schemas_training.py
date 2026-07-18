@@ -14,6 +14,7 @@ class ExerciseOut(BaseModel):
     name: str
     muscle_groups: list[str]
     equipment: list[str]
+    description: str | None = None
     is_global: bool
 
 
@@ -21,6 +22,7 @@ class ExerciseCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     muscle_groups: list[str] = []
     equipment: list[str] = []
+    description: str | None = Field(default=None, max_length=600)
 
 
 # ── Program ───────────────────────────────────────────────────
