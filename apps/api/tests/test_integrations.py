@@ -218,12 +218,15 @@ async def test_withings_activity_event_stores_workouts_and_steps(
         return [
             {
                 "measured_at": datetime(2026, 7, 17, tzinfo=timezone.utc),
-                "value": 9450.0,
+                "steps": 9450.0,
+                "hr_average": 71.0,
+                "hr_min": 48.0,
+                "hr_max": 178.0,
             }
         ]
 
     monkeypatch.setattr(withings_mod, "fetch_workouts", fake_workouts)
-    monkeypatch.setattr(withings_mod, "fetch_daily_steps", fake_steps)
+    monkeypatch.setattr(withings_mod, "fetch_daily_activity", fake_steps)
 
     resp = await client.post(
         "/api/webhooks/withings", data={"userid": "w-99", "appli": "16"}
@@ -242,6 +245,9 @@ async def test_withings_activity_event_stores_workouts_and_steps(
     ).json()
     assert latest["steps"]["value"] == 9450.0
     assert latest["steps"]["source"] == "withings"
+    assert latest["hr_avg"]["value"] == 71.0
+    assert latest["hr_min"]["value"] == 48.0
+    assert latest["hr_max"]["value"] == 178.0
 
     # Samma notis igen → uppdatering, inga dubbletter
     await client.post(
@@ -815,7 +821,10 @@ async def test_withings_manual_sync(
         return [
             {
                 "measured_at": datetime(2026, 7, 18, tzinfo=timezone.utc),
-                "value": 5200.0,
+                "steps": 5200.0,
+                "hr_average": 68.0,
+                "hr_min": 52.0,
+                "hr_max": 141.0,
             }
         ]
 
@@ -835,7 +844,7 @@ async def test_withings_manual_sync(
 
     monkeypatch.setattr(withings_mod, "fetch_measures", fake_measures)
     monkeypatch.setattr(withings_mod, "fetch_workouts", fake_workouts)
-    monkeypatch.setattr(withings_mod, "fetch_daily_steps", fake_steps)
+    monkeypatch.setattr(withings_mod, "fetch_daily_activity", fake_steps)
     monkeypatch.setattr(withings_mod, "fetch_sleep", fake_sleep)
 
     resp = await client.post(
@@ -928,7 +937,7 @@ async def test_strava_wins_over_watch_duplicates(
         return []
 
     monkeypatch.setattr(withings_mod, "fetch_workouts", watch_workout)
-    monkeypatch.setattr(withings_mod, "fetch_daily_steps", no_steps)
+    monkeypatch.setattr(withings_mod, "fetch_daily_activity", no_steps)
     await client.post(
         "/api/webhooks/withings", data={"userid": "w-99", "appli": "16"}
     )

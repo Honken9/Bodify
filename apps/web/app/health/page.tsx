@@ -20,6 +20,9 @@ const METRIC_META: Record<
   sleep_duration: { label: "Sömn", unit: "h", decimals: 1 },
   sleep_score: { label: "Sömnpoäng", unit: "/100", decimals: 0 },
   spo2: { label: "Syremättnad", unit: "%", decimals: 0 },
+  hr_avg: { label: "Snittpuls (dag)", unit: "bpm", decimals: 0 },
+  hr_min: { label: "Lägsta puls (dag)", unit: "bpm", decimals: 0 },
+  hr_max: { label: "Maxpuls (dag)", unit: "bpm", decimals: 0 },
 };
 
 type Latest = Record<

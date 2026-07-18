@@ -72,6 +72,10 @@ export default function Home() {
 
       {me && <StepsCard />}
 
+      {me && <TodayCard />}
+
+      {me && <DashboardSection />}
+
       {nextDay && !ongoing && (
         <button
           onClick={() => router.push("/programs")}
@@ -88,8 +92,6 @@ export default function Home() {
       )}
 
       {me && <ReadinessCard />}
-
-      {me && <DashboardSection />}
 
       {recent.length > 0 && (
         <section>
@@ -214,6 +216,79 @@ function StepsCard() {
           Inga steg registrerade idag ännu — synkas från Withings/Apple Health.
         </p>
       )}
+    </section>
+  );
+}
+
+type LatestMetrics = Record<
+  string,
+  { value: number; measured_at: string; source: string }
+>;
+
+/** Dagens kropp i korthet: puls, kondition och senaste nattens sömn. */
+function TodayCard() {
+  const [latest, setLatest] = useState<LatestMetrics | null>(null);
+
+  useEffect(() => {
+    api<LatestMetrics>("/api/metrics/latest").then(setLatest).catch(() => {});
+  }, []);
+
+  if (!latest) return null;
+  const todayKey = new Date().toLocaleDateString("sv-SE");
+  const isToday = (k: string) =>
+    !!latest[k] &&
+    new Date(latest[k].measured_at).toLocaleDateString("sv-SE") === todayKey;
+
+  const hr = (k: string) =>
+    isToday(k) ? String(Math.round(latest[k].value)) : "–";
+
+  const sleep = latest["sleep_duration"];
+  const sleepFresh =
+    !!sleep &&
+    Date.now() - new Date(sleep.measured_at).getTime() < 36 * 3600 * 1000;
+  const sleepText = sleepFresh
+    ? `${Math.floor(sleep.value)} h ${Math.round((sleep.value % 1) * 60)} min`
+    : "–";
+  const score = latest["sleep_score"];
+  const vo2 = latest["vo2max"];
+
+  const hasAnything =
+    isToday("hr_avg") || isToday("hr_max") || sleepFresh || !!vo2;
+  if (!hasAnything) return null;
+
+  return (
+    <section className="rounded-2xl border border-line bg-white p-4 shadow-card dark:border-night-shell dark:bg-night-card">
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="font-bold">Idag</h3>
+        <a href="/health" className="text-xs text-navy dark:text-lime">
+          Hälsa ›
+        </a>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <Stat label="❤️ Snittpuls" value={hr("hr_avg")} sub="bpm idag" />
+        <Stat label="🔺 Maxpuls" value={hr("hr_max")} sub="bpm idag" />
+        <Stat label="🔻 Lägsta" value={hr("hr_min")} sub="bpm idag" />
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <Stat
+          label="😴 Sömn i natt"
+          value={sleepText}
+          sub={
+            sleepFresh && score && isToday("sleep_score")
+              ? `sömnpoäng ${Math.round(score.value)}/100`
+              : "senaste natten"
+          }
+        />
+        <Stat
+          label="🫁 Kondition"
+          value={vo2 ? vo2.value.toFixed(1) : "–"}
+          sub={
+            vo2
+              ? `VO₂max · ${formatDate(vo2.measured_at)}`
+              : "VO₂max saknas ännu"
+          }
+        />
+      </div>
     </section>
   );
 }

@@ -128,19 +128,28 @@ async def _sync_withings_workouts_and_steps(
             CardioActivity(user_id=conn.user_id, source="withings", **fields)
         )
 
-    steps = await withings.fetch_daily_steps(conn, db, days_back=days_back)
-    for s in steps:
-        await db.merge(
-            BodyMetric(
-                user_id=conn.user_id,
-                metric="steps",
-                measured_at=s["measured_at"],
-                source="withings",
-                value=s["value"],
+    days = await withings.fetch_daily_activity(conn, db, days_back=days_back)
+    day_metrics = {
+        "steps": "steps",
+        "hr_average": "hr_avg",
+        "hr_min": "hr_min",
+        "hr_max": "hr_max",
+    }
+    for d in days:
+        for field, metric in day_metrics.items():
+            if d.get(field) is None:
+                continue
+            await db.merge(
+                BodyMetric(
+                    user_id=conn.user_id,
+                    metric=metric,
+                    measured_at=d["measured_at"],
+                    source="withings",
+                    value=d[field],
+                )
             )
-        )
     await db.commit()
-    return {"workouts": len(workouts), "step_days": len(steps)}
+    return {"workouts": len(workouts), "step_days": len(days)}
 
 
 async def _sync_withings_sleep(

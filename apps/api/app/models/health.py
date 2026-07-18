@@ -94,6 +94,9 @@ METRICS = {
     "spo2",  # % syremättnad
     "sleep_duration",  # timmar sömn per natt
     "sleep_score",  # 0–100 (Withings sömnpoäng)
+    "hr_avg",  # dagens snittpuls (slag/min)
+    "hr_min",  # dagens lägsta puls
+    "hr_max",  # dagens högsta puls
 }
 
 

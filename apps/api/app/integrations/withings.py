@@ -346,12 +346,14 @@ async def fetch_sleep(
     return results
 
 
-async def fetch_daily_steps(
+async def fetch_daily_activity(
     conn: OAuthConnection,
     db: AsyncSession,
     days_back: int = 90,
 ) -> list[dict]:
-    """Daglig stegräkning → [{measured_at, value}, ...] för metric 'steps'."""
+    """Dagliga aktivitetsvärden: steg + dagens puls (snitt/min/max).
+
+    → [{measured_at, steps, hr_average, hr_min, hr_max}, ...]"""
     token = await get_access_token(conn, db)
     today = datetime.now(timezone.utc).date()
     activities = await _fetch_paginated(
@@ -360,21 +362,19 @@ async def fetch_daily_steps(
             "action": "getactivity",
             "startdateymd": (today - timedelta(days=days_back)).isoformat(),
             "enddateymd": today.isoformat(),
-            "data_fields": "steps",
+            "data_fields": "steps,hr_average,hr_min,hr_max",
         },
         "activities",
     )
     results = []
     for day in activities:
-        steps = day.get("steps")
-        if steps is None:
-            continue
-        results.append(
-            {
-                "measured_at": datetime.fromisoformat(day["date"]).replace(
-                    tzinfo=timezone.utc
-                ),
-                "value": float(steps),
-            }
+        measured_at = datetime.fromisoformat(day["date"]).replace(
+            tzinfo=timezone.utc
         )
+        entry = {"measured_at": measured_at}
+        for field in ("steps", "hr_average", "hr_min", "hr_max"):
+            value = day.get(field)
+            entry[field] = float(value) if value else None
+        if any(entry[f] for f in ("steps", "hr_average", "hr_min", "hr_max")):
+            results.append(entry)
     return results
