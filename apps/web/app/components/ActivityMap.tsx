@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -64,6 +64,50 @@ export default function ActivityMap({
     Map<string, { layer: L.Polyline | L.CircleMarker; isRoute: boolean }>
   >(new Map());
   const focusRef = useRef<string | null>(focusId);
+  const myPosRef = useRef<{ dot: L.CircleMarker; ring: L.Circle } | null>(null);
+  const [locating, setLocating] = useState(false);
+
+  // 🧭 Visa var jag är just nu — blå prick + osäkerhetsring
+  function showMyPosition() {
+    const map = mapRef.current;
+    if (!map || !navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (geo) => {
+        setLocating(false);
+        const m = mapRef.current;
+        if (!m) return;
+        const p: [number, number] = [geo.coords.latitude, geo.coords.longitude];
+        const accuracy = Math.min(geo.coords.accuracy || 30, 500);
+        if (myPosRef.current) {
+          myPosRef.current.dot.setLatLng(p);
+          myPosRef.current.ring.setLatLng(p).setRadius(accuracy);
+        } else {
+          const ring = L.circle(p, {
+            radius: accuracy,
+            color: "#2563eb",
+            weight: 1,
+            fillColor: "#2563eb",
+            fillOpacity: 0.12,
+          }).addTo(m);
+          const dot = L.circleMarker(p, {
+            radius: 7,
+            color: "#ffffff",
+            weight: 3,
+            fillColor: "#2563eb",
+            fillOpacity: 1,
+          })
+            .bindPopup("🧭 Du är här")
+            .addTo(m);
+          myPosRef.current = { dot, ring };
+        }
+        m.setView(p, Math.max(m.getZoom(), 14));
+        myPosRef.current.dot.openPopup();
+      },
+      () => setLocating(false),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
 
   // Valt pass lyser rött så det sticker ut bland de navyfärgade
   function styleEntry(
@@ -175,6 +219,7 @@ export default function ActivityMap({
       map.remove();
       mapRef.current = null;
       layersRef.current.clear();
+      myPosRef.current = null; // lagren dog med kartan
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activities]);
@@ -206,10 +251,20 @@ export default function ActivityMap({
   }, [focusId]);
 
   return (
-    <div
-      ref={containerRef}
-      style={{ height }}
-      className="z-0 w-full overflow-hidden rounded-2xl border border-line dark:border-night-shell"
-    />
+    <div className="relative w-full" style={{ height }}>
+      <div
+        ref={containerRef}
+        className="z-0 h-full w-full overflow-hidden rounded-2xl border border-line dark:border-night-shell"
+      />
+      <button
+        onClick={showMyPosition}
+        disabled={locating}
+        aria-label="Visa min position"
+        title="Visa min position"
+        className="absolute right-2 top-12 z-[500] rounded-lg bg-white/90 px-2.5 py-1.5 text-sm font-bold shadow-card disabled:opacity-50 dark:bg-night-card/90"
+      >
+        {locating ? "…" : "🧭"}
+      </button>
+    </div>
   );
 }
