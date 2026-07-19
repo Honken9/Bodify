@@ -107,6 +107,8 @@ export default function Home() {
         </div>
       )}
 
+      {me && <ChallengePulse />}
+
       {me && <CalorieCard day={day} isToday={isToday} dayLabel={dayLabel} />}
 
       {me && <StepsCard day={day} isToday={isToday} />}
@@ -277,6 +279,78 @@ function StepsCard({ day, isToday }: { day: string; isToday: boolean }) {
         </p>
       )}
     </section>
+  );
+}
+
+type ChallengeSummary = {
+  id: string;
+  name: string;
+  kind: string;
+  metric_label: string;
+  unit: string;
+  days_left: number;
+  my_rank: number;
+  my_value: number;
+  participants: number;
+  gap_ahead: { name: string; diff: number } | null;
+  gap_behind: { name: string; diff: number } | null;
+  habit?: { completed: number; total: number; per_week: number };
+};
+
+/** Pågående utmaningar — placering och gapet till nästa. Dagens driv! */
+function ChallengePulse() {
+  const [items, setItems] = useState<ChallengeSummary[]>([]);
+
+  useEffect(() => {
+    api<ChallengeSummary[]>("/api/social/challenges/active-summary")
+      .then(setItems)
+      .catch(() => {});
+  }, []);
+
+  if (items.length === 0) return null;
+
+  const fmt = (n: number) =>
+    Math.abs(n) >= 1000
+      ? Math.round(n).toLocaleString("sv-SE")
+      : String(Math.round(n * 10) / 10);
+
+  return (
+    <a
+      href="/social"
+      className="block rounded-2xl border-2 border-navy-line bg-navy-soft p-4 dark:border-night-strong dark:bg-night-shell"
+    >
+      {items.map((c, i) => (
+        <div key={c.id} className={i > 0 ? "mt-3 border-t border-navy-line/50 pt-3 dark:border-night-strong/50" : ""}>
+          <div className="flex items-center justify-between">
+            <p className="font-bold">🏆 {c.name}</p>
+            <span className="shrink-0 text-xs font-semibold text-muted dark:text-faint">
+              {c.days_left === 0 ? "🔥 sista dagen!" : `${c.days_left} d kvar`}
+            </span>
+          </div>
+          {c.habit ? (
+            <p className="mt-1 text-sm text-navy-deep dark:text-lime">
+              ✅ {c.habit.completed} av {c.habit.total} veckor klarade (
+              {c.habit.per_week} pass/vecka)
+            </p>
+          ) : c.my_rank === 1 ? (
+            <p className="mt-1 text-sm text-navy-deep dark:text-lime">
+              🥇 Du leder med {fmt(c.my_value)} {c.unit}
+              {c.gap_behind
+                ? ` — ${c.gap_behind.name} är ${fmt(c.gap_behind.diff)} ${c.unit} bakom`
+                : ""}
+            </p>
+          ) : (
+            <p className="mt-1 text-sm text-navy-deep dark:text-lime">
+              {c.my_rank === 2 ? "🥈" : c.my_rank === 3 ? "🥉" : `${c.my_rank}.`}{" "}
+              {c.my_rank}:a av {c.participants}
+              {c.gap_ahead
+                ? ` — ${fmt(c.gap_ahead.diff)} ${c.unit} från att gå om ${c.gap_ahead.name}!`
+                : ""}
+            </p>
+          )}
+        </div>
+      ))}
+    </a>
   );
 }
 

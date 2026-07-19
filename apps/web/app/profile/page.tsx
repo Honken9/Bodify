@@ -222,6 +222,60 @@ export default function ProfilePage() {
           {saving ? "Sparar…" : savedFlash ? "✅ Sparat!" : "Spara profilen"}
         </button>
       </section>
+
+      <TrophyCabinet />
     </main>
+  );
+}
+
+type Trophy = {
+  challenge_id: string;
+  name: string;
+  kind: string;
+  ended_on: string;
+  rank: number;
+  value: number;
+  participants: number;
+  habit_completed?: boolean;
+  habit_weeks?: string;
+};
+
+function TrophyCabinet() {
+  const [trophies, setTrophies] = useState<Trophy[] | null>(null);
+
+  useEffect(() => {
+    api<Trophy[]>("/api/social/trophies").then(setTrophies).catch(() => {});
+  }, []);
+
+  if (!trophies || trophies.length === 0) return null;
+
+  function icon(t: Trophy): string {
+    if (t.kind === "habit") return t.habit_completed ? "🏆" : "🎖";
+    return t.rank === 1 ? "🥇" : t.rank === 2 ? "🥈" : t.rank === 3 ? "🥉" : "🎖";
+  }
+
+  return (
+    <section className="rounded-2xl border border-line bg-white p-5 dark:border-night-shell dark:bg-night-card">
+      <h2 className="font-bold">🏆 Troféskåp</h2>
+      <ul className="mt-2 space-y-2">
+        {trophies.map((t) => (
+          <li key={t.challenge_id} className="flex items-center gap-3">
+            <span className="text-2xl">{icon(t)}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold">
+                {t.name}
+              </span>
+              <span className="block text-xs text-muted dark:text-faint">
+                {t.kind === "habit"
+                  ? `${t.habit_weeks} veckor klarade`
+                  : `${t.rank}:a av ${t.participants}`}
+                {" · "}
+                {t.ended_on}
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
