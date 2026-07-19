@@ -1209,6 +1209,59 @@ async def test_withings_sleep_webhook_appli_44(
     assert "sleep_score" not in latest
 
 
+async def test_withings_rate_limit_backoff(monkeypatch):
+    """601 (kvot nådd) ska ge backoff + nytt försök, inte tappad data."""
+    import httpx as httpx_mod
+
+    calls = {"n": 0}
+
+    class FakeResp:
+        status_code = 200
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            calls["n"] += 1
+            if calls["n"] < 3:
+                return {"status": 601, "error": "Too Many Requests"}
+            return {"status": 0, "body": {"series": []}}
+
+    async def fake_post(self, url, headers=None, data=None):
+        return FakeResp()
+
+    async def no_sleep(_):
+        pass
+
+    monkeypatch.setattr(httpx_mod.AsyncClient, "post", fake_post)
+    monkeypatch.setattr(withings_mod.asyncio, "sleep", no_sleep)
+
+    body = await withings_mod._api_post("token", "/v2/measure", {})
+    assert body == {"series": []}
+    assert calls["n"] == 3
+
+
+async def test_withings_full_sync_runs_in_background(
+    client, make_token, known_user, withings_conn, monkeypatch
+):
+    import app.routers.integrations as integrations_mod
+
+    called = {}
+
+    async def fake_backfill(user_id):
+        called["user_id"] = user_id
+
+    monkeypatch.setattr(
+        integrations_mod, "_full_withings_backfill", fake_backfill
+    )
+    resp = await client.post(
+        "/api/integrations/withings/sync?full=1", headers=auth(make_token)
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"ok": True, "full": True, "started": True}
+    assert called["user_id"] == known_user.id
+
+
 async def test_withings_sync_requires_connection(client, make_token, known_user):
     resp = await client.post(
         "/api/integrations/withings/sync", headers=auth(make_token)

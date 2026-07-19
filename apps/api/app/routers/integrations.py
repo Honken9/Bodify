@@ -1,12 +1,15 @@
+import logging
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 
 import jwt as pyjwt
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 from app.auth import get_current_user
 from app.config import get_settings
@@ -127,14 +130,63 @@ async def strava_callback(
     return RedirectResponse(url="/settings?connected=strava", status_code=302)
 
 
+async def _full_withings_backfill(user_id: uuid.UUID) -> None:
+    """Hämta ALL Withings-historik i bakgrunden: alla mätvärden (inkl.
+    VO2max/SpO2), pass, steg/puls per dag och sömn — 10 år bakåt.
+    Kvottak hos Withings hanteras med backoff i API-klienten."""
+    from app.db import SessionLocal
+    from app.models import BodyMetric
+    from app.routers.webhooks import (
+        _sync_withings_sleep,
+        _sync_withings_workouts_and_steps,
+    )
+
+    async with SessionLocal() as db:
+        conn = await db.scalar(
+            select(OAuthConnection).where(
+                OAuthConnection.user_id == user_id,
+                OAuthConnection.provider == "withings",
+            )
+        )
+        if conn is None:
+            return
+        try:
+            measures = await withings.fetch_measures(conn, db)  # hela historiken
+            for m in measures:
+                await db.merge(
+                    BodyMetric(
+                        user_id=user_id,
+                        metric=m["metric"],
+                        measured_at=m["measured_at"],
+                        source="withings",
+                        value=m["value"],
+                    )
+                )
+            await db.commit()
+            counts = await _sync_withings_workouts_and_steps(
+                conn, db, days_back=3650
+            )
+            sleep_counts = await _sync_withings_sleep(conn, db, days_back=3650)
+            logger.info(
+                "Withings-fullbackfill klar: %s mätvärden, %s pass, %s nätter.",
+                len(measures),
+                counts.get("workouts"),
+                sleep_counts.get("sleep_nights"),
+            )
+        except Exception:
+            logger.exception("Withings-fullbackfill misslyckades.")
+
+
 @router.post("/withings/sync")
 async def withings_sync(
+    background_tasks: BackgroundTasks,
+    full: bool = False,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_session),
 ) -> dict:
-    """Hämta senaste från Withings på begäran — mätvärden (30 dagar),
-    pass och steg (7 dagar), sömn (30 dagar). Idempotent, så knappen
-    kan tryckas fritt."""
+    """Hämta från Withings på begäran. Standard: senaste (mätvärden 30 d,
+    pass/steg 7 d, sömn 30 d). full=1: ALL historik, körs i bakgrunden.
+    Idempotent, så knappen kan tryckas fritt."""
     conn = await db.scalar(
         select(OAuthConnection).where(
             OAuthConnection.user_id == user.id,
@@ -143,6 +195,10 @@ async def withings_sync(
     )
     if conn is None:
         raise HTTPException(404, "Withings är inte kopplat ännu.")
+
+    if full:
+        background_tasks.add_task(_full_withings_backfill, user.id)
+        return {"ok": True, "full": True, "started": True}
 
     from app.models import BodyMetric
     from app.routers.webhooks import _sync_withings_workouts_and_steps

@@ -254,6 +254,32 @@ export default function SettingsPage() {
                 >
                   {syncing === p.provider ? "Synkar…" : "🔄 Synka nu"}
                 </button>
+                {p.provider === "withings" && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        await api("/api/integrations/withings/sync?full=1", {
+                          method: "POST",
+                        });
+                        setSyncMsg((m) => ({
+                          ...m,
+                          withings:
+                            "📥 Full historikhämtning startad — all data " +
+                            "(vikt, VO₂max, puls, steg, pass, sömn) fylls på " +
+                            "i bakgrunden. Kan ta några minuter.",
+                        }));
+                      } catch (e) {
+                        setSyncMsg((m) => ({
+                          ...m,
+                          withings: `⚠️ ${(e as Error).message}`,
+                        }));
+                      }
+                    }}
+                    className="mt-2 w-full rounded-xl border border-line-strong py-2.5 text-sm font-semibold text-muted dark:border-night-strong dark:text-night-muted"
+                  >
+                    📥 Hämta all historik
+                  </button>
+                )}
                 {syncMsg[p.provider] && (
                   <p className="mt-2 text-xs text-muted dark:text-faint">
                     {syncMsg[p.provider]}

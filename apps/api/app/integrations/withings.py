@@ -4,6 +4,7 @@ Withings pushar bara *att* något hänt (userid + tidsintervall) — själva
 värdena hämtas via /measure och normaliseras till body_metrics.
 """
 
+import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
@@ -173,20 +174,11 @@ async def fetch_measures(
 
     groups: list[dict] = []
     for _ in range(50):  # paginering: more/offset tills hela historiken hämtats
-        async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.post(
-                f"{API_URL}/measure",
-                headers={"Authorization": f"Bearer {token}"},
-                data=data,
-            )
-        resp.raise_for_status()
-        body = resp.json()
-        if body.get("status") != 0:
-            raise RuntimeError(f"Withings-fel: {body}")
-        groups.extend(body["body"].get("measuregrps", []))
-        if not body["body"].get("more"):
+        body = await _api_post(token, "/measure", data)
+        groups.extend(body.get("measuregrps", []))
+        if not body.get("more"):
             break
-        data = {**data, "offset": body["body"].get("offset", 0)}
+        data = {**data, "offset": body.get("offset", 0)}
 
     results = []
     for group in groups:
@@ -206,18 +198,36 @@ async def fetch_measures(
     return results
 
 
-async def _api_post(token: str, path: str, data: dict) -> dict:
-    async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.post(
-            f"{API_URL}{path}",
-            headers={"Authorization": f"Bearer {token}"},
-            data=data,
-        )
-    resp.raise_for_status()
-    body = resp.json()
-    if body.get("status") != 0:
-        raise RuntimeError(f"Withings-fel: {body}")
-    return body["body"]
+# Withings status 601 = "Too many requests" — kvoten är per minut, så
+# vänta och försök igen istället för att tappa data mitt i en backfill.
+_RATE_LIMIT_STATUSES = {601}
+
+
+async def _api_post(token: str, path: str, data: dict, attempts: int = 4) -> dict:
+    delay = 15.0
+    for attempt in range(attempts):
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                f"{API_URL}{path}",
+                headers={"Authorization": f"Bearer {token}"},
+                data=data,
+            )
+        if resp.status_code == 429 and attempt < attempts - 1:
+            logger.warning("Withings HTTP 429 — väntar %.0f s och försöker igen.", delay)
+            await asyncio.sleep(delay)
+            delay *= 2
+            continue
+        resp.raise_for_status()
+        body = resp.json()
+        if body.get("status") in _RATE_LIMIT_STATUSES and attempt < attempts - 1:
+            logger.warning("Withings-kvot nådd (601) — väntar %.0f s.", delay)
+            await asyncio.sleep(delay)
+            delay *= 2
+            continue
+        if body.get("status") != 0:
+            raise RuntimeError(f"Withings-fel: {body}")
+        return body["body"]
+    raise RuntimeError("Withings-kvoten kvarstod efter flera försök.")
 
 
 def normalize_workouts(series: list[dict]) -> list[dict]:
