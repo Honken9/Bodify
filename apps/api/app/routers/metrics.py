@@ -46,6 +46,35 @@ async def latest_metrics(
     return latest
 
 
+@router.get("/day")
+async def metrics_for_day(
+    day: date,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    """Alla mätvärden för en enskild dag — {metric: {value, source, …}}.
+    Driver hemskärmens dagbläddring (jämför idag/igår/förrgår)."""
+    since = datetime.combine(day, time.min, tzinfo=timezone.utc)
+    until = since + timedelta(days=1)
+    rows = await db.scalars(
+        select(BodyMetric)
+        .where(
+            BodyMetric.user_id == user.id,
+            BodyMetric.measured_at >= since,
+            BodyMetric.measured_at < until,
+        )
+        .order_by(BodyMetric.measured_at.asc())
+    )
+    result: dict[str, dict] = {}
+    for row in rows:  # stigande → sista mätningen på dagen vinner
+        result[row.metric] = {
+            "value": float(row.value),
+            "measured_at": row.measured_at.isoformat(),
+            "source": row.source,
+        }
+    return result
+
+
 @router.get("/{metric}", response_model=list[MetricPoint])
 async def metric_series(
     metric: str,

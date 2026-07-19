@@ -1,17 +1,39 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, formatDate } from "./lib/api";
 import { sourceLabel } from "./lib/sources";
 import type { Me, SessionSummary, UserProgram } from "./lib/types";
+
+function isoDay(d: Date): string {
+  return d.toLocaleDateString("sv-SE");
+}
 
 export default function Home() {
   const router = useRouter();
   const [me, setMe] = useState<Me | null>(null);
   const [active, setActive] = useState<UserProgram | null>(null);
   const [recent, setRecent] = useState<SessionSummary[]>([]);
+  const [dayOffset, setDayOffset] = useState(0); // 0 = idag, -1 = igår …
   const [error, setError] = useState<string | null>(null);
+
+  const selectedDay = new Date();
+  selectedDay.setDate(selectedDay.getDate() + dayOffset);
+  const day = isoDay(selectedDay);
+  const isToday = dayOffset === 0;
+  const dayLabel =
+    dayOffset === 0
+      ? "Idag"
+      : dayOffset === -1
+        ? "Igår"
+        : dayOffset === -2
+          ? "I förrgår"
+          : new Intl.DateTimeFormat("sv-SE", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+            }).format(selectedDay);
 
   useEffect(() => {
     Promise.all([
@@ -53,29 +75,43 @@ export default function Home() {
         </p>
       </header>
 
-      {ongoing && (
-        <button
-          onClick={() => router.push(`/workout/${ongoing.id}`)}
-          className="flex items-center gap-3 rounded-2xl bg-sand p-4 text-left desktop:col-span-2 dark:bg-night-shell"
-        >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sand-strong text-[15px] font-bold text-sand-ink">
-            ▸
+      {/* Dagbläddring — jämför idag med igår, förrgår osv. */}
+      {me && (
+        <div className="flex items-center justify-between rounded-xl bg-cream-deep px-1 py-1 dark:bg-night-shell/60 desktop:col-span-2">
+          <button
+            onClick={() => setDayOffset((o) => o - 1)}
+            className="px-4 py-1 text-lg leading-none"
+            aria-label="Föregående dag"
+          >
+            ‹
+          </button>
+          <span className="text-sm font-semibold capitalize">
+            {dayLabel}
+            {!isToday && (
+              <button
+                onClick={() => setDayOffset(0)}
+                className="ml-2 rounded-full bg-shell px-2 py-0.5 text-xs font-semibold text-muted dark:bg-night-shell dark:text-night-muted"
+              >
+                Idag
+              </button>
+            )}
           </span>
-          <span className="min-w-0">
-            <p className="text-sm font-bold">Pågående pass</p>
-            <p className="text-xs text-sand-ink dark:text-lime">
-              {ongoing.day_name ?? "Fritt pass"} · {ongoing.set_count} set
-              loggade — tryck för att fortsätta
-            </p>
-          </span>
-        </button>
+          <button
+            onClick={() => setDayOffset((o) => Math.min(0, o + 1))}
+            disabled={isToday}
+            className="px-4 py-1 text-lg leading-none disabled:opacity-30"
+            aria-label="Nästa dag"
+          >
+            ›
+          </button>
+        </div>
       )}
 
-      {me && <CalorieCard />}
+      {me && <CalorieCard day={day} isToday={isToday} dayLabel={dayLabel} />}
 
-      {me && <StepsCard />}
+      {me && <StepsCard day={day} isToday={isToday} />}
 
-      {me && <TodayCard />}
+      {me && <TodayCard day={day} isToday={isToday} dayLabel={dayLabel} />}
 
       {me && <DashboardSection />}
 
@@ -149,28 +185,34 @@ export default function Home() {
 
 type MetricPoint = { measured_at: string; value: number; source: string };
 
-function StepsCard() {
+function StepsCard({ day, isToday }: { day: string; isToday: boolean }) {
   const [days, setDays] = useState<
     { day: string; steps: number; source: string }[] | null
   >(null);
 
   useEffect(() => {
-    api<MetricPoint[]>("/api/metrics/steps?days=8")
+    // Fönster: 7 dagar som slutar på vald dag
+    const end = new Date(day);
+    const start = new Date(day);
+    start.setDate(start.getDate() - 6);
+    api<MetricPoint[]>(
+      `/api/metrics/steps?start=${isoDay(start)}&end=${isoDay(end)}`
+    )
       .then((points) => {
         // En stapel per dag — högsta värdet vinner om flera källor rapporterar
         const byDay = new Map<string, { steps: number; source: string }>();
         for (const p of points) {
-          const day = p.measured_at.slice(0, 10);
-          const prev = byDay.get(day);
+          const key = p.measured_at.slice(0, 10);
+          const prev = byDay.get(key);
           if (!prev || p.value > prev.steps) {
-            byDay.set(day, { steps: p.value, source: p.source });
+            byDay.set(key, { steps: p.value, source: p.source });
           }
         }
         const result: { day: string; steps: number; source: string }[] = [];
         for (let i = 6; i >= 0; i--) {
-          const d = new Date();
+          const d = new Date(day);
           d.setDate(d.getDate() - i);
-          const key = d.toLocaleDateString("sv-SE");
+          const key = isoDay(d);
           const best = byDay.get(key);
           result.push({
             day: key,
@@ -181,7 +223,7 @@ function StepsCard() {
         setDays(result);
       })
       .catch(() => {});
-  }, []);
+  }, [day]);
 
   if (!days) return null;
   const today = days[days.length - 1];
@@ -193,7 +235,7 @@ function StepsCard() {
       <div className="flex items-end justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-faint">
-            👟 Steg idag
+            👟 Steg
           </p>
           <p className="text-3xl font-bold tabular-nums">
             {today.steps > 0
@@ -229,7 +271,9 @@ function StepsCard() {
       </div>
       {today.steps === 0 && (
         <p className="mt-2 text-xs text-faint">
-          Inga steg registrerade idag ännu — synkas från Withings/Apple Health.
+          {isToday
+            ? "Inga steg registrerade idag ännu — synkas från Withings/Apple Health."
+            : "Inga steg registrerade den här dagen."}
         </p>
       )}
     </section>
@@ -241,20 +285,31 @@ type DayLogLite = {
   targets: { kcal: number; protein_g: number; carbs_g: number; fat_g: number };
 };
 
-/** Kaloriräknaren — appens nav: ätit idag, målet och vad som är kvar. */
-function CalorieCard() {
+/** Kaloriräknaren — appens nav: ätit, målet och vad som är kvar. */
+function CalorieCard({
+  day,
+  isToday,
+  dayLabel,
+}: {
+  day: string;
+  isToday: boolean;
+  dayLabel: string;
+}) {
   const [log, setLog] = useState<DayLogLite | null>(null);
   const [editing, setEditing] = useState(false);
   const [goal, setGoal] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const load = () =>
-    api<DayLogLite>("/api/meals")
-      .then(setLog)
-      .catch(() => {});
+  const load = useCallback(
+    () =>
+      api<DayLogLite>(`/api/meals?day=${day}`)
+        .then(setLog)
+        .catch(() => {}),
+    [day]
+  );
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   if (!log) return null;
   const eaten = Math.round(log.totals.kcal);
@@ -313,14 +368,14 @@ function CalorieCard() {
               {Math.abs(left).toLocaleString("sv-SE")}
             </span>
             <span className="text-[10px] font-medium uppercase tracking-wide text-faint">
-              {over ? "över målet" : "kcal kvar"}
+              {over ? "över målet" : isToday ? "kcal kvar" : "under målet"}
             </span>
           </div>
         </div>
 
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold uppercase tracking-wide text-faint">
-            🔥 Kalorier idag
+            🔥 Kalorier · {dayLabel}
           </p>
           <p className="text-2xl font-bold tabular-nums">
             {eaten.toLocaleString("sv-SE")}
@@ -383,43 +438,48 @@ type LatestMetrics = Record<
   { value: number; measured_at: string; source: string }
 >;
 
-/** Dagens kropp i korthet: puls, kondition och senaste nattens sömn. */
-function TodayCard() {
+/** Dagens kropp i korthet: puls, sömn och kondition — för vald dag. */
+function TodayCard({
+  day,
+  isToday,
+  dayLabel,
+}: {
+  day: string;
+  isToday: boolean;
+  dayLabel: string;
+}) {
+  const [data, setData] = useState<LatestMetrics | null>(null);
   const [latest, setLatest] = useState<LatestMetrics | null>(null);
 
   useEffect(() => {
+    api<LatestMetrics>(`/api/metrics/day?day=${day}`)
+      .then(setData)
+      .catch(() => {});
+  }, [day]);
+  useEffect(() => {
+    // VO2max mäts glest — visa senaste kända värdet oavsett dag
     api<LatestMetrics>("/api/metrics/latest").then(setLatest).catch(() => {});
   }, []);
 
-  if (!latest) return null;
-  const todayKey = new Date().toLocaleDateString("sv-SE");
-  const isToday = (k: string) =>
-    !!latest[k] &&
-    new Date(latest[k].measured_at).toLocaleDateString("sv-SE") === todayKey;
-
-  const hr = (k: string) =>
-    isToday(k) ? String(Math.round(latest[k].value)) : "–";
+  if (!data) return null;
+  const hr = (k: string) => (data[k] ? String(Math.round(data[k].value)) : "–");
   const srcSub = (k: string, base: string) =>
-    isToday(k) ? `${base} · ${sourceLabel(latest[k].source)}` : base;
+    data[k] ? `${base} · ${sourceLabel(data[k].source)}` : base;
 
-  const sleep = latest["sleep_duration"];
-  const sleepFresh =
-    !!sleep &&
-    Date.now() - new Date(sleep.measured_at).getTime() < 36 * 3600 * 1000;
-  const sleepText = sleepFresh
+  const sleep = data["sleep_duration"];
+  const sleepText = sleep
     ? `${Math.floor(sleep.value)} h ${Math.round((sleep.value % 1) * 60)} min`
     : "–";
-  const score = latest["sleep_score"];
-  const vo2 = latest["vo2max"];
+  const score = data["sleep_score"];
+  const vo2 = latest?.["vo2max"];
 
-  const hasAnything =
-    isToday("hr_avg") || isToday("hr_max") || sleepFresh || !!vo2;
-  if (!hasAnything) return null;
+  const hasAnything = !!(data["hr_avg"] || data["hr_max"] || sleep || vo2);
+  if (isToday && !hasAnything) return null;
 
   return (
     <section className="rounded-2xl border border-line bg-white p-4 shadow-card dark:border-night-shell dark:bg-night-card">
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="font-bold">Idag</h3>
+        <h3 className="font-bold capitalize">{dayLabel}</h3>
         <a href="/health" className="text-xs text-navy dark:text-lime">
           Hälsa ›
         </a>
@@ -428,28 +488,28 @@ function TodayCard() {
         <Stat
           label="❤️ Snittpuls"
           value={hr("hr_avg")}
-          sub={srcSub("hr_avg", "bpm idag")}
+          sub={srcSub("hr_avg", "bpm")}
         />
         <Stat
           label="🔺 Maxpuls"
           value={hr("hr_max")}
-          sub={srcSub("hr_max", "bpm idag")}
+          sub={srcSub("hr_max", "bpm")}
         />
         <Stat
           label="🔻 Lägsta"
           value={hr("hr_min")}
-          sub={srcSub("hr_min", "bpm idag")}
+          sub={srcSub("hr_min", "bpm")}
         />
       </div>
       <div className="mt-2 grid grid-cols-2 gap-2">
         <Stat
-          label="😴 Sömn i natt"
+          label={isToday ? "😴 Sömn i natt" : "😴 Sömn den natten"}
           value={sleepText}
           sub={
-            (sleepFresh && score && isToday("sleep_score")
+            (sleep && score
               ? `sömnpoäng ${Math.round(score.value)}/100`
-              : "senaste natten") +
-            (sleepFresh && sleep ? ` · ${sourceLabel(sleep.source)}` : "")
+              : "natten till denna dag") +
+            (sleep ? ` · ${sourceLabel(sleep.source)}` : "")
           }
         />
         <Stat
