@@ -14,6 +14,28 @@ class AIUnavailable(Exception):
     """Ollama svarar inte eller gav oanvändbart svar."""
 
 
+# Under Cloudflares ~100 s-gräns: hellre vårt eget svenska felmeddelande
+# än en rå 502 från tunneln när modellen är långsam/kall.
+DEFAULT_TIMEOUT = 90.0
+
+
+async def warm() -> None:
+    """Förladda modellerna i Ollama (tomt meddelande = bara load).
+
+    Körs i bakgrunden vid API-start så första riktiga anropet slipper
+    betala uppvärmningen — och keep_alive håller dem sedan i minnet."""
+    settings = get_settings()
+    for model in (settings.ollama_text_model, settings.ollama_vision_model):
+        try:
+            async with httpx.AsyncClient(timeout=300) as client:
+                await client.post(
+                    f"{settings.ollama_url}/api/chat",
+                    json={"model": model, "messages": [], "keep_alive": "2h"},
+                )
+        except httpx.HTTPError:
+            pass  # Ollama nere — värms istället vid första anropet
+
+
 async def chat(
     prompt: str,
     *,
@@ -21,7 +43,7 @@ async def chat(
     model: str | None = None,
     images_b64: list[str] | None = None,
     json_format: bool = False,
-    timeout: float = 120.0,
+    timeout: float = DEFAULT_TIMEOUT,
 ) -> str:
     settings = get_settings()
     model = model or (

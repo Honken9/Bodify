@@ -166,8 +166,8 @@ async def generate_workout(
         logger.warning("AI otillgänglig: %s", exc)
         raise HTTPException(
             503,
-            "AI-tjänsten svarar inte just nu — kontrollera att Ollama är "
-            "igång och har modellen laddad.",
+            "AI-modellen värmer upp eller är inte igång — prova igen om "
+            "en halv minut.",
         ) from exc
     except (json.JSONDecodeError, ValidationError) as exc:
         logger.warning("Ogiltigt AI-svar: %s", exc)
@@ -297,8 +297,8 @@ async def meal_vision(
         logger.warning("AI otillgänglig: %s", exc)
         raise HTTPException(
             503,
-            "AI-tjänsten svarar inte just nu — kontrollera att Ollama är "
-            "igång och har modellen laddad.",
+            "AI-modellen värmer upp eller är inte igång — prova igen om "
+            "en halv minut.",
         ) from exc
     except (json.JSONDecodeError, ValidationError) as exc:
         logger.warning("Ogiltigt måltidssvar från AI: %s", exc)
@@ -369,8 +369,8 @@ async def gym_vision(
         logger.warning("AI otillgänglig: %s", exc)
         raise HTTPException(
             503,
-            "AI-tjänsten svarar inte just nu — kontrollera att Ollama är "
-            "igång och har modellen laddad.",
+            "AI-modellen värmer upp eller är inte igång — prova igen om "
+            "en halv minut.",
         ) from exc
     except (json.JSONDecodeError, AttributeError):
         raise HTTPException(502, "AI:n gav ett oanvändbart svar — försök igen.")

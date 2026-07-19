@@ -144,6 +144,16 @@ app.include_router(social.router)
 app.include_router(ai.router)
 
 
+@app.on_event("startup")
+async def _warm_ai_models() -> None:
+    """Förladda AI-modellerna i bakgrunden — blockerar inte starten."""
+    import asyncio
+
+    from app.ai import ollama
+
+    asyncio.get_event_loop().create_task(ollama.warm())
+
+
 @app.get("/healthz", tags=["infra"])
 async def healthz() -> dict:
     return {"status": "ok"}
