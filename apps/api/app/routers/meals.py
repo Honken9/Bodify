@@ -2,6 +2,7 @@ import uuid
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -252,6 +253,169 @@ async def photo_log(
             .execution_options(populate_existing=True)
         )
     )
+
+
+class QuickLog(BaseModel):
+    text: str = Field(min_length=2, max_length=300)
+    eaten_on: date
+    meal: str = Field(pattern="^(breakfast|lunch|dinner|snack)$")
+
+
+async def _parse_meal_text(text: str) -> list[dict]:
+    """AI:n delar upp fritext i livsmedel med portionsvikter — faller
+    tillbaka på enkel uppdelning om Ollama inte svarar."""
+    import json
+
+    from app.ai import ollama
+    from app.ai.ollama import AIUnavailable
+
+    prompt = (
+        "Dela upp måltidsbeskrivningen i enskilda livsmedel och uppskatta "
+        "vikten i gram per post (dryck: 1 ml ≈ 1 g; 33 cl burk = 330 g; "
+        "'mellan pommes' ≈ 115 g, 'stor' ≈ 150 g; hamburgare ≈ 220 g). "
+        "Gör sökvänliga namn (t.ex. 'Big Mac', 'Pommes frites', "
+        "'Coca-Cola Zero').\n"
+        f"Beskrivning: {text}\n"
+        'Svara med strikt JSON: {"items": [{"query": "Big Mac", "grams": 220}]}'
+    )
+    try:
+        raw = await ollama.chat(prompt, json_format=True, timeout=30)
+        items = json.loads(raw).get("items", [])
+        cleaned = []
+        for item in items[:10]:
+            query = str(item.get("query") or "").strip()[:80]
+            if not query:
+                continue
+            try:
+                grams = float(item.get("grams") or 0)
+            except (TypeError, ValueError):
+                grams = 0
+            cleaned.append(
+                {"query": query, "grams": grams if 1 <= grams <= 3000 else None}
+            )
+        if cleaned:
+            return cleaned
+    except (AIUnavailable, ValueError, AttributeError):
+        pass
+    # Fallback utan AI: dela på komma/och/plus, standardportion
+    import re
+
+    parts = [
+        p.strip()
+        for p in re.split(r",|\boch\b|\+|&", text, flags=re.IGNORECASE)
+        if p.strip()
+    ]
+    return [{"query": p[:80], "grams": None} for p in parts[:10]]
+
+
+def _match_score(query: str, name: str) -> float:
+    """Enkel relevanspoäng: hela frasen > alla ord > några ord; kortare
+    namn vinner vid lika (mer exakt träff)."""
+    q = query.lower().strip()
+    n = name.lower()
+    score = 0.0
+    if q == n:
+        score += 100
+    elif q in n:
+        score += 50
+    tokens = [t for t in q.split() if len(t) > 1]
+    if tokens:
+        hits = sum(1 for t in tokens if t in n)
+        score += 30 * hits / len(tokens)
+    score -= len(n) * 0.05
+    return score
+
+
+async def _best_match(
+    db: AsyncSession, user: User, query: str
+) -> FoodItem | None:
+    from app.integrations import openfoodfacts
+
+    candidates = list(
+        await db.scalars(
+            select(FoodItem)
+            .where(
+                or_(
+                    FoodItem.source.in_(("off", "base")),
+                    FoodItem.created_by == user.id,
+                ),
+                FoodItem.name.ilike(f"%{query}%"),
+            )
+            .limit(15)
+        )
+    )
+    if not candidates:
+        try:
+            remote = await openfoodfacts.search_products(query, limit=6)
+        except Exception:
+            remote = []
+        for product in remote:
+            if not product["barcode"]:
+                continue
+            existing = await db.scalar(
+                select(FoodItem).where(FoodItem.barcode == product["barcode"])
+            )
+            if existing is not None:
+                candidates.append(existing)
+                continue
+            item = FoodItem(
+                barcode=product["barcode"],
+                name=product["name"],
+                brand=product["brand"],
+                source="off",
+                per_100g=product["per_100g"],
+                serving_g=product.get("serving_g"),
+            )
+            db.add(item)
+            candidates.append(item)
+        if candidates:
+            await db.flush()
+    if not candidates:
+        return None
+    # Näringslösa träffar (0 kcal) är ofta skräpposter — straffa dem
+    return max(
+        candidates,
+        key=lambda f: _match_score(query, f.name)
+        + (5 if float((f.per_100g or {}).get("kcal") or 0) > 0 else -20),
+    )
+
+
+@router.post("/quick-log")
+async def quick_log(
+    payload: QuickLog,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    """Fritext → färdigloggad måltid: "Big Mac, mellan pommes och cola
+    zero" delas upp, matchas mot bästa träff och loggas direkt."""
+    parsed = await _parse_meal_text(payload.text)
+    if not parsed:
+        raise HTTPException(400, "Kunde inte tolka måltiden — prova att skriva om.")
+
+    logged = []
+    missing = []
+    for item in parsed:
+        food = await _best_match(db, user, item["query"])
+        if food is None:
+            missing.append(item["query"])
+            continue
+        grams = item["grams"] or (
+            float(food.serving_g) if food.serving_g else 150.0
+        )
+        entry = await _create_entry(
+            user, db, payload.eaten_on, payload.meal, food, grams
+        )
+        logged.append(
+            {
+                "query": item["query"],
+                "name": food.name,
+                "brand": food.brand,
+                "grams": round(grams),
+                "kcal": float(entry.kcal),
+            }
+        )
+    await db.commit()
+    return {"logged": logged, "missing": missing}
 
 
 @router.delete("/{entry_id}", status_code=204)

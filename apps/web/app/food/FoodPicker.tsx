@@ -149,6 +149,10 @@ export default function FoodPicker({
                   favIds={favIds}
                   onToggleFavorite={toggleFavorite}
                   onPick={(food) => setSelected({ food })}
+                  day={day}
+                  meal={meal}
+                  onLogged={onLogged}
+                  onError={onError}
                 />
               )}
               {tab === "scan" && (
@@ -507,18 +511,39 @@ function QuickTab({
   );
 }
 
+type QuickLogResult = {
+  logged: {
+    query: string;
+    name: string;
+    brand: string | null;
+    grams: number;
+    kcal: number;
+  }[];
+  missing: string[];
+};
+
 function SearchTab({
   favIds,
   onToggleFavorite,
   onPick,
+  day,
+  meal,
+  onLogged,
+  onError,
 }: {
   favIds: Set<string>;
   onToggleFavorite: (f: FoodItem) => void;
   onPick: (f: FoodItem) => void;
+  day: string;
+  meal: string;
+  onLogged: () => void;
+  onError: (msg: string) => void;
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<FoodItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [magicBusy, setMagicBusy] = useState(false);
+  const [magicResult, setMagicResult] = useState<QuickLogResult | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -536,15 +561,79 @@ function SearchTab({
     }, 350);
   }, [query]);
 
+  // Ser texten ut som en hel måltid? ("Big Mac, mellan pommes och cola")
+  const looksLikeMeal =
+    /,|\boch\b|\+|&/i.test(query) || query.trim().split(/\s+/).length >= 4;
+
+  async function magicLog() {
+    setMagicBusy(true);
+    setMagicResult(null);
+    try {
+      const res = await api<QuickLogResult>("/api/meals/quick-log", {
+        method: "POST",
+        body: JSON.stringify({ text: query.trim(), eaten_on: day, meal }),
+      });
+      setMagicResult(res);
+      if (res.logged.length > 0) onLogged();
+    } catch (e) {
+      onError((e as Error).message);
+    } finally {
+      setMagicBusy(false);
+    }
+  }
+
   return (
     <div>
       <input
         autoFocus
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Sök livsmedel…"
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setMagicResult(null);
+        }}
+        placeholder="Sök — eller skriv hela måltiden…"
         className="w-full rounded-xl border border-line-strong bg-transparent px-4 py-2.5 dark:border-night-strong"
       />
+
+      {looksLikeMeal && !magicResult && (
+        <button
+          disabled={magicBusy}
+          onClick={magicLog}
+          className="mt-2 w-full rounded-xl bg-navy py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+        >
+          {magicBusy
+            ? "Tolkar måltiden…"
+            : "🪄 Tolka och logga hela måltiden direkt"}
+        </button>
+      )}
+
+      {magicResult && (
+        <div className="mt-2 rounded-xl bg-sand p-3 text-sm dark:bg-night-shell">
+          {magicResult.logged.length > 0 && (
+            <>
+              <p className="font-semibold text-sand-ink dark:text-lime">
+                ✅ Loggat:
+              </p>
+              <ul className="mt-1 space-y-0.5">
+                {magicResult.logged.map((l, i) => (
+                  <li key={i} className="text-sand-ink dark:text-night-muted">
+                    {l.name}
+                    {l.brand ? ` (${l.brand})` : ""} · {l.grams} g ·{" "}
+                    {Math.round(l.kcal)} kcal
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          {magicResult.missing.length > 0 && (
+            <p className="mt-1 text-xs text-muted dark:text-faint">
+              Hittades inte: {magicResult.missing.join(", ")} — sök och lägg
+              till dem manuellt. Fel portion? Justera i dagsloggen.
+            </p>
+          )}
+        </div>
+      )}
+
       {loading && (
         <p className="py-4 text-center text-sm text-faint">Söker…</p>
       )}

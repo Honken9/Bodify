@@ -445,3 +445,111 @@ async def test_meal_isolation(
     assert (
         await client.delete(f"/api/meals/{entry['id']}", headers=anna)
     ).status_code == 404
+
+
+async def test_quick_log_parses_and_logs_meal(
+    client, make_token, known_user, monkeypatch
+):
+    """"Big Mac, mellan pommes och cola zero" → tre loggade rader utan
+    att användaren väljer något själv."""
+    from app.ai import ollama
+    from app.integrations import openfoodfacts
+
+    async def fake_chat(prompt, **kwargs):
+        return (
+            '{"items": ['
+            '{"query": "Big Mac", "grams": 220},'
+            '{"query": "Pommes frites", "grams": 115},'
+            '{"query": "Coca-Cola Zero", "grams": 330}]}'
+        )
+
+    CATALOG = {
+        "Big Mac": {
+            "barcode": "1001",
+            "name": "Big Mac",
+            "brand": "McDonald's",
+            "per_100g": {"kcal": 230, "protein_g": 12, "carbs_g": 18, "fat_g": 12},
+            "serving_g": 220,
+        },
+        "Pommes frites": {
+            "barcode": "1002",
+            "name": "Pommes frites",
+            "brand": None,
+            "per_100g": {"kcal": 310, "protein_g": 4, "carbs_g": 41, "fat_g": 15},
+            "serving_g": None,
+        },
+        "Coca-Cola Zero": {
+            "barcode": "1003",
+            "name": "Coca-Cola Zero",
+            "brand": "Coca-Cola",
+            "per_100g": {"kcal": 0.3, "protein_g": 0, "carbs_g": 0, "fat_g": 0},
+            "serving_g": 330,
+        },
+    }
+
+    async def fake_search(query, limit=10):
+        hit = CATALOG.get(query)
+        return [hit] if hit else []
+
+    monkeypatch.setattr(ollama, "chat", fake_chat)
+    monkeypatch.setattr(openfoodfacts, "search_products", fake_search)
+
+    resp = await client.post(
+        "/api/meals/quick-log",
+        headers=auth(make_token),
+        json={"text": "Big Mac, mellan pommes och cola zero", "eaten_on": "2026-07-19", "meal": "lunch"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert [l["name"] for l in body["logged"]] == [
+        "Big Mac",
+        "Pommes frites",
+        "Coca-Cola Zero",
+    ]
+    assert body["logged"][0]["grams"] == 220
+    assert body["missing"] == []
+
+    log = (
+        await client.get("/api/meals?day=2026-07-19", headers=auth(make_token))
+    ).json()
+    assert len(log["entries"]) == 3
+    # Big Mac 220 g × 230 kcal/100 g = 506 kcal
+    assert any(round(float(e["kcal"])) == 506 for e in log["entries"])
+
+
+async def test_quick_log_fallback_without_ai(
+    client, make_token, known_user, monkeypatch
+):
+    from app.ai import ollama
+    from app.ai.ollama import AIUnavailable
+    from app.integrations import openfoodfacts
+
+    async def no_ai(prompt, **kwargs):
+        raise AIUnavailable("nere")
+
+    async def no_remote(query, limit=10):
+        return []
+
+    monkeypatch.setattr(ollama, "chat", no_ai)
+    monkeypatch.setattr(openfoodfacts, "search_products", no_remote)
+
+    # Eget livsmedel finns lokalt — fallbacken hittar det via ilike
+    await client.post(
+        "/api/food",
+        headers=auth(make_token),
+        json={
+            "name": "Kvarg vanilj",
+            "per_100g": {"kcal": 60, "protein_g": 10, "carbs_g": 4, "fat_g": 0.2},
+        },
+    )
+
+    resp = await client.post(
+        "/api/meals/quick-log",
+        headers=auth(make_token),
+        json={"text": "kvarg och banan", "eaten_on": "2026-07-19", "meal": "snack"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert [l["name"] for l in body["logged"]] == ["Kvarg vanilj"]
+    assert body["logged"][0]["grams"] == 150  # standardportion utan AI-gissning
+    assert body["missing"] == ["banan"]
