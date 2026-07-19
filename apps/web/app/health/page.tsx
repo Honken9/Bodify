@@ -27,6 +27,12 @@ const METRIC_META: Record<
   flights_climbed: { label: "Trappor", unit: "/dag", decimals: 0 },
   exercise_min: { label: "Träningsminuter", unit: "min/dag", decimals: 0 },
   active_kcal: { label: "Aktiv energi", unit: "kcal/dag", decimals: 0 },
+  water_ml: { label: "Vatten", unit: "ml/dag", decimals: 0 },
+  waist_cm: { label: "Midja", unit: "cm", decimals: 1 },
+  chest_cm: { label: "Bröstkorg", unit: "cm", decimals: 1 },
+  arm_cm: { label: "Överarm", unit: "cm", decimals: 1 },
+  thigh_cm: { label: "Lår", unit: "cm", decimals: 1 },
+  hips_cm: { label: "Höft", unit: "cm", decimals: 1 },
 };
 
 type Latest = Record<

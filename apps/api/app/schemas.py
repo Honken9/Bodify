@@ -13,6 +13,8 @@ class ProfileUpdate(BaseModel):
     goal: str | None = Field(default=None, max_length=200)
     # Slå ihop klockinspelade gympass med loggade styrkepass (på som standard)
     auto_merge_watch: bool | None = None
+    # Kom igång-checklistan på hemskärmen är avklarad/dold
+    onboarding_done: bool | None = None
 
 
 class UserOut(BaseModel):

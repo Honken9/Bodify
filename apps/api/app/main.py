@@ -20,6 +20,7 @@ from app.routers import (
     photos,
     programs,
     push,
+    reports,
     sessions,
     social,
     webhooks,
@@ -142,6 +143,7 @@ app.include_router(photos.router)
 app.include_router(push.router)
 app.include_router(social.router)
 app.include_router(ai.router)
+app.include_router(reports.router)
 
 
 @app.on_event("startup")

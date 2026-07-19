@@ -107,15 +107,21 @@ export default function Home() {
         </div>
       )}
 
+      {me && <OnboardingCard hasProgram={!!active} />}
+
       {me && <ChallengePulse />}
 
       {me && <CalorieCard day={day} isToday={isToday} dayLabel={dayLabel} />}
 
       {me && <StepsCard day={day} isToday={isToday} />}
 
+      {me && <WaterCard day={day} />}
+
       {me && <TodayCard day={day} isToday={isToday} dayLabel={dayLabel} />}
 
       {me && <DashboardSection />}
+
+      {me && <WeeklyReportCard />}
 
       {nextDay && !ongoing && (
         <button
@@ -503,6 +509,286 @@ function CalorieCard({
           </button>
         </div>
       )}
+    </section>
+  );
+}
+
+type WeeklyReport = {
+  week: number;
+  monday: string;
+  sunday: string;
+  current: WeekStats;
+  previous: WeekStats;
+};
+type WeekStats = {
+  strength_sessions: number;
+  cardio_sessions: number;
+  cardio_km: number;
+  workout_minutes: number;
+  steps: number;
+  sleep_hours_avg: number | null;
+  sleep_score_avg: number | null;
+  weight_last: number | null;
+  weight_delta: number | null;
+  kcal_avg: number | null;
+  logged_days: number;
+};
+
+/** 📊 Förra veckans facit, jämfört med veckan innan. */
+function WeeklyReportCard() {
+  const [report, setReport] = useState<WeeklyReport | null>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    api<WeeklyReport>("/api/reports/weekly").then(setReport).catch(() => {});
+  }, []);
+
+  if (!report) return null;
+  const c = report.current;
+  const p = report.previous;
+  const totalPass = c.strength_sessions + c.cardio_sessions;
+  const prevPass = p.strength_sessions + p.cardio_sessions;
+  if (totalPass === 0 && c.steps === 0 && prevPass === 0) return null;
+
+  const arrow = (now: number | null, prev: number | null, invert = false) => {
+    if (now == null || prev == null || now === prev) return "→";
+    const up = now > prev;
+    return (invert ? !up : up) ? "↑" : "↓";
+  };
+  const fmtN = (n: number) => Math.round(n).toLocaleString("sv-SE");
+
+  const rows: [string, string, string][] = [
+    ["🏋️ Pass", `${totalPass}`, arrow(totalPass, prevPass)],
+    ["👟 Steg", fmtN(c.steps), arrow(c.steps, p.steps)],
+    ...(c.cardio_km > 0 || p.cardio_km > 0
+      ? ([["🏃 Distans", `${c.cardio_km} km`, arrow(c.cardio_km, p.cardio_km)]] as [string, string, string][])
+      : []),
+    ...(c.sleep_hours_avg != null
+      ? ([["😴 Sömn/natt", `${c.sleep_hours_avg} h`, arrow(c.sleep_hours_avg, p.sleep_hours_avg)]] as [string, string, string][])
+      : []),
+    ...(c.weight_delta != null
+      ? ([["⚖️ Vikt", `${c.weight_delta > 0 ? "+" : ""}${c.weight_delta} kg`, "→"]] as [string, string, string][])
+      : []),
+    ...(c.kcal_avg != null
+      ? ([["🥗 Kost/dag", `${fmtN(c.kcal_avg)} kcal (${c.logged_days} d)`, "→"]] as [string, string, string][])
+      : []),
+  ];
+
+  return (
+    <section className="rounded-2xl border border-line bg-white p-4 dark:border-night-shell dark:bg-night-card">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between text-left"
+      >
+        <h3 className="font-bold">📊 Veckorapport · v.{report.week}</h3>
+        <span className="text-sm text-faint">{open ? "▾" : "▸"}</span>
+      </button>
+      {!open && (
+        <p className="mt-0.5 text-sm text-muted dark:text-faint">
+          {totalPass} pass · {fmtN(c.steps)} steg
+          {c.sleep_hours_avg != null ? ` · sömn ${c.sleep_hours_avg} h` : ""} —
+          tryck för detaljer
+        </p>
+      )}
+      {open && (
+        <div className="mt-2 space-y-1.5">
+          {rows.map(([label, value, dir]) => (
+            <div
+              key={label}
+              className="flex items-center justify-between text-sm"
+            >
+              <span className="text-muted dark:text-night-muted">{label}</span>
+              <span className="font-semibold">
+                {value}{" "}
+                <span
+                  className={
+                    dir === "↑"
+                      ? "text-lime-deep"
+                      : dir === "↓"
+                        ? "text-red-500"
+                        : "text-faint"
+                  }
+                >
+                  {dir}
+                </span>
+              </span>
+            </div>
+          ))}
+          <p className="pt-1 text-xs text-faint">
+            Pilarna jämför med veckan innan · {report.monday} – {report.sunday}
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** Kom igång-checklista för nya användare — döljs när allt är klart. */
+function OnboardingCard({ hasProgram }: { hasProgram: boolean }) {
+  const [state, setState] = useState<{
+    connected: boolean;
+    hasMeals: boolean;
+    inChallenge: boolean;
+    dismissed: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    Promise.all([
+      api<{ providers: { connected: boolean }[]; apple_health_tokens: unknown[] }>(
+        "/api/integrations"
+      ).catch(() => null),
+      api<{ kcal: number }[]>("/api/meals/summary?days=60").catch(() => []),
+      api<{ is_participant: boolean }[]>("/api/social/challenges").catch(
+        () => []
+      ),
+      api<{ profile?: { onboarding_done?: boolean } }>("/api/me").catch(
+        () => null
+      ),
+    ]).then(([integrations, meals, challenges, meResp]) => {
+      setState({
+        connected: !!(
+          integrations &&
+          (integrations.providers.some((p) => p.connected) ||
+            integrations.apple_health_tokens.length > 0)
+        ),
+        hasMeals: (meals ?? []).length > 0,
+        inChallenge: (challenges ?? []).some((c) => c.is_participant),
+        dismissed: meResp?.profile?.onboarding_done === true,
+      });
+    });
+  }, []);
+
+  if (!state || state.dismissed) return null;
+  const steps: [boolean, string, string][] = [
+    [state.connected, "Koppla Withings, Strava eller Apple Health", "/settings"],
+    [hasProgram, "Välj ett träningsprogram", "/programs"],
+    [state.hasMeals, "Logga din första måltid", "/food"],
+    [state.inChallenge, "Gå med i en utmaning", "/social"],
+  ];
+  const doneCount = steps.filter(([done]) => done).length;
+  if (doneCount === steps.length) return null;
+
+  async function dismiss() {
+    setState((s) => (s ? { ...s, dismissed: true } : s));
+    api("/api/me", {
+      method: "PATCH",
+      body: JSON.stringify({ profile: { onboarding_done: true } }),
+    }).catch(() => {});
+  }
+
+  return (
+    <section className="rounded-2xl border-2 border-sand-strong bg-sand p-4 dark:border-night-strong dark:bg-night-shell">
+      <div className="flex items-center justify-between">
+        <h3 className="font-bold">👋 Kom igång ({doneCount}/{steps.length})</h3>
+        <button onClick={dismiss} className="p-1 text-xs text-faint">
+          Dölj ✕
+        </button>
+      </div>
+      <ul className="mt-2 space-y-1.5">
+        {steps.map(([done, label, href]) => (
+          <li key={label}>
+            <a
+              href={href}
+              className={`flex items-center gap-2 text-sm ${
+                done
+                  ? "text-faint line-through"
+                  : "font-medium text-sand-ink dark:text-lime"
+              }`}
+            >
+              <span>{done ? "✅" : "⬜"}</span>
+              {label}
+              {!done && <span className="ml-auto">›</span>}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+const WATER_GOAL_ML = 2000;
+const GLASS_ML = 250;
+
+/** 💧 Vattenintag — en rad per dag som räknas upp glas för glas. */
+function WaterCard({ day }: { day: string }) {
+  const [ml, setMl] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    api<MetricPoint[]>(`/api/metrics/water_ml?start=${day}&end=${day}`)
+      .then((points) => setMl(points.length ? points[points.length - 1].value : 0))
+      .catch(() => setMl(0));
+  }, [day]);
+
+  if (ml === null) return null;
+
+  async function add(amount: number) {
+    const next = Math.max((ml ?? 0) + amount, 0);
+    setSaving(true);
+    setMl(next);
+    try {
+      await api("/api/metrics", {
+        method: "POST",
+        body: JSON.stringify({
+          metric: "water_ml",
+          value: next,
+          // Dagstämplad → samma rad uppdateras hela dagen
+          measured_at: `${day}T00:00:00Z`,
+        }),
+      });
+    } catch {
+      setMl(ml);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const glasses = Math.round((ml / GLASS_ML) * 10) / 10;
+  const pct = Math.min(ml / WATER_GOAL_ML, 1);
+
+  return (
+    <section className="rounded-2xl border border-line bg-white p-4 shadow-card dark:border-night-shell dark:bg-night-card">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wide text-faint">
+            💧 Vatten
+          </p>
+          <p className="text-2xl font-bold tabular-nums">
+            {(ml / 1000).toLocaleString("sv-SE", {
+              maximumFractionDigits: 2,
+            })}{" "}
+            <span className="text-base font-semibold text-muted dark:text-faint">
+              / 2 l
+            </span>
+          </p>
+          <p className="text-xs text-muted dark:text-faint">
+            {glasses.toLocaleString("sv-SE")} glas
+          </p>
+        </div>
+        <div className="flex gap-1.5">
+          <button
+            disabled={saving || ml <= 0}
+            onClick={() => add(-GLASS_ML)}
+            className="h-11 w-11 rounded-xl bg-shell text-lg font-bold disabled:opacity-30 dark:bg-night-shell"
+            aria-label="Ta bort ett glas"
+          >
+            −
+          </button>
+          <button
+            disabled={saving}
+            onClick={() => add(GLASS_ML)}
+            className="h-11 rounded-xl bg-navy px-4 text-sm font-bold text-white disabled:opacity-50"
+          >
+            + 1 glas
+          </button>
+        </div>
+      </div>
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-shell dark:bg-night-shell">
+        <div
+          className="h-2 rounded-full bg-navy transition-all"
+          style={{ width: `${pct * 100}%`, background: pct >= 1 ? "#7fc22b" : undefined }}
+        />
+      </div>
     </section>
   );
 }

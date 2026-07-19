@@ -101,6 +101,12 @@ METRICS = {
     "flights_climbed",  # trappor/dag (Apple Health)
     "exercise_min",  # träningsminuter/dag (Apple Health)
     "active_kcal",  # aktiv förbränning/dag (Apple Health)
+    "waist_cm",  # midjemått
+    "chest_cm",  # bröstkorg
+    "arm_cm",  # överarm
+    "thigh_cm",  # lår
+    "hips_cm",  # höft
+    "water_ml",  # vattenintag/dag (en rad per dag som räknas upp)
 }
 
 

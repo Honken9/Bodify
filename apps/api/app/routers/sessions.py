@@ -248,7 +248,7 @@ async def add_set(
     payload: SetCreate,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_session),
-) -> WorkoutSet:
+) -> SetOut:
     ws = await _get_own_session(session_id, user, db)
     if ws.finished_at is not None:
         raise HTTPException(409, "Passet är redan avslutat.")
@@ -268,6 +268,17 @@ async def add_set(
         )
     ) + 1
 
+    # Tidigare tyngsta set i övningen (före detta) — för PB-firandet
+    prev_best = await db.scalar(
+        select(func.max(WorkoutSet.weight_kg))
+        .join(WorkoutSession, WorkoutSession.id == WorkoutSet.session_id)
+        .where(
+            WorkoutSession.user_id == user.id,
+            WorkoutSet.exercise_id == payload.exercise_id,
+            WorkoutSet.is_warmup.is_(False),
+        )
+    )
+
     workout_set = WorkoutSet(
         session_id=ws.id,
         exercise_id=payload.exercise_id,
@@ -280,7 +291,15 @@ async def add_set(
     db.add(workout_set)
     await db.commit()
     await db.refresh(workout_set)
-    return workout_set
+
+    out = SetOut.model_validate(workout_set)
+    out.pb = bool(
+        not payload.is_warmup
+        and payload.weight_kg is not None
+        and prev_best is not None  # första noteringen är ingen "rekord-slakt"
+        and float(payload.weight_kg) > float(prev_best)
+    )
+    return out
 
 
 @router.delete("/{session_id}/sets/{set_id}", status_code=204)

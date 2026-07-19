@@ -81,6 +81,7 @@ export type WorkoutSet = {
   reps: number;
   rpe: number | null;
   is_warmup: boolean;
+  pb?: boolean;
 };
 
 export type PreviousSets = {

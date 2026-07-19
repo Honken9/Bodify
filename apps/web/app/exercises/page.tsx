@@ -2,9 +2,71 @@
 
 import { useEffect, useMemo, useState } from "react";
 import GymVision from "../components/GymVision";
+import LineChart from "../components/LineChart";
 import MuscleMap from "../components/MuscleMap";
 import { api } from "../lib/api";
 import type { Exercise } from "../lib/types";
+
+type ProgressionData = {
+  points: { day: string; best_weight: number; est_1rm: number; volume: number }[];
+  records: {
+    best_weight: number;
+    best_1rm: number;
+    best_volume: number;
+    sessions: number;
+  };
+};
+
+/** 📈 Personbästa + utvecklingskurva (uppskattat 1RM) för en övning. */
+function Progression({ exerciseId }: { exerciseId: string }) {
+  const [data, setData] = useState<ProgressionData | null>(null);
+
+  useEffect(() => {
+    api<ProgressionData>(`/api/exercises/${exerciseId}/progression`)
+      .then(setData)
+      .catch(() => {});
+  }, [exerciseId]);
+
+  if (!data || data.points.length === 0) return null;
+  const r = data.records;
+
+  return (
+    <div className="mt-3 border-t border-line pt-3 dark:border-night-shell">
+      <p className="text-xs font-semibold uppercase tracking-wide text-faint">
+        📈 Din utveckling · {r.sessions} pass
+      </p>
+      <div className="mt-1.5 grid grid-cols-3 gap-2 text-center">
+        <div className="rounded-xl bg-cream-deep p-2 dark:bg-night-shell/60">
+          <p className="text-sm font-bold">{r.best_weight} kg</p>
+          <p className="text-[10px] uppercase text-faint">Tyngsta set</p>
+        </div>
+        <div className="rounded-xl bg-cream-deep p-2 dark:bg-night-shell/60">
+          <p className="text-sm font-bold">{Math.round(r.best_1rm)} kg</p>
+          <p className="text-[10px] uppercase text-faint">Est. 1RM</p>
+        </div>
+        <div className="rounded-xl bg-cream-deep p-2 dark:bg-night-shell/60">
+          <p className="text-sm font-bold">
+            {Math.round(r.best_volume).toLocaleString("sv-SE")}
+          </p>
+          <p className="text-[10px] uppercase text-faint">Volym-PB (kg)</p>
+        </div>
+      </div>
+      {data.points.length >= 2 && (
+        <div className="mt-2">
+          <LineChart
+            data={data.points.map((p) => ({
+              measured_at: p.day,
+              value: p.est_1rm,
+            }))}
+            height={120}
+            unit="kg"
+            decimals={0}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
 
 const MUSCLES = [
   "bröst",
@@ -185,6 +247,7 @@ export default function ExercisesPage() {
                       Ingen beskrivning ännu för den här övningen.
                     </p>
                   )}
+                  <Progression exerciseId={e.id} />
                 </div>
               )}
             </li>

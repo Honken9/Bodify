@@ -3,6 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api, formatDate, formatWeight } from "../../lib/api";
+import {
+  enqueueSet,
+  flushSets,
+  isNetworkError,
+  queuedSets,
+} from "../../lib/offline";
 import WorkoutHUD from "../../components/WorkoutHUD";
 import type {
   Exercise,
@@ -22,10 +28,27 @@ export default function WorkoutPage() {
   const [showPicker, setShowPicker] = useState(false);
   const [finishing, setFinishing] = useState(false);
 
+  const [offlineCount, setOfflineCount] = useState(0);
+
   useEffect(() => {
     api<SessionDetail>(`/api/sessions/${id}`)
       .then(setDetail)
       .catch((e: Error) => setError(e.message));
+  }, [id]);
+
+  // Offline-kön: synka när nätet kommer tillbaka (eller vid sidladdning)
+  useEffect(() => {
+    setOfflineCount(queuedSets().length);
+    async function flush() {
+      const synced = await flushSets();
+      setOfflineCount(queuedSets().length);
+      if (synced > 0) {
+        api<SessionDetail>(`/api/sessions/${id}`).then(setDetail).catch(() => {});
+      }
+    }
+    flush();
+    window.addEventListener("online", flush);
+    return () => window.removeEventListener("online", flush);
   }, [id]);
 
   const readOnly = detail?.finished_at != null;
@@ -39,7 +62,9 @@ export default function WorkoutPage() {
   }
 
   async function deleteSet(setId: string) {
-    await api(`/api/sessions/${id}/sets/${setId}`, { method: "DELETE" });
+    if (!setId.startsWith("offline-")) {
+      await api(`/api/sessions/${id}/sets/${setId}`, { method: "DELETE" });
+    }
     setDetail((d) =>
       d ? { ...d, sets: d.sets.filter((s) => s.id !== setId) } : d
     );
@@ -135,6 +160,13 @@ export default function WorkoutPage() {
         <h1 className="text-2xl font-bold">{detail.day_name ?? "Fritt pass"}</h1>
       </header>
 
+      {offlineCount > 0 && (
+        <p className="rounded-xl bg-sand p-3 text-sm text-sand-ink dark:bg-night-shell dark:text-lime">
+          📴 {offlineCount} set sparade offline — synkas automatiskt när
+          nätet är tillbaka.
+        </p>
+      )}
+
       <div className="flex flex-col gap-4 desktop:grid desktop:grid-cols-2 desktop:items-start">
       {detail.plan.map((plan) => (
         <ExerciseCard
@@ -146,6 +178,7 @@ export default function WorkoutPage() {
           onSetLogged={onSetLogged}
           onDeleteSet={deleteSet}
           onError={setError}
+          onOffline={() => setOfflineCount(queuedSets().length)}
         />
       ))}
       </div>
@@ -187,6 +220,7 @@ function ExerciseCard({
   onSetLogged,
   onDeleteSet,
   onError,
+  onOffline,
 }: {
   sessionId: string;
   plan: SessionExercisePlan;
@@ -195,6 +229,7 @@ function ExerciseCard({
   onSetLogged: (set: WorkoutSet, rest: number | null) => void;
   onDeleteSet: (setId: string) => void;
   onError: (msg: string) => void;
+  onOffline?: () => void;
 }) {
   const lastSet = sets[sets.length - 1];
   const prevSetForNext = plan.previous?.sets[sets.length] ?? null;
@@ -202,6 +237,7 @@ function ExerciseCard({
   const [weight, setWeight] = useState<string>("");
   const [reps, setReps] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [pbFlash, setPbFlash] = useState(false);
 
   // Förifyll med senast loggade set, annars föregående passets motsvarande set
   const placeholderWeight =
@@ -236,8 +272,37 @@ function ExerciseCard({
       onSetLogged(created, plan.rest_seconds);
       setWeight("");
       setReps("");
+      if (created.pb) {
+        setPbFlash(true);
+        setTimeout(() => setPbFlash(false), 5000);
+      }
     } catch (e) {
-      onError((e as Error).message);
+      if (isNetworkError(e)) {
+        // Uselt nät på gymmet — köa setet och visa det direkt ändå
+        const weightValue = w !== null && !Number.isNaN(w) ? w : null;
+        enqueueSet(sessionId, {
+          exercise_id: plan.exercise.id,
+          weight_kg: weightValue,
+          reps: r,
+        });
+        onSetLogged(
+          {
+            id: `offline-${Date.now()}`,
+            exercise_id: plan.exercise.id,
+            set_number: sets.length + 1,
+            weight_kg: weightValue,
+            reps: r,
+            rpe: null,
+            is_warmup: false,
+          },
+          plan.rest_seconds
+        );
+        onOffline?.();
+        setWeight("");
+        setReps("");
+      } else {
+        onError((e as Error).message);
+      }
     } finally {
       setSaving(false);
     }
@@ -251,6 +316,12 @@ function ExerciseCard({
           <span className="shrink-0 text-xs text-faint">{targetLabel}</span>
         )}
       </div>
+
+      {pbFlash && (
+        <p className="mt-2 animate-pulse rounded-xl bg-lime px-3 py-2 text-center text-sm font-bold text-lime-ink">
+          🎉 NYTT PERSONBÄSTA i {plan.exercise.name}!
+        </p>
+      )}
 
       {plan.previous && (
         <div className="mt-2 rounded-lg bg-cream-deep px-3 py-2 dark:bg-night-shell/60">

@@ -106,6 +106,7 @@ class SetOut(BaseModel):
     reps: int
     rpe: float | None
     is_warmup: bool
+    pb: bool = False  # nytt personbästa i vikt — fira! 🎉
 
 
 class SetCreate(BaseModel):

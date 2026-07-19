@@ -299,3 +299,72 @@ async def test_user_isolation(
     assert (
         await client.get("/api/user-programs/active", headers=anna)
     ).json() is None
+
+
+async def test_pb_flag_and_progression(
+    client, make_token, known_user, two_exercises
+):
+    bench = two_exercises[0]
+
+    async def workout(weight, reps):
+        s = (
+            await client.post(
+                "/api/sessions/start", headers=auth(make_token), json={}
+            )
+        ).json()
+        resp = await client.post(
+            f"/api/sessions/{s['id']}/sets",
+            headers=auth(make_token),
+            json={"exercise_id": bench, "weight_kg": weight, "reps": reps},
+        )
+        await client.post(
+            f"/api/sessions/{s['id']}/finish", headers=auth(make_token), json={}
+        )
+        return resp.json()
+
+    first = await workout(80, 5)
+    assert first["pb"] is False  # första noteringen firas inte
+
+    heavier = await workout(85, 3)
+    assert heavier["pb"] is True  # tyngre än tidigare bästa → PB!
+
+    lighter = await workout(70, 10)
+    assert lighter["pb"] is False
+
+    prog = (
+        await client.get(
+            f"/api/exercises/{bench}/progression", headers=auth(make_token)
+        )
+    ).json()
+    assert prog["records"]["best_weight"] == 85.0
+    assert prog["records"]["sessions"] == 3
+    # Epley: 85 × (1 + 3/30) = 93.5
+    assert prog["records"]["best_1rm"] == 93.5
+
+
+async def test_weekly_report(client, make_token, known_user):
+    from datetime import date, datetime, time, timedelta, timezone
+
+    # Ett pass förra veckan (måndag) + steg
+    last_monday = date.today() - timedelta(days=date.today().weekday() + 7)
+    from app.models import WorkoutSession
+
+    resp = await client.post(
+        "/api/metrics",
+        headers=auth(make_token),
+        json={
+            "metric": "steps",
+            "value": 12000,
+            "measured_at": datetime.combine(
+                last_monday, time(12), tzinfo=timezone.utc
+            ).isoformat(),
+        },
+    )
+    assert resp.status_code == 200 or resp.status_code == 201
+
+    report = (
+        await client.get("/api/reports/weekly", headers=auth(make_token))
+    ).json()
+    assert report["monday"] == last_monday.isoformat()
+    assert report["current"]["steps"] == 12000
+    assert report["previous"]["steps"] == 0
