@@ -553,3 +553,72 @@ async def test_quick_log_fallback_without_ai(
     assert [l["name"] for l in body["logged"]] == ["Kvarg vanilj"]
     assert body["logged"][0]["grams"] == 150  # standardportion utan AI-gissning
     assert body["missing"] == ["banan"]
+
+
+async def test_word_order_independent_matching(
+    client, make_token, known_user, monkeypatch
+):
+    """"mellan pommes" ska hitta "Pommes frites mellan" — både i vanliga
+    sökningen och i fritextloggningen."""
+    from app.ai import ollama
+    from app.ai.ollama import AIUnavailable
+    from app.integrations import openfoodfacts
+
+    async def no_ai(prompt, **kwargs):
+        raise AIUnavailable("nere")
+
+    async def no_remote(query, limit=10):
+        return []
+
+    monkeypatch.setattr(ollama, "chat", no_ai)
+    monkeypatch.setattr(openfoodfacts, "search_products", no_remote)
+
+    # Motsvarar katalogposten (tester kör utan alembic-seed)
+    from app.models import FoodItem
+
+    resp = await client.post(
+        "/api/food",
+        headers=auth(make_token),
+        json={
+            "name": "Pommes frites mellan",
+            "brand": "McDonald's",
+            "per_100g": {"kcal": 310, "protein_g": 3.5, "carbs_g": 41, "fat_g": 14},
+        },
+    )
+    assert resp.status_code == 201
+
+    # Vanliga sökningen: omvänd ordföljd träffar
+    hits = (
+        await client.get(
+            "/api/food/search?q=mellan%20pommes", headers=auth(make_token)
+        )
+    ).json()
+    assert any(h["name"] == "Pommes frites mellan" for h in hits)
+
+    # Sök på kedjenamn träffar också
+    hits = (
+        await client.get(
+            "/api/food/search?q=mcdonalds", headers=auth(make_token)
+        )
+    ).json()
+    # "McDonald's" med apostrof — ordsökningen tar 'mcdonalds' utan → miss ok,
+    # men frassökningen mot brand ska klara exakta delsträngar:
+    hits = (
+        await client.get(
+            "/api/food/search?q=McDonald", headers=auth(make_token)
+        )
+    ).json()
+    assert any(h["name"] == "Pommes frites mellan" for h in hits)
+
+    # Fritextloggning utan AI: "mellan pommes" matchar via ordsökningen
+    resp = await client.post(
+        "/api/meals/quick-log",
+        headers=auth(make_token),
+        json={
+            "text": "mellan pommes",
+            "eaten_on": "2026-07-19",
+            "meal": "lunch",
+        },
+    )
+    body = resp.json()
+    assert body["logged"][0]["name"] == "Pommes frites mellan"

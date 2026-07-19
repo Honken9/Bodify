@@ -24,6 +24,36 @@ def _visible(user: User):
     )
 
 
+def match_score(query: str, name: str, brand: str | None = None) -> float:
+    """Relevanspoäng oberoende av ordföljd: "mellan pommes" ska träffa
+    "Pommes frites mellan". Hela frasen > alla ord > några ord; kortare
+    namn vinner vid lika (mer exakt träff)."""
+    q = query.lower().strip()
+    haystack = f"{name} {brand or ''}".lower()
+    score = 0.0
+    if q == name.lower():
+        score += 100
+    elif q in haystack:
+        score += 50
+    tokens = [t for t in q.split() if len(t) > 1]
+    if tokens:
+        hits = sum(1 for t in tokens if t in haystack)
+        score += 40 * hits / len(tokens)
+        if hits == len(tokens):
+            score += 15  # alla ord träffade — stark kandidat
+    score -= len(name) * 0.05
+    return score
+
+
+def _token_conditions(query: str):
+    """ilike-villkor per ord (≥3 tecken) mot namn + varumärke."""
+    tokens = [t for t in query.split() if len(t) >= 3]
+    return [
+        or_(FoodItem.name.ilike(f"%{t}%"), FoodItem.brand.ilike(f"%{t}%"))
+        for t in tokens
+    ]
+
+
 @router.get("/recent", response_model=list[RecentFood])
 async def recent_foods(
     user: User = Depends(get_current_user),
@@ -165,11 +195,34 @@ async def search_food(
     local = list(
         await db.scalars(
             select(FoodItem)
-            .where(_visible(user), FoodItem.name.ilike(f"%{q}%"))
+            .where(
+                _visible(user),
+                or_(
+                    FoodItem.name.ilike(f"%{q}%"),
+                    FoodItem.brand.ilike(f"%{q}%"),
+                ),
+            )
             .order_by(FoodItem.name)
             .limit(25)
         )
     )
+
+    # Frasen matchade inte i ordning ("mellan pommes") → ordbaserad
+    # sökning där alla/de flesta orden ska förekomma någonstans
+    if not local:
+        conditions = _token_conditions(q)
+        if conditions:
+            local = list(
+                await db.scalars(
+                    select(FoodItem)
+                    .where(_visible(user), or_(*conditions))
+                    .limit(40)
+                )
+            )
+            local.sort(key=lambda f: -match_score(q, f.name, f.brand))
+            local = [f for f in local if match_score(q, f.name, f.brand) > 20][
+                :25
+            ]
 
     # Komplettera med OFF-sökning; träffar cachas så de får ett id
     # som måltidsloggen kan referera till.

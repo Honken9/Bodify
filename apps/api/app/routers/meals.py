@@ -308,42 +308,41 @@ async def _parse_meal_text(text: str) -> list[dict]:
     return [{"query": p[:80], "grams": None} for p in parts[:10]]
 
 
-def _match_score(query: str, name: str) -> float:
-    """Enkel relevanspoäng: hela frasen > alla ord > några ord; kortare
-    namn vinner vid lika (mer exakt träff)."""
-    q = query.lower().strip()
-    n = name.lower()
-    score = 0.0
-    if q == n:
-        score += 100
-    elif q in n:
-        score += 50
-    tokens = [t for t in q.split() if len(t) > 1]
-    if tokens:
-        hits = sum(1 for t in tokens if t in n)
-        score += 30 * hits / len(tokens)
-    score -= len(n) * 0.05
-    return score
-
-
 async def _best_match(
     db: AsyncSession, user: User, query: str
 ) -> FoodItem | None:
     from app.integrations import openfoodfacts
+    from app.routers.food import _token_conditions, match_score
 
+    visible = or_(
+        FoodItem.source.in_(("off", "base")),
+        FoodItem.created_by == user.id,
+    )
     candidates = list(
         await db.scalars(
             select(FoodItem)
             .where(
+                visible,
                 or_(
-                    FoodItem.source.in_(("off", "base")),
-                    FoodItem.created_by == user.id,
+                    FoodItem.name.ilike(f"%{query}%"),
+                    FoodItem.brand.ilike(f"%{query}%"),
                 ),
-                FoodItem.name.ilike(f"%{query}%"),
             )
             .limit(15)
         )
     )
+    if not candidates:
+        # Ordbaserad matchning — "mellan pommes" → "Pommes frites mellan"
+        conditions = _token_conditions(query)
+        if conditions:
+            loose = list(
+                await db.scalars(
+                    select(FoodItem).where(visible, or_(*conditions)).limit(40)
+                )
+            )
+            candidates = [
+                f for f in loose if match_score(query, f.name, f.brand) > 20
+            ]
     if not candidates:
         try:
             remote = await openfoodfacts.search_products(query, limit=6)
@@ -375,8 +374,10 @@ async def _best_match(
     # Näringslösa träffar (0 kcal) är ofta skräpposter — straffa dem
     return max(
         candidates,
-        key=lambda f: _match_score(query, f.name)
-        + (5 if float((f.per_100g or {}).get("kcal") or 0) > 0 else -20),
+        key=lambda f: match_score(query, f.name, f.brand)
+        + (5 if float((f.per_100g or {}).get("kcal") or 0) > 0 else -20)
+        # Inbyggda katalogen (kedjorna) har kvalitetssäkrade portioner
+        + (10 if f.source == "base" else 0),
     )
 
 
