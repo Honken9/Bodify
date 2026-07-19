@@ -1,11 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import { sourceLabel } from "../lib/sources";
 import ActivityDetail from "../components/ActivityDetail";
 import type { GeoActivity } from "../components/ActivityMap";
+import { decodePolyline, type Viewport } from "../lib/polyline";
 import type { CardioActivity } from "../lib/types";
 
 const LocationPicker = dynamic(() => import("../components/LocationPicker"), {
@@ -61,6 +62,8 @@ export default function MapPage() {
   const [focusId, setFocusId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
+  const [viewport, setViewport] = useState<Viewport | null>(null);
+  const [zoomOutKey, setZoomOutKey] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkPicker, setBulkPicker] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -113,6 +116,32 @@ export default function MapPage() {
 
   const geoById = new Map(geo.map((g) => [g.id, g]));
 
+  // Representativ punkt per aktivitet (startpunkt eller ruttens första)
+  // — beräknas en gång per datahämtning, inte varje kartrörelse
+  const repPoints = useMemo(() => {
+    const map = new Map<string, [number, number]>();
+    for (const g of geo) {
+      if (g.start) map.set(g.id, g.start);
+      else if (g.polyline) {
+        const first = decodePolyline(g.polyline)[0];
+        if (first) map.set(g.id, first);
+      }
+    }
+    return map;
+  }, [geo]);
+
+  const inViewport = (id: string): boolean => {
+    if (!viewport) return true;
+    const p = repPoints.get(id);
+    if (!p) return true; // pass utan position filtreras inte av kartvyn
+    return (
+      p[0] >= viewport.south &&
+      p[0] <= viewport.north &&
+      p[1] >= viewport.west &&
+      p[1] <= viewport.east
+    );
+  };
+
   // Vald tidsperiod → [start, slut) att filtrera på; null = allt
   function periodRange(): [Date, Date] | null {
     if (period === "all") return null;
@@ -154,7 +183,7 @@ export default function MapPage() {
   }
 
   // Listan: alla pass (typ- + tidsfilter), "nogps" = bara de utan GPS
-  const listItems = (all ?? []).filter((a) => {
+  const allFiltered = (all ?? []).filter((a) => {
     if (range) {
       const t = new Date(a.started_at);
       if (t < range[0] || t >= range[1]) return false;
@@ -162,14 +191,22 @@ export default function MapPage() {
     if (filter === "nogps") return !geoById.has(a.id);
     return filter === "all" || a.type === filter;
   });
+  // Kartvyn styr listan: bara pass i det synliga utsnittet visas
+  const listItems =
+    filter === "nogps"
+      ? allFiltered
+      : allFiltered.filter((a) => !geoById.has(a.id) || inViewport(a.id));
+  const hiddenByViewport = allFiltered.length - listItems.length;
   // Kartan: de av listans pass som har GPS + styrkepass med position
   const inRange = (iso: string) => {
     if (!range) return true;
     const t = new Date(iso);
     return t >= range[0] && t < range[1];
   };
+  // Kartan ritar ALLT (annars flyttar kartinnehållet sig när man zoomar
+  // — bara listan under följer utsnittet)
   const mapActivities = [
-    ...listItems
+    ...allFiltered
       .map((a) => geoById.get(a.id))
       .filter((g): g is GeoActivity => !!g),
     ...(filter === "all"
@@ -386,7 +423,12 @@ export default function MapPage() {
             </div>
             {!fullscreen && (
               <div className="relative">
-                <ActivityMap activities={mapActivities} focusId={focusId} />
+                <ActivityMap
+                  activities={mapActivities}
+                  focusId={focusId}
+                  onViewport={setViewport}
+                  zoomOutKey={zoomOutKey}
+                />
                 <button
                   onClick={() => setFullscreen(true)}
                   aria-label="Helskärm"
@@ -414,8 +456,28 @@ export default function MapPage() {
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-faint">
               {filter === "nogps"
                 ? `Pass utan GPS (${listItems.length})`
-                : `Alla aktiviteter (${listItems.length})`}
+                : hiddenByViewport > 0
+                  ? `I kartvyn (${listItems.length})`
+                  : `Alla aktiviteter (${listItems.length})`}
             </h2>
+
+            {filter !== "nogps" && hiddenByViewport > 0 && (
+              <div className="mb-2 flex items-center justify-between rounded-xl bg-navy-soft px-3 py-2 dark:bg-night-shell/60">
+                <span className="text-xs text-navy-deep dark:text-night-muted">
+                  🔍 Listan följer kartan — {hiddenByViewport} pass utanför
+                  vyn
+                </span>
+                <button
+                  onClick={() => {
+                    setFocusId(null);
+                    setZoomOutKey((k) => k + 1);
+                  }}
+                  className="shrink-0 rounded-lg bg-navy px-3 py-1.5 text-xs font-semibold text-white"
+                >
+                  🌍 Visa alla
+                </button>
+              </div>
+            )}
 
             {filter === "nogps" && listItems.length > 0 && (
               <div className="mb-2 flex items-center gap-2 rounded-xl bg-cream-deep px-3 py-2 dark:bg-night-shell/60">
@@ -582,6 +644,8 @@ export default function MapPage() {
               activities={mapActivities}
               focusId={focusId}
               height="100%"
+              onViewport={setViewport}
+              zoomOutKey={zoomOutKey}
             />
           </div>
         </div>

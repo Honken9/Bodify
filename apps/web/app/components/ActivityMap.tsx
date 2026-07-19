@@ -24,30 +24,7 @@ const SOURCE_LABELS: Record<string, string> = {
   shapiqo: "Shapiqo",
 };
 
-/** Google/Strava-kodad polyline → [lat, lng][] */
-function decodePolyline(encoded: string): [number, number][] {
-  const points: [number, number][] = [];
-  let index = 0;
-  let lat = 0;
-  let lng = 0;
-  while (index < encoded.length) {
-    for (const which of [0, 1]) {
-      let result = 0;
-      let shift = 0;
-      let byte: number;
-      do {
-        byte = encoded.charCodeAt(index++) - 63;
-        result |= (byte & 0x1f) << shift;
-        shift += 5;
-      } while (byte >= 0x20);
-      const delta = result & 1 ? ~(result >> 1) : result >> 1;
-      if (which === 0) lat += delta;
-      else lng += delta;
-    }
-    points.push([lat / 1e5, lng / 1e5]);
-  }
-  return points;
-}
+import { decodePolyline, type Viewport } from "../lib/polyline";
 
 const TYPE_ICONS: Record<string, string> = {
   run: "🏃",
@@ -62,10 +39,16 @@ export default function ActivityMap({
   activities,
   height = 420,
   focusId = null,
+  onViewport,
+  zoomOutKey = 0,
 }: {
   activities: GeoActivity[];
   height?: number | string;
   focusId?: string | null;
+  /** Anropas när kartvyn ändras (zoom/panorering) — driver listfiltret */
+  onViewport?: (v: Viewport) => void;
+  /** Räknas upp → zooma ut till alla aktiviteter */
+  zoomOutKey?: number;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -76,6 +59,9 @@ export default function ActivityMap({
   const focusRef = useRef<string | null>(focusId);
   const myPosRef = useRef<{ dot: L.CircleMarker; ring: L.Circle } | null>(null);
   const [locating, setLocating] = useState(false);
+  // Callback i ref så kartan inte byggs om när föräldern re-renderar
+  const onViewportRef = useRef(onViewport);
+  onViewportRef.current = onViewport;
 
   // 🧭 Visa var jag är just nu — blå prick + osäkerhetsring
   function showMyPosition() {
@@ -229,6 +215,19 @@ export default function ActivityMap({
       map.setView([59.334, 18.063], 5); // Sverige som utgångsvy
     }
 
+    // Rapportera kartutsnittet vid zoom/panorering (och startläget)
+    const reportViewport = () => {
+      const b = map.getBounds();
+      onViewportRef.current?.({
+        south: b.getSouth(),
+        west: b.getWest(),
+        north: b.getNorth(),
+        east: b.getEast(),
+      });
+    };
+    map.on("moveend", reportViewport);
+    reportViewport();
+
     return () => {
       map.remove();
       mapRef.current = null;
@@ -237,6 +236,17 @@ export default function ActivityMap({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activities]);
+
+  // "Visa alla"-knappen → zooma ut till hela historiken
+  useEffect(() => {
+    if (zoomOutKey === 0) return;
+    const map = mapRef.current;
+    if (!map) return;
+    map.closePopup();
+    if (allBoundsRef.current) {
+      map.fitBounds(allBoundsRef.current, { padding: [30, 30] });
+    }
+  }, [zoomOutKey]);
 
   // Klick i listan/bläddring → zooma till aktiviteten; null = visa alla
   useEffect(() => {
