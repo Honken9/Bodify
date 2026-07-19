@@ -143,6 +143,7 @@ export type FoodItem = {
     fat_g?: number;
     fiber_g?: number;
   };
+  serving_g: number | null;
 };
 
 export type MealEntry = {

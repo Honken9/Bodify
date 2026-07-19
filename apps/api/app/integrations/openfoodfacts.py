@@ -80,11 +80,21 @@ def _normalize(product: dict) -> dict | None:
         if value > 0:
             per_100g[our_key] = round(value, 2)
 
+    # Portionsvikt ("1 kex = 12 g") — OFF:s serving_quantity är i gram
+    serving_g = None
+    try:
+        quantity = float(product.get("serving_quantity") or 0)
+        if 1 <= quantity <= 2000:
+            serving_g = round(quantity, 1)
+    except (TypeError, ValueError):
+        pass
+
     return {
         "barcode": product.get("code"),
         "name": name[:200],
         "brand": (product.get("brands") or "").split(",")[0].strip()[:120] or None,
         "per_100g": per_100g,
+        "serving_g": serving_g,
     }
 
 

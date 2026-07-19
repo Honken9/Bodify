@@ -23,6 +23,7 @@ class FoodItemOut(BaseModel):
     brand: str | None
     source: str
     per_100g: dict
+    serving_g: float | None = None
 
 
 class FoodItemCreate(BaseModel):

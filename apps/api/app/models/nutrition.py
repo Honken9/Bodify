@@ -34,6 +34,9 @@ class FoodItem(Base):
         String(20), default="custom"
     )  # off|base|custom (base = inbyggda förslag, synliga för alla)
     per_100g: Mapped[dict] = mapped_column(JSON, default=dict)
+    # Gram per styck/portion (från OFF eller inlärt av användaren) —
+    # gör att man kan logga "2 kex" istället för att gissa gram
+    serving_g: Mapped[float | None] = mapped_column(Numeric(7, 1))
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("users.id", ondelete="SET NULL")
     )

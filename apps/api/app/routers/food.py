@@ -2,6 +2,7 @@ import re
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -143,6 +144,7 @@ async def lookup_barcode(
         brand=product["brand"],
         source="off",
         per_100g=product["per_100g"],
+        serving_g=product.get("serving_g"),
     )
     db.add(item)
     await db.commit()
@@ -193,6 +195,7 @@ async def search_food(
                 brand=product["brand"],
                 source="off",
                 per_100g=product["per_100g"],
+                serving_g=product.get("serving_g"),
             )
             db.add(item)
             local.append(item)
@@ -200,6 +203,30 @@ async def search_food(
         await db.commit()
 
     return local
+
+
+class ServingUpdate(BaseModel):
+    grams: float = Field(gt=0, le=2000)
+
+
+@router.patch("/{food_item_id}/serving", response_model=FoodItemOut)
+async def set_serving(
+    food_item_id: uuid.UUID,
+    payload: ServingUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> FoodItem:
+    """Lär appen vad ett styck väger ("1 kex = 12 g") — därefter kan
+    varan loggas i antal istället för gram."""
+    food = await db.get(FoodItem, food_item_id)
+    if food is None or (
+        food.source not in SHARED_SOURCES and food.created_by != user.id
+    ):
+        raise HTTPException(404, "Livsmedlet finns inte.")
+    food.serving_g = payload.grams
+    await db.commit()
+    await db.refresh(food)
+    return food
 
 
 @router.post("", response_model=FoodItemOut, status_code=201)

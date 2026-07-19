@@ -198,11 +198,32 @@ function GramsForm({
   onBack: () => void;
   onLog: (food: FoodItem, grams: number) => void;
 }) {
+  const [mode, setMode] = useState<"g" | "st">(
+    !initialGrams && food.serving_g ? "st" : "g"
+  );
   const [grams, setGrams] = useState(String(initialGrams ?? 100));
-  const g = Number(grams) || 0;
+  const [count, setCount] = useState("1");
+  const [servingG, setServingG] = useState(
+    food.serving_g ? String(food.serving_g) : ""
+  );
+
+  const perPiece = Number(servingG) || 0;
+  const g =
+    mode === "st" ? (Number(count) || 0) * perPiece : Number(grams) || 0;
   const per = food.per_100g;
   const kcal = Math.round(((per.kcal ?? 0) * g) / 100);
   const protein = Math.round(((per.protein_g ?? 0) * g) / 100);
+
+  async function log() {
+    if (mode === "st" && perPiece > 0 && perPiece !== food.serving_g) {
+      // Lär appen styckvikten — nästa gång är den förifylld
+      api(`/api/food/${food.id}/serving`, {
+        method: "PATCH",
+        body: JSON.stringify({ grams: perPiece }),
+      }).catch(() => {});
+    }
+    onLog(food, Math.round(g));
+  }
 
   return (
     <div>
@@ -211,36 +232,110 @@ function GramsForm({
       </button>
       <p className="font-semibold">{food.name}</p>
       {food.brand && <p className="text-sm text-faint">{food.brand}</p>}
-      <div className="mt-3 flex items-center gap-3">
-        <input
-          autoFocus
-          inputMode="numeric"
-          value={grams}
-          onChange={(e) => setGrams(e.target.value)}
-          className="w-28 rounded-xl border border-line-strong bg-transparent px-4 py-2.5 text-center text-lg font-semibold dark:border-night-strong"
-        />
-        <span className="text-muted">gram</span>
-        <span className="ml-auto text-sm text-muted">
-          {kcal} kcal · {protein} g protein
-        </span>
-      </div>
-      <div className="mt-2 flex gap-1.5">
-        {[50, 100, 150, 200, 250].map((v) => (
+
+      <div className="mt-3 flex gap-1.5">
+        {(
+          [
+            ["g", "Gram"],
+            ["st", "Antal"],
+          ] as const
+        ).map(([key, label]) => (
           <button
-            key={v}
-            onClick={() => setGrams(String(v))}
-            className="flex-1 rounded-lg bg-shell py-1.5 text-xs font-medium dark:bg-night-shell"
+            key={key}
+            onClick={() => setMode(key)}
+            className={`flex-1 rounded-lg py-2 text-sm font-semibold ${
+              mode === key
+                ? "bg-navy text-white"
+                : "bg-shell text-muted dark:bg-night-shell dark:text-night-muted"
+            }`}
           >
-            {v} g
+            {label}
           </button>
         ))}
       </div>
+
+      {mode === "g" ? (
+        <>
+          <div className="mt-3 flex items-center gap-3">
+            <input
+              autoFocus
+              inputMode="numeric"
+              value={grams}
+              onChange={(e) => setGrams(e.target.value)}
+              className="w-28 rounded-xl border border-line-strong bg-transparent px-4 py-2.5 text-center text-lg font-semibold dark:border-night-strong"
+            />
+            <span className="text-muted">gram</span>
+            <span className="ml-auto text-sm text-muted">
+              {kcal} kcal · {protein} g protein
+            </span>
+          </div>
+          <div className="mt-2 flex gap-1.5">
+            {[50, 100, 150, 200, 250].map((v) => (
+              <button
+                key={v}
+                onClick={() => setGrams(String(v))}
+                className="flex-1 rounded-lg bg-shell py-1.5 text-xs font-medium dark:bg-night-shell"
+              >
+                {v} g
+              </button>
+            ))}
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              onClick={() =>
+                setCount(String(Math.max(0.5, (Number(count) || 1) - 0.5)))
+              }
+              className="h-11 w-11 rounded-xl bg-shell text-lg font-bold dark:bg-night-shell"
+            >
+              −
+            </button>
+            <input
+              inputMode="decimal"
+              value={count}
+              onChange={(e) => setCount(e.target.value)}
+              className="w-20 rounded-xl border border-line-strong bg-transparent px-2 py-2.5 text-center text-lg font-semibold dark:border-night-strong"
+            />
+            <button
+              onClick={() => setCount(String((Number(count) || 0) + 0.5))}
+              className="h-11 w-11 rounded-xl bg-shell text-lg font-bold dark:bg-night-shell"
+            >
+              +
+            </button>
+            <span className="text-muted">st</span>
+            <span className="ml-auto text-right text-sm text-muted">
+              {g > 0 ? `${Math.round(g)} g` : ""}
+              <br />
+              {g > 0 ? `${kcal} kcal · ${protein} g prot` : ""}
+            </span>
+          </div>
+          <div className="mt-3 flex items-center gap-2">
+            <input
+              inputMode="decimal"
+              value={servingG}
+              onChange={(e) => setServingG(e.target.value)}
+              placeholder="g/st"
+              className="w-24 rounded-xl border border-line-strong bg-transparent px-3 py-2 text-center text-sm dark:border-night-strong"
+            />
+            <span className="text-xs text-muted dark:text-faint">
+              {food.serving_g
+                ? `gram per styck (sparat: ${food.serving_g} g)`
+                : "vad väger 1 st? Står på förpackningen — sparas till nästa gång"}
+            </span>
+          </div>
+        </>
+      )}
+
       <button
         disabled={g <= 0}
-        onClick={() => onLog(food, g)}
+        onClick={log}
         className="mt-4 w-full rounded-xl bg-navy py-3 font-semibold text-white disabled:opacity-40"
       >
-        Logga
+        {mode === "st" && g > 0
+          ? `Logga ${count} st (${Math.round(g)} g)`
+          : "Logga"}
       </button>
     </div>
   );
