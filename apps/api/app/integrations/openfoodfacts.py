@@ -89,12 +89,21 @@ def _normalize(product: dict) -> dict | None:
     except (TypeError, ValueError):
         pass
 
+    # Drycker mäts i ml — känns igen på förpacknings-/portionstexten
+    import re as _re
+
+    qty_text = (
+        f"{product.get('quantity') or ''} {product.get('serving_size') or ''}"
+    ).lower()
+    unit = "ml" if _re.search(r"\d\s*(ml|cl|l)\b", qty_text) else "g"
+
     return {
         "barcode": product.get("code"),
         "name": name[:200],
         "brand": (product.get("brands") or "").split(",")[0].strip()[:120] or None,
         "per_100g": per_100g,
         "serving_g": serving_g,
+        "unit": unit,
     }
 
 

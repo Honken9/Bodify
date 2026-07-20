@@ -364,6 +364,7 @@ async def _best_match(
                 source="off",
                 per_100g=product["per_100g"],
                 serving_g=product.get("serving_g"),
+                unit=product.get("unit") or "g",
             )
             db.add(item)
             candidates.append(item)

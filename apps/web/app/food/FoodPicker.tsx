@@ -211,6 +211,12 @@ function GramsForm({
     food.serving_g ? String(food.serving_g) : ""
   );
 
+  // Drycker mäts i ml (1 ml ≈ 1 g — värdet lagras rakt av)
+  const isMl = food.unit === "ml";
+  const unitWord = isMl ? "ml" : "gram";
+  const unitShort = isMl ? "ml" : "g";
+  const presets = isMl ? [150, 200, 250, 330, 500] : [50, 100, 150, 200, 250];
+
   const perPiece = Number(servingG) || 0;
   const g =
     mode === "st" ? (Number(count) || 0) * perPiece : Number(grams) || 0;
@@ -240,7 +246,7 @@ function GramsForm({
       <div className="mt-3 flex gap-1.5">
         {(
           [
-            ["g", "Gram"],
+            ["g", isMl ? "Milliliter" : "Gram"],
             ["st", "Antal"],
           ] as const
         ).map(([key, label]) => (
@@ -268,19 +274,19 @@ function GramsForm({
               onChange={(e) => setGrams(e.target.value)}
               className="w-28 rounded-xl border border-line-strong bg-transparent px-4 py-2.5 text-center text-lg font-semibold dark:border-night-strong"
             />
-            <span className="text-muted">gram</span>
+            <span className="text-muted">{unitWord}</span>
             <span className="ml-auto text-sm text-muted">
               {kcal} kcal · {protein} g protein
             </span>
           </div>
           <div className="mt-2 flex gap-1.5">
-            {[50, 100, 150, 200, 250].map((v) => (
+            {presets.map((v) => (
               <button
                 key={v}
                 onClick={() => setGrams(String(v))}
                 className="flex-1 rounded-lg bg-shell py-1.5 text-xs font-medium dark:bg-night-shell"
               >
-                {v} g
+                {v} {unitShort}
               </button>
             ))}
           </div>
@@ -310,7 +316,7 @@ function GramsForm({
             </button>
             <span className="text-muted">st</span>
             <span className="ml-auto text-right text-sm text-muted">
-              {g > 0 ? `${Math.round(g)} g` : ""}
+              {g > 0 ? `${Math.round(g)} ${unitShort}` : ""}
               <br />
               {g > 0 ? `${kcal} kcal · ${protein} g prot` : ""}
             </span>
@@ -320,13 +326,15 @@ function GramsForm({
               inputMode="decimal"
               value={servingG}
               onChange={(e) => setServingG(e.target.value)}
-              placeholder="g/st"
+              placeholder={`${unitShort}/st`}
               className="w-24 rounded-xl border border-line-strong bg-transparent px-3 py-2 text-center text-sm dark:border-night-strong"
             />
             <span className="text-xs text-muted dark:text-faint">
               {food.serving_g
-                ? `gram per styck (sparat: ${food.serving_g} g)`
-                : "vad väger 1 st? Står på förpackningen — sparas till nästa gång"}
+                ? `${unitWord} per styck (sparat: ${food.serving_g} ${unitShort})`
+                : isMl
+                  ? "hur många ml är 1 st? Sparas till nästa gång"
+                  : "vad väger 1 st? Står på förpackningen — sparas till nästa gång"}
             </span>
           </div>
         </>
@@ -338,7 +346,7 @@ function GramsForm({
         className="mt-4 w-full rounded-xl bg-navy py-3 font-semibold text-white disabled:opacity-40"
       >
         {mode === "st" && g > 0
-          ? `Logga ${count} st (${Math.round(g)} g)`
+          ? `Logga ${count} st (${Math.round(g)} ${unitShort})`
           : "Logga"}
       </button>
     </div>
@@ -821,7 +829,7 @@ function MealPhotoTab({
     setItems(null);
     try {
       const { downscaleImage } = await import("../lib/image");
-      const small = await downscaleImage(file);
+      const small = await downscaleImage(file, 896, 0.8);
       const form = new FormData();
       form.append("file", small, "mat.jpg");
       const res = await fetch("/api/ai/meal-vision", {

@@ -24,6 +24,7 @@ class FoodItemOut(BaseModel):
     source: str
     per_100g: dict
     serving_g: float | None = None
+    unit: str = "g"
 
 
 class FoodItemCreate(BaseModel):

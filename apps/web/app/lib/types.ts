@@ -145,6 +145,7 @@ export type FoodItem = {
     fiber_g?: number;
   };
   serving_g: number | null;
+  unit: "g" | "ml";
 };
 
 export type MealEntry = {

@@ -175,6 +175,7 @@ async def lookup_barcode(
         source="off",
         per_100g=product["per_100g"],
         serving_g=product.get("serving_g"),
+        unit=product.get("unit") or "g",
     )
     db.add(item)
     await db.commit()
@@ -249,6 +250,7 @@ async def search_food(
                 source="off",
                 per_100g=product["per_100g"],
                 serving_g=product.get("serving_g"),
+                unit=product.get("unit") or "g",
             )
             db.add(item)
             local.append(item)

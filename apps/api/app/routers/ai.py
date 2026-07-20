@@ -291,6 +291,7 @@ async def meal_vision(
             prompt,
             images_b64=[base64.b64encode(content).decode()],
             json_format=True,
+            max_tokens=700,
         )
         meal = _LLMMeal.model_validate(json.loads(raw))
     except AIUnavailable as exc:
@@ -363,6 +364,7 @@ async def gym_vision(
             prompt,
             images_b64=[base64.b64encode(content).decode()],
             json_format=True,
+            max_tokens=200,
         )
         detected = json.loads(raw).get("equipment", [])
     except AIUnavailable as exc:

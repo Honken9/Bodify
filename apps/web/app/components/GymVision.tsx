@@ -19,7 +19,7 @@ export default function GymVision({ onClose }: { onClose: () => void }) {
     setResult(null);
     try {
       const { downscaleImage } = await import("../lib/image");
-      const small = await downscaleImage(file);
+      const small = await downscaleImage(file, 896, 0.8);
       const form = new FormData();
       form.append("file", small, "gym.jpg");
       const res = await fetch("/api/ai/gym-vision", {

@@ -37,6 +37,9 @@ class FoodItem(Base):
     # Gram per styck/portion (från OFF eller inlärt av användaren) —
     # gör att man kan logga "2 kex" istället för att gissa gram
     serving_g: Mapped[float | None] = mapped_column(Numeric(7, 1))
+    # "g" eller "ml" — drycker visas i milliliter (densitet ≈ 1, så
+    # värdet lagras rakt av; per_100g gäller då per 100 ml)
+    unit: Mapped[str] = mapped_column(String(2), default="g")
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("users.id", ondelete="SET NULL")
     )

@@ -44,6 +44,7 @@ async def chat(
     images_b64: list[str] | None = None,
     json_format: bool = False,
     timeout: float = DEFAULT_TIMEOUT,
+    max_tokens: int | None = None,
 ) -> str:
     settings = get_settings()
     model = model or (
@@ -68,6 +69,9 @@ async def chat(
     }
     if json_format:
         payload["format"] = "json"
+    if max_tokens:
+        # Kapa svarslängden — vision-svar utan tak kan mala i onödan
+        payload["options"] = {"num_predict": max_tokens}
 
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
