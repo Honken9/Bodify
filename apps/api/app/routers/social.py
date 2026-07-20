@@ -471,6 +471,7 @@ async def challenge_detail(
     invite = await _invite_for(db, challenge.id, user.id)
     if (
         not is_participant
+        and not challenge.is_open  # öppna utmaningar får granskas före join
         and invite is None
         and challenge.creator_id not in friend_ids | {user.id}
     ):
@@ -674,6 +675,10 @@ async def cheer(
     from app.models import ChallengeCheer
 
     challenge = await _require_participant(db, challenge_id, user)
+    # Mottagaren måste vara deltagare — annars kan pushen riktas mot
+    # godtycklig användare på servern
+    if payload.owner_id not in {p.user_id for p in challenge.participants}:
+        raise HTTPException(400, "Mottagaren är inte med i utmaningen.")
     existing = await db.scalar(
         select(ChallengeCheer).where(
             ChallengeCheer.challenge_id == challenge.id,

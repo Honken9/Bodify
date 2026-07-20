@@ -622,3 +622,46 @@ async def test_word_order_independent_matching(
     )
     body = resp.json()
     assert body["logged"][0]["name"] == "Pommes frites mellan"
+
+
+async def test_base_catalog_serving_is_locked(
+    client, make_token, known_user, db_session
+):
+    """Delade katalogposter ska inte kunna saboteras av en användare."""
+    from app.models import FoodItem
+
+    burger = FoodItem(
+        name="Big Mac",
+        brand="McDonald's",
+        source="base",
+        per_100g={"kcal": 230, "protein_g": 12, "carbs_g": 18, "fat_g": 12},
+        serving_g=220,
+    )
+    db_session.add(burger)
+    await db_session.commit()
+
+    resp = await client.patch(
+        f"/api/food/{burger.id}/serving",
+        headers=auth(make_token),
+        json={"grams": 1},
+    )
+    assert resp.status_code == 403
+
+    # Egna livsmedel går fortfarande att lära upp
+    own = (
+        await client.post(
+            "/api/food",
+            headers=auth(make_token),
+            json={
+                "name": "Eget kex",
+                "per_100g": {"kcal": 450, "protein_g": 7, "carbs_g": 65, "fat_g": 18},
+            },
+        )
+    ).json()
+    resp = await client.patch(
+        f"/api/food/{own['id']}/serving",
+        headers=auth(make_token),
+        json={"grams": 12},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["serving_g"] == 12

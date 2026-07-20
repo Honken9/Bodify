@@ -35,6 +35,16 @@ const TYPE_ICONS: Record<string, string> = {
   other: "💪",
 };
 
+/** Popup-innehållet byggs som HTML — passnamn (från Strava/Apple/egna
+ * fält) måste escapas så de aldrig kan smuggla in markup. */
+function esc(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 export default function ActivityMap({
   activities,
   height = 420,
@@ -152,7 +162,7 @@ export default function ActivityMap({
     });
 
     for (const a of activities) {
-      const label = `${TYPE_ICONS[a.type] ?? "💪"} <b>${a.name ?? "Träning"}</b><br>${fmtDate.format(
+      const label = `${TYPE_ICONS[a.type] ?? "💪"} <b>${esc(a.name ?? "Träning")}</b><br>${fmtDate.format(
         new Date(a.started_at)
       )}${a.distance_m ? ` · ${(a.distance_m / 1000).toFixed(1)} km` : ""} · ${Math.round(
         a.duration_s / 60

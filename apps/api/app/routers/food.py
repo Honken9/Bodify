@@ -278,6 +278,12 @@ async def set_serving(
         food.source not in SHARED_SOURCES and food.created_by != user.id
     ):
         raise HTTPException(404, "Livsmedlet finns inte.")
+    if food.source == "base":
+        # Katalogens portioner är kvalitetssäkrade och delas av alla —
+        # en användare ska inte kunna sabba dem för de andra
+        raise HTTPException(
+            403, "Katalogens portionsvikter är låsta — ange gram/ml direkt."
+        )
     food.serving_g = payload.grams
     await db.commit()
     await db.refresh(food)

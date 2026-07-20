@@ -382,6 +382,10 @@ async def _best_match(
     )
 
 
+# AI-tolkningen är dyr — enkel broms per användare så Ollama inte hamras
+_quick_log_last: dict[str, float] = {}
+
+
 @router.post("/quick-log")
 async def quick_log(
     payload: QuickLog,
@@ -390,6 +394,15 @@ async def quick_log(
 ) -> dict:
     """Fritext → färdigloggad måltid: "Big Mac, mellan pommes och cola
     zero" delas upp, matchas mot bästa träff och loggas direkt."""
+    import time as _time
+
+    now = _time.monotonic()
+    if now - _quick_log_last.get(str(user.id), 0.0) < 2.0:
+        raise HTTPException(429, "Lugn — en måltidstolkning i taget.")
+    if len(_quick_log_last) > 10_000:
+        _quick_log_last.clear()
+    _quick_log_last[str(user.id)] = now
+
     parsed = await _parse_meal_text(payload.text)
     if not parsed:
         raise HTTPException(400, "Kunde inte tolka måltiden — prova att skriva om.")

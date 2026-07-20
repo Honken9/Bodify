@@ -514,3 +514,35 @@ async def test_admin_overview(client, make_token, db_session, known_user):
     ).json()
     assert overview["users"] == 1
     assert "connections" in overview
+
+
+async def test_cheer_cannot_target_outsider(
+    client, make_token, known_user, other_user, friends
+):
+    """Heja-pushen får inte kunna riktas mot någon utanför utmaningen."""
+    daniel = auth(make_token)
+    today = date.today()
+    challenge = (
+        await client.post(
+            "/api/social/challenges",
+            headers=daniel,
+            json={
+                "name": "Pushtestet",
+                "metric": "workout_count",
+                "starts_on": today.isoformat(),
+                "ends_on": (today + timedelta(days=6)).isoformat(),
+            },
+        )
+    ).json()
+
+    # Anna är INTE deltagare — att peka ut henne som mottagare ska nekas
+    resp = await client.post(
+        f"/api/social/challenges/{challenge['id']}/cheer",
+        headers=daniel,
+        json={
+            "item_kind": "cardio",
+            "item_id": "vad-som-helst",
+            "owner_id": str(other_user.id),
+        },
+    )
+    assert resp.status_code == 400
