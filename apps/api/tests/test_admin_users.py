@@ -107,3 +107,35 @@ def test_cloudflare_policy_routing(monkeypatch):
         cloudflare._app_policy_url("pol-1")
         == "/accounts/acc-1/access/apps/app-1/policies/pol-1"
     )
+
+
+async def test_admin_user_stats(client, make_token, admin_user, db_session):
+    from datetime import date, timedelta
+
+    headers = auth(make_token)  # admin_user = daniel@example.com
+
+    # Lite aktivitet: ett avslutat pass + en utmaning
+    s = (await client.post("/api/sessions/start", headers=headers, json={})).json()
+    await client.post(f"/api/sessions/{s['id']}/finish", headers=headers, json={})
+    today = date.today()
+    await client.post(
+        "/api/social/challenges",
+        headers=headers,
+        json={
+            "name": "Adminutmaningen",
+            "metric": "workout_count",
+            "starts_on": today.isoformat(),
+            "ends_on": (today + timedelta(days=7)).isoformat(),
+        },
+    )
+
+    stats = (
+        await client.get(
+            f"/api/admin/users/{admin_user.id}/stats", headers=headers
+        )
+    ).json()
+    assert stats["workout_sessions"] == 1
+    assert stats["last_workout"]["kind"] == "strength"
+    assert stats["last_activity"] is not None
+    assert stats["challenges"][0]["name"] == "Adminutmaningen"
+    assert stats["challenges"][0]["active"] is True

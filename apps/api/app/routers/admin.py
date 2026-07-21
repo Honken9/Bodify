@@ -130,6 +130,176 @@ async def delete_user(
     return {"ok": True, "whitelist_removed": whitelist_removed}
 
 
+@router.get("/users/{user_id}/stats")
+async def user_stats(
+    user_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Adminvyns användarkort: aktivitet, senaste händelser och utmaningar."""
+    user = await session.get(User, user_id)
+    if user is None:
+        raise HTTPException(404, "Användaren finns inte.")
+
+    from app.models import (
+        BodyMetric,
+        ChallengeParticipant,
+        ProgressPhoto,
+    )
+    from app.models import Challenge as ChallengeModel
+    from app.models import MealEntry as MealEntryModel
+
+    async def count(stmt) -> int:
+        return (await session.scalar(stmt)) or 0
+
+    strength = await count(
+        select(func.count(WorkoutSession.id)).where(
+            WorkoutSession.user_id == user_id,
+            WorkoutSession.finished_at.is_not(None),
+        )
+    )
+    cardio_count = await count(
+        select(func.count(CardioActivity.id)).where(
+            CardioActivity.user_id == user_id,
+            CardioActivity.linked_session_id.is_(None),
+        )
+    )
+    meals = await count(
+        select(func.count(MealEntryModel.id)).where(
+            MealEntryModel.user_id == user_id
+        )
+    )
+    metrics = await count(
+        select(func.count()).select_from(BodyMetric).where(
+            BodyMetric.user_id == user_id
+        )
+    )
+    photos = await count(
+        select(func.count(ProgressPhoto.id)).where(
+            ProgressPhoto.user_id == user_id
+        )
+    )
+
+    # Senaste passet — styrka eller kondition, det nyaste vinner
+    last_session = await session.scalar(
+        select(WorkoutSession)
+        .where(
+            WorkoutSession.user_id == user_id,
+            WorkoutSession.finished_at.is_not(None),
+        )
+        .order_by(WorkoutSession.started_at.desc())
+        .limit(1)
+    )
+    last_cardio = await session.scalar(
+        select(CardioActivity)
+        .where(
+            CardioActivity.user_id == user_id,
+            CardioActivity.linked_session_id.is_(None),
+        )
+        .order_by(CardioActivity.started_at.desc())
+        .limit(1)
+    )
+    last_workout = None
+    candidates = []
+    if last_session is not None:
+        candidates.append(
+            (
+                last_session.started_at,
+                {
+                    "kind": "strength",
+                    "name": last_session.program_day.name
+                    if last_session.program_day
+                    else "Styrkepass",
+                    "when": last_session.started_at.isoformat(),
+                },
+            )
+        )
+    if last_cardio is not None:
+        candidates.append(
+            (
+                last_cardio.started_at,
+                {
+                    "kind": "cardio",
+                    "name": last_cardio.name or "Kondition",
+                    "when": last_cardio.started_at.isoformat(),
+                },
+            )
+        )
+    if candidates:
+        last_workout = max(candidates, key=lambda c: c[0])[1]
+
+    # Senast aktiv = nyaste spåret oavsett typ (pass, måltid, mätning)
+    last_meal_at = await session.scalar(
+        select(func.max(MealEntryModel.created_at)).where(
+            MealEntryModel.user_id == user_id
+        )
+    )
+    last_metric_at = await session.scalar(
+        select(func.max(BodyMetric.measured_at)).where(
+            BodyMetric.user_id == user_id
+        )
+    )
+    from datetime import timezone as _tz
+
+    def _utc(dt):
+        # SQLite ger naiva tidsstämplar, Postgres medvetna — jämför i UTC
+        return dt.replace(tzinfo=_tz.utc) if dt.tzinfo is None else dt
+
+    stamps = [
+        _utc(s)
+        for s in (
+            max((c[0] for c in candidates), default=None),
+            last_meal_at,
+            last_metric_at,
+        )
+        if s is not None
+    ]
+    last_activity = max(stamps).isoformat() if stamps else None
+
+    # Utmaningar användaren deltar i
+    from datetime import date as _date
+
+    challenge_rows = list(
+        await session.scalars(
+            select(ChallengeModel)
+            .join(
+                ChallengeParticipant,
+                ChallengeParticipant.challenge_id == ChallengeModel.id,
+            )
+            .where(ChallengeParticipant.user_id == user_id)
+            .order_by(ChallengeModel.ends_on.desc())
+        )
+    )
+    today = _date.today()
+    challenges = [
+        {
+            "name": c.name,
+            "active": c.starts_on <= today <= c.ends_on,
+            "ends_on": c.ends_on.isoformat(),
+        }
+        for c in challenge_rows[:10]
+    ]
+
+    providers = list(
+        await session.scalars(
+            select(OAuthConnection.provider).where(
+                OAuthConnection.user_id == user_id
+            )
+        )
+    )
+
+    return {
+        "workout_sessions": strength,
+        "cardio_activities": cardio_count,
+        "meal_entries": meals,
+        "metrics": metrics,
+        "photos": photos,
+        "last_activity": last_activity,
+        "last_workout": last_workout,
+        "challenges": challenges,
+        "connections": sorted(providers),
+    }
+
+
 @router.get("/overview")
 async def overview(session: AsyncSession = Depends(get_session)) -> dict:
     async def count(stmt) -> int:

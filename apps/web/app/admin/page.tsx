@@ -234,41 +234,187 @@ function UsersSection({
         </button>
       </div>
 
-      <ul className="mt-2 divide-y divide-line dark:divide-night-shell">
+      <ul className="mt-2 space-y-2">
         {users.map((u) => (
-          <li key={u.id} className="flex items-center justify-between py-2">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">
-                {u.display_name ?? u.email.split("@")[0]}
-                {u.is_admin && (
-                  <span className="ml-2 rounded-full bg-navy-soft px-2 py-0.5 text-[10px] font-semibold text-navy-deep dark:bg-night-shell dark:text-lime">
-                    admin
-                  </span>
-                )}
-              </p>
-              <p className="truncate text-xs text-faint">{u.email}</p>
-            </div>
-            {meId && u.id !== meId && (
-              <div className="flex shrink-0 gap-1.5">
-                <button
-                  onClick={() => onToggleAdmin(u)}
-                  className="rounded-lg border border-line-strong px-2 py-1 text-xs font-medium dark:border-night-strong"
-                >
-                  {u.is_admin ? "Ta bort admin" : "Gör admin"}
-                </button>
-                <button
-                  onClick={() => removeUser(u)}
-                  className="rounded-lg border border-red-200 px-2 py-1 text-xs font-medium text-red-600 dark:border-red-900 dark:text-red-400"
-                  aria-label={`Radera ${u.email}`}
-                >
-                  🗑
-                </button>
-              </div>
-            )}
-          </li>
+          <UserRow
+            key={u.id}
+            user={u}
+            isMe={meId === u.id}
+            onToggleAdmin={() => onToggleAdmin(u)}
+            onRemove={() => removeUser(u)}
+          />
         ))}
       </ul>
     </section>
+  );
+}
+
+type UserStats = {
+  workout_sessions: number;
+  cardio_activities: number;
+  meal_entries: number;
+  metrics: number;
+  photos: number;
+  last_activity: string | null;
+  last_workout: { kind: string; name: string; when: string } | null;
+  challenges: { name: string; active: boolean; ends_on: string }[];
+  connections: string[];
+};
+
+const fmtDateTime = new Intl.DateTimeFormat("sv-SE", {
+  day: "numeric",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+const fmtDay = new Intl.DateTimeFormat("sv-SE", {
+  day: "numeric",
+  month: "short",
+});
+
+function UserRow({
+  user,
+  isMe,
+  onToggleAdmin,
+  onRemove,
+}: {
+  user: AdminUser;
+  isMe: boolean;
+  onToggleAdmin: () => void;
+  onRemove: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [stats, setStats] = useState<UserStats | null>(null);
+
+  useEffect(() => {
+    if (open && !stats) {
+      api<UserStats>(`/api/admin/users/${user.id}/stats`)
+        .then(setStats)
+        .catch(() => {});
+    }
+  }, [open, stats, user.id]);
+
+  return (
+    <li className="rounded-xl border border-line bg-cream-deep/40 dark:border-night-shell dark:bg-night-shell/30">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-3 py-2.5 text-left"
+      >
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium">
+            {user.display_name ?? user.email.split("@")[0]}
+            {user.is_admin && (
+              <span className="ml-2 rounded-full bg-navy-soft px-2 py-0.5 text-[10px] font-semibold text-navy-deep dark:bg-night-shell dark:text-lime">
+                admin
+              </span>
+            )}
+            {isMe && (
+              <span className="ml-1.5 text-[10px] text-faint">(du)</span>
+            )}
+          </p>
+          <p className="truncate text-xs text-faint">{user.email}</p>
+        </div>
+        <span className="shrink-0 text-sm text-faint">
+          {open ? "▾" : "▸"}
+        </span>
+      </button>
+
+      {open && (
+        <div className="border-t border-line px-3 py-2.5 dark:border-night-shell">
+          {!stats ? (
+            <p className="py-2 text-center text-xs text-faint">Hämtar…</p>
+          ) : (
+            <>
+              <div className="grid grid-cols-3 gap-1.5">
+                {(
+                  [
+                    ["🏋️ Styrkepass", stats.workout_sessions],
+                    ["🏃 Kondition", stats.cardio_activities],
+                    ["🥗 Kostinlägg", stats.meal_entries],
+                    ["📊 Mätningar", stats.metrics],
+                    ["📸 Foton", stats.photos],
+                    [
+                      "🕘 Senast aktiv",
+                      stats.last_activity
+                        ? fmtDateTime.format(new Date(stats.last_activity))
+                        : "aldrig",
+                    ],
+                  ] as [string, number | string][]
+                ).map(([label, value]) => (
+                  <div
+                    key={label}
+                    className="rounded-lg bg-white p-2 dark:bg-night-card"
+                  >
+                    <p className="text-[9px] font-semibold uppercase tracking-wide text-faint">
+                      {label}
+                    </p>
+                    <p className="text-sm font-bold">{value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {stats.last_workout && (
+                <p className="mt-2 text-xs text-muted dark:text-faint">
+                  Senaste pass:{" "}
+                  <strong>
+                    {stats.last_workout.kind === "strength" ? "🏋️" : "🏃"}{" "}
+                    {stats.last_workout.name}
+                  </strong>{" "}
+                  · {fmtDateTime.format(new Date(stats.last_workout.when))}
+                </p>
+              )}
+
+              {stats.connections.length > 0 && (
+                <p className="mt-1 text-xs text-muted dark:text-faint">
+                  Kopplingar: {stats.connections.join(" · ")}
+                </p>
+              )}
+
+              {stats.challenges.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-faint">
+                    Utmaningar
+                  </p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {stats.challenges.map((c) => (
+                      <span
+                        key={c.name + c.ends_on}
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                          c.active
+                            ? "bg-lime/60 text-lime-ink"
+                            : "bg-shell text-muted dark:bg-night-shell dark:text-night-muted"
+                        }`}
+                      >
+                        {c.active ? "🔥 " : "🏁 "}
+                        {c.name}
+                        {!c.active ? ` (${fmtDay.format(new Date(c.ends_on))})` : ""}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!isMe && (
+                <div className="mt-3 flex gap-1.5 border-t border-line pt-2.5 dark:border-night-shell">
+                  <button
+                    onClick={onToggleAdmin}
+                    className="flex-1 rounded-lg border border-line-strong px-2 py-1.5 text-xs font-medium dark:border-night-strong"
+                  >
+                    {user.is_admin ? "Ta bort admin" : "Gör till admin"}
+                  </button>
+                  <button
+                    onClick={onRemove}
+                    className="flex-1 rounded-lg border border-red-200 px-2 py-1.5 text-xs font-medium text-red-600 dark:border-red-900 dark:text-red-400"
+                  >
+                    🗑 Radera användare
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </li>
   );
 }
 
