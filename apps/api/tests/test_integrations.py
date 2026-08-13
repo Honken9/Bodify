@@ -161,9 +161,11 @@ async def test_strava_event_creates_activity(
 async def test_withings_event_stores_metrics(
     client, make_token, known_user, withings_conn, monkeypatch
 ):
+    # Relativt datum (testet frågar efter "senaste 30 dagarna") — beräknat
+    # EN gång så upprepade webhook-anrop ger exakt samma tidsstämpel
+    ts = datetime.now(timezone.utc) - timedelta(days=1)
+
     async def fake_measures(conn, db, startdate=None, enddate=None):
-        # Relativt datum — testet frågar senare efter "senaste 30 dagarna"
-        ts = datetime.now(timezone.utc) - timedelta(days=1)
         return [
             {"metric": "weight", "measured_at": ts, "value": 82.45},
             {"metric": "fat_percent", "measured_at": ts, "value": 14.2},
