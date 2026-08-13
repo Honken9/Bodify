@@ -30,10 +30,16 @@ async def subscribe(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_session),
 ) -> dict:
-    p256dh = payload.keys.get("p256dh")
-    auth = payload.keys.get("auth")
+    p256dh = str(payload.keys.get("p256dh") or "")
+    auth = str(payload.keys.get("auth") or "")
     if not p256dh or not auth:
         raise HTTPException(400, "Prenumerationen saknar nycklar.")
+    # Håll värdena inom kolumngränserna och kräv riktig push-endpoint —
+    # annars blir det databasfel (500) istället för ett begripligt svar
+    if len(p256dh) > 256 or len(auth) > 128:
+        raise HTTPException(400, "Ogiltiga push-nycklar.")
+    if not payload.endpoint.startswith("https://"):
+        raise HTTPException(400, "Ogiltig push-endpoint.")
 
     existing = await db.scalar(
         select(PushSubscription).where(

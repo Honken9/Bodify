@@ -162,7 +162,8 @@ async def test_withings_event_stores_metrics(
     client, make_token, known_user, withings_conn, monkeypatch
 ):
     async def fake_measures(conn, db, startdate=None, enddate=None):
-        ts = datetime(2026, 7, 12, 6, 0, tzinfo=timezone.utc)
+        # Relativt datum — testet frågar senare efter "senaste 30 dagarna"
+        ts = datetime.now(timezone.utc) - timedelta(days=1)
         return [
             {"metric": "weight", "measured_at": ts, "value": 82.45},
             {"metric": "fat_percent", "measured_at": ts, "value": 14.2},
