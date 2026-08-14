@@ -16,6 +16,8 @@ type Challenge = {
   target: { per_week?: number } | null;
   is_open: boolean;
   stake: string | null;
+  club_id: string | null;
+  club_name: string | null;
   starts_on: string;
   ends_on: string;
   days_left: number;
@@ -54,6 +56,28 @@ type LeagueRow = {
   name: string;
   elo: number;
   is_me: boolean;
+};
+
+type Club = {
+  id: string;
+  name: string;
+  description: string | null;
+  invite_code: string | null;
+  member_count: number;
+  is_member: boolean;
+  is_admin: boolean;
+};
+
+type ClubDetail = Club & {
+  members: {
+    user_id: string;
+    name: string;
+    elo: number;
+    role: string;
+    is_me: boolean;
+    rank: number;
+  }[];
+  challenges: Challenge[];
 };
 
 type LeaderboardRow = {
@@ -309,6 +333,330 @@ function LeagueSection() {
   );
 }
 
+/** Egna ligor: skapa, gå med via kod, medlemsliga på Elo, ligautmaningar. */
+function ClubsSection({
+  onStartChallenge,
+  refreshKey,
+  onError,
+}: {
+  onStartChallenge: (club: { id: string; name: string }) => void;
+  refreshKey: number;
+  onError: (m: string) => void;
+}) {
+  const [clubs, setClubs] = useState<Club[] | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [detail, setDetail] = useState<ClubDetail | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [joinCode, setJoinCode] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const load = useCallback(() => {
+    api<Club[]>("/api/social/clubs").then(setClubs).catch(() => {});
+  }, []);
+  useEffect(load, [load, refreshKey]);
+
+  useEffect(() => {
+    if (expanded) {
+      api<ClubDetail>(`/api/social/clubs/${expanded}`)
+        .then(setDetail)
+        .catch(() => setDetail(null));
+    } else {
+      setDetail(null);
+    }
+  }, [expanded, refreshKey]);
+
+  async function create() {
+    try {
+      await api("/api/social/clubs", {
+        method: "POST",
+        body: JSON.stringify({
+          name: name.trim(),
+          description: description.trim() || null,
+        }),
+      });
+      setName("");
+      setDescription("");
+      setShowCreate(false);
+      load();
+    } catch (e) {
+      onError((e as Error).message);
+    }
+  }
+
+  async function join() {
+    try {
+      await api("/api/social/clubs/join", {
+        method: "POST",
+        body: JSON.stringify({ code: joinCode.trim() }),
+      });
+      setJoinCode("");
+      load();
+    } catch (e) {
+      onError((e as Error).message);
+    }
+  }
+
+  async function inviteMember(clubId: string) {
+    const email = window.prompt(
+      "Vem vill du bjuda in? Ange e-postadressen personen loggar in med:"
+    );
+    if (!email?.includes("@")) return;
+    try {
+      await api(`/api/social/clubs/${clubId}/invite`, {
+        method: "POST",
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      window.alert(`Inbjudan skickad till ${email.trim()}! 🏟`);
+    } catch (e) {
+      onError((e as Error).message);
+    }
+  }
+
+  async function leave(club: ClubDetail) {
+    const doomed = club.member_count === 1;
+    if (
+      !window.confirm(
+        doomed
+          ? `Du är sista medlemmen — ligan ${club.name} raderas. Fortsätta?`
+          : `Lämna ligan ${club.name}?`
+      )
+    )
+      return;
+    try {
+      await api(`/api/social/clubs/${club.id}/leave`, { method: "POST" });
+      setExpanded(null);
+      load();
+    } catch (e) {
+      onError((e as Error).message);
+    }
+  }
+
+  async function removeClub(club: ClubDetail) {
+    if (
+      !window.confirm(
+        `Radera ligan ${club.name}? Utmaningarna finns kvar men kopplingen försvinner.`
+      )
+    )
+      return;
+    try {
+      await api(`/api/social/clubs/${club.id}`, { method: "DELETE" });
+      setExpanded(null);
+      load();
+    } catch (e) {
+      onError((e as Error).message);
+    }
+  }
+
+  function copyCode(code: string) {
+    navigator.clipboard?.writeText(code).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }
+
+  const inputCls =
+    "min-w-0 flex-1 rounded-xl border border-line-strong bg-transparent px-3 py-2 text-sm dark:border-night-strong";
+
+  return (
+    <section className="rounded-2xl border border-line bg-white p-4 dark:border-night-shell dark:bg-night-card">
+      <div className="flex items-center justify-between">
+        <h2 className="font-bold">🏟 Egna ligor</h2>
+        <button
+          onClick={() => setShowCreate(!showCreate)}
+          className="text-sm text-navy dark:text-lime"
+        >
+          + Ny liga
+        </button>
+      </div>
+      <p className="mt-0.5 text-xs text-muted dark:text-faint">
+        Skapa en liga för gänget, jobbet eller familjen — egen Elo-tabell och
+        utmaningar som når alla medlemmar.
+      </p>
+
+      {showCreate && (
+        <div className="mt-2 space-y-2 rounded-xl bg-sand p-3 dark:bg-night-shell">
+          <input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Namn, t.ex. Lunchligan"
+            className={`${inputCls} w-full`}
+          />
+          <input
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Beskrivning (valfritt)"
+            className={`${inputCls} w-full`}
+          />
+          <button
+            disabled={!name.trim()}
+            onClick={create}
+            className="w-full rounded-xl bg-navy py-2 text-sm font-semibold text-white disabled:opacity-40"
+          >
+            Skapa ligan
+          </button>
+        </div>
+      )}
+
+      <div className="mt-2 flex gap-2">
+        <input
+          value={joinCode}
+          onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+          placeholder="inbjudningskod, t.ex. KX7M2P"
+          maxLength={8}
+          className={`${inputCls} uppercase tracking-widest`}
+        />
+        <button
+          disabled={joinCode.trim().length < 4}
+          onClick={join}
+          className="rounded-xl bg-navy px-4 text-sm font-semibold text-white disabled:opacity-40"
+        >
+          Gå med
+        </button>
+      </div>
+
+      <ul className="mt-2 space-y-2">
+        {clubs?.map((club) => (
+          <li
+            key={club.id}
+            className="rounded-xl border border-line p-3 dark:border-night-shell"
+          >
+            <button
+              className="w-full text-left"
+              onClick={() =>
+                setExpanded(expanded === club.id ? null : club.id)
+              }
+            >
+              <div className="flex items-center justify-between">
+                <p className="font-semibold">🏟 {club.name}</p>
+                <span className="text-xs text-faint">
+                  {club.member_count}{" "}
+                  {club.member_count === 1 ? "medlem" : "medlemmar"}
+                </span>
+              </div>
+              {club.description && (
+                <p className="mt-0.5 text-xs text-muted dark:text-faint">
+                  {club.description}
+                </p>
+              )}
+            </button>
+
+            {expanded === club.id && detail && (
+              <div className="mt-2 border-t border-line pt-2 dark:border-night-shell">
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-faint">
+                  Ligatabell
+                </p>
+                <ol className="space-y-0.5">
+                  {detail.members.map((m) => (
+                    <li
+                      key={m.user_id}
+                      className={`flex items-center justify-between rounded-lg px-2 py-1 text-sm ${
+                        m.is_me
+                          ? "bg-navy-soft font-semibold dark:bg-night-shell"
+                          : ""
+                      }`}
+                    >
+                      <span>
+                        <span className="mr-2 inline-block w-6 font-bold">
+                          {medal(m.rank)}
+                        </span>
+                        {m.name}
+                        {m.role === "admin" ? " ⭐" : ""}
+                        {m.is_me ? " (du)" : ""}
+                      </span>
+                      <span className="font-semibold tabular-nums">
+                        {m.elo}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+
+                {detail.challenges.filter((c) => !c.finished).length > 0 && (
+                  <>
+                    <p className="mb-1 mt-2 text-xs font-semibold uppercase tracking-wide text-faint">
+                      Ligans utmaningar
+                    </p>
+                    <ul className="space-y-0.5 text-sm">
+                      {detail.challenges
+                        .filter((c) => !c.finished)
+                        .map((c) => (
+                          <li
+                            key={c.id}
+                            className="flex items-center justify-between"
+                          >
+                            <span className="truncate">
+                              {c.active ? "🔥" : "📅"} {c.name}
+                            </span>
+                            <span className="shrink-0 text-xs text-faint">
+                              {c.active
+                                ? `${c.days_left} d kvar`
+                                : c.starts_on}
+                            </span>
+                          </li>
+                        ))}
+                    </ul>
+                  </>
+                )}
+
+                {detail.invite_code && (
+                  <button
+                    onClick={() => copyCode(detail.invite_code!)}
+                    className="mt-2 w-full rounded-xl bg-sand py-2 text-sm font-semibold text-sand-ink dark:bg-night-shell dark:text-lime"
+                  >
+                    {copied
+                      ? "✅ Kopierad!"
+                      : `📋 Inbjudningskod: ${detail.invite_code}`}
+                  </button>
+                )}
+
+                <div className="mt-2 flex gap-2">
+                  <button
+                    onClick={() =>
+                      onStartChallenge({ id: club.id, name: club.name })
+                    }
+                    className="flex-1 rounded-xl bg-navy py-2 text-sm font-semibold text-white"
+                  >
+                    🏆 Ny ligautmaning
+                  </button>
+                  <button
+                    onClick={() => inviteMember(club.id)}
+                    className="rounded-xl border border-navy-line px-3 py-2 text-sm font-semibold text-navy-deep dark:border-night-strong dark:text-lime"
+                  >
+                    ➕ Bjud in
+                  </button>
+                </div>
+                <div className="mt-1.5 flex justify-end gap-3 text-xs">
+                  <button
+                    onClick={() => leave(detail)}
+                    className="text-muted underline dark:text-night-muted"
+                  >
+                    Lämna ligan
+                  </button>
+                  {detail.is_admin && (
+                    <button
+                      onClick={() => removeClub(detail)}
+                      className="text-red-600 underline dark:text-red-400"
+                    >
+                      Radera
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+      {clubs && clubs.length === 0 && (
+        <p className="mt-2 text-sm text-faint">
+          Du är inte med i någon liga ännu — skapa en eller gå med via kod.
+        </p>
+      )}
+    </section>
+  );
+}
+
 export default function SocialPage() {
   const [friends, setFriends] = useState<FriendsData | null>(null);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
@@ -317,6 +665,11 @@ export default function SocialPage() {
   const [detail, setDetail] = useState<Challenge | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [duelTarget, setDuelTarget] = useState<Brief | null>(null);
+  const [clubTarget, setClubTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [clubRefresh, setClubRefresh] = useState(0);
   const [showFinished, setShowFinished] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -496,6 +849,12 @@ export default function SocialPage() {
         </ul>
       </section>
 
+      <ClubsSection
+        onStartChallenge={setClubTarget}
+        refreshKey={clubRefresh}
+        onError={setError}
+      />
+
       <LeagueSection />
 
       <section>
@@ -563,6 +922,7 @@ export default function SocialPage() {
                 </div>
                 <p className="mt-0.5 text-sm text-muted dark:text-faint">
                   {c.metric_label}
+                  {c.club_name ? ` · 🏟 ${c.club_name}` : ""}
                   {c.is_open ? " · öppen för alla" : ""}
                   {c.active
                     ? ` · ${c.days_left === 0 ? "sista dagen!" : `${c.days_left} d kvar`}`
@@ -727,16 +1087,20 @@ export default function SocialPage() {
         </ul>
       </section>
 
-      {(showCreate || duelTarget) && (
+      {(showCreate || duelTarget || clubTarget) && (
         <CreateChallenge
           duelOpponent={duelTarget}
+          club={clubTarget}
           onClose={() => {
             setShowCreate(false);
             setDuelTarget(null);
+            setClubTarget(null);
           }}
           onCreated={() => {
             setShowCreate(false);
             setDuelTarget(null);
+            setClubTarget(null);
+            setClubRefresh((n) => n + 1);
             refresh();
           }}
           onError={setError}
@@ -748,11 +1112,13 @@ export default function SocialPage() {
 
 function CreateChallenge({
   duelOpponent,
+  club,
   onClose,
   onCreated,
   onError,
 }: {
   duelOpponent: Brief | null;
+  club: { id: string; name: string } | null;
   onClose: () => void;
   onCreated: () => void;
   onError: (m: string) => void;
@@ -789,9 +1155,10 @@ function CreateChallenge({
           ends_on: end,
           kind,
           target_per_week: kind === "habit" ? Number(perWeek) || 3 : null,
-          is_open: kind === "duel" ? false : isOpen,
+          is_open: kind === "duel" || club ? false : isOpen,
           stake: stake.trim() || null,
           opponent_email: kind === "duel" ? opponent.trim() : null,
+          club_id: club?.id ?? null,
         }),
       });
       onCreated();
@@ -813,16 +1180,25 @@ function CreateChallenge({
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="mb-3 text-lg font-bold">
-          {kind === "duel" ? "⚔️ Ny duell" : "Ny utmaning"}
+          {club
+            ? `🏟 Ny utmaning i ${club.name}`
+            : kind === "duel"
+              ? "⚔️ Ny duell"
+              : "Ny utmaning"}
         </h3>
         <div className="space-y-3">
           <div className="flex gap-1.5">
             {(
-              [
-                ["standard", "🏆 Tävling"],
-                ["duel", "⚔️ Duell"],
-                ["habit", "✅ Vana"],
-              ] as const
+              club
+                ? ([
+                    ["standard", "🏆 Tävling"],
+                    ["habit", "✅ Vana"],
+                  ] as const)
+                : ([
+                    ["standard", "🏆 Tävling"],
+                    ["duel", "⚔️ Duell"],
+                    ["habit", "✅ Vana"],
+                  ] as const)
             ).map(([key, label]) => (
               <button
                 key={key}
@@ -923,7 +1299,7 @@ function CreateChallenge({
             />
           </label>
 
-          {kind !== "duel" && (
+          {kind !== "duel" && !club && (
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"

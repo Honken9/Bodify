@@ -37,6 +37,47 @@ class Friendship(Base):
     )
 
 
+class Club(Base):
+    """Egen liga: en grupp som tävlar mot varandra över tid.
+    Medlemmar går med via inbjudningskod och rankas på Elo."""
+
+    __tablename__ = "clubs"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    creator_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(80))
+    description: Mapped[str | None] = mapped_column(String(300))
+    invite_code: Mapped[str] = mapped_column(String(8), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    members: Mapped[list["ClubMember"]] = relationship(
+        back_populates="club", cascade="all, delete-orphan", lazy="selectin"
+    )
+
+
+class ClubMember(Base):
+    __tablename__ = "club_members"
+    __table_args__ = (UniqueConstraint("club_id", "user_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    club_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("clubs.id", ondelete="CASCADE"), index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    role: Mapped[str] = mapped_column(String(10), default="member")  # admin|member
+    joined_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    club: Mapped[Club] = relationship(back_populates="members")
+
+
 CHALLENGE_METRICS = {
     "workout_count",  # flest pass (styrka + kondition)
     "weight_loss_kg",  # störst viktnedgång i kg
@@ -70,6 +111,10 @@ class Challenge(Base):
     target: Mapped[dict | None] = mapped_column(JSON)  # habit: {"per_week": 3}
     # Insatsen — "förloraren bjuder på lunch" (ren psykologi, ingen logik)
     stake: Mapped[str | None] = mapped_column(String(200))
+    # Ligautmaning: synlig och joinbar för alla medlemmar i ligan
+    club_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("clubs.id", ondelete="SET NULL"), index=True
+    )
     # True när Elo-jobbet räknat in resultatet (körs aldrig om)
     rated: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(

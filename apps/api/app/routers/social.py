@@ -1,3 +1,4 @@
+import secrets
 import uuid
 from datetime import date, timedelta
 
@@ -14,6 +15,8 @@ from app.models import (
     Challenge,
     ChallengeInvite,
     ChallengeParticipant,
+    Club,
+    ClubMember,
     Friendship,
     User,
 )
@@ -160,6 +163,243 @@ async def remove_friend(
     await db.commit()
 
 
+# ── Egna ligor ────────────────────────────────────────────────
+
+# Läsvänlig inbjudningskod utan lättförväxlade tecken (0/O, 1/I)
+_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+
+class ClubCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    description: str | None = Field(default=None, max_length=300)
+
+
+class ClubJoin(BaseModel):
+    code: str = Field(min_length=4, max_length=8)
+
+
+async def _club_ids(db: AsyncSession, user: User) -> set[uuid.UUID]:
+    return {
+        row
+        for row in await db.scalars(
+            select(ClubMember.club_id).where(ClubMember.user_id == user.id)
+        )
+    }
+
+
+def _membership(club: Club, user_id: uuid.UUID) -> ClubMember | None:
+    return next((m for m in club.members if m.user_id == user_id), None)
+
+
+def _club_out(club: Club, me: User) -> dict:
+    mine = _membership(club, me.id)
+    return {
+        "id": str(club.id),
+        "name": club.name,
+        "description": club.description,
+        "invite_code": club.invite_code if mine else None,
+        "member_count": len(club.members),
+        "is_member": mine is not None,
+        "is_admin": mine is not None and mine.role == "admin",
+    }
+
+
+@router.get("/clubs")
+async def list_clubs(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> list[dict]:
+    rows = list(
+        await db.scalars(
+            select(Club)
+            .join(ClubMember, ClubMember.club_id == Club.id)
+            .where(ClubMember.user_id == user.id)
+            .order_by(Club.created_at)
+        )
+    )
+    return [_club_out(c, user) for c in rows]
+
+
+@router.post("/clubs", status_code=201)
+async def create_club(
+    payload: ClubCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    code = None
+    for _ in range(10):
+        candidate = "".join(secrets.choice(_CODE_ALPHABET) for _ in range(6))
+        exists = await db.scalar(
+            select(Club.id).where(Club.invite_code == candidate)
+        )
+        if exists is None:
+            code = candidate
+            break
+    if code is None:
+        raise HTTPException(500, "Kunde inte skapa inbjudningskod — försök igen.")
+
+    club = Club(
+        creator_id=user.id,
+        name=payload.name.strip(),
+        description=(payload.description or "").strip()[:300] or None,
+        invite_code=code,
+    )
+    club.members.append(ClubMember(user_id=user.id, role="admin"))
+    db.add(club)
+    await db.commit()
+    return _club_out(club, user)
+
+
+@router.post("/clubs/join")
+async def join_club(
+    payload: ClubJoin,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    club = await db.scalar(
+        select(Club).where(Club.invite_code == payload.code.upper().strip())
+    )
+    if club is None:
+        raise HTTPException(404, "Ingen liga med den koden.")
+    if _membership(club, user.id) is not None:
+        raise HTTPException(409, "Du är redan med i ligan.")
+    club.members.append(ClubMember(user_id=user.id))
+    await db.commit()
+    name = user.display_name or user.email.split("@")[0]
+    for member in club.members:
+        if member.user_id != user.id:
+            await push.send_to_user(
+                db,
+                member.user_id,
+                f"🏟 Ny medlem i {club.name}",
+                f"{name} gick med i ligan!",
+                url="/social",
+            )
+    return _club_out(club, user)
+
+
+class ClubInvite(BaseModel):
+    email: str = Field(max_length=320)
+
+
+@router.post("/clubs/{club_id}/invite", status_code=201)
+async def invite_to_club(
+    club_id: uuid.UUID,
+    payload: ClubInvite,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    club = await db.get(Club, club_id)
+    if club is None or _membership(club, user.id) is None:
+        raise HTTPException(404, "Ligan finns inte.")
+    target = await db.scalar(
+        select(User).where(User.email == payload.email.lower().strip())
+    )
+    if target is None:
+        raise HTTPException(
+            404, "Ingen användare med den adressen — vitlista och be "
+            "personen logga in först."
+        )
+    if _membership(club, target.id) is not None:
+        return {"ok": True, "already_member": True}
+    name = user.display_name or user.email.split("@")[0]
+    await push.send_to_user(
+        db,
+        target.id,
+        f"🏟 Du är inbjuden till ligan {club.name}!",
+        f"{name} bjuder in dig — gå med med kod {club.invite_code} "
+        "under Socialt.",
+        url="/social",
+    )
+    return {"ok": True}
+
+
+@router.post("/clubs/{club_id}/leave", status_code=204)
+async def leave_club(
+    club_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> None:
+    club = await db.get(Club, club_id)
+    mine = _membership(club, user.id) if club else None
+    if club is None or mine is None:
+        raise HTTPException(404, "Ligan finns inte.")
+    admins = [m for m in club.members if m.role == "admin"]
+    if mine.role == "admin" and len(admins) == 1 and len(club.members) > 1:
+        raise HTTPException(
+            400, "Du är enda administratören — radera ligan eller vänta "
+            "tills fler gått med."
+        )
+    await db.delete(mine)
+    await db.commit()
+    remaining = await db.scalar(
+        select(ClubMember.id).where(ClubMember.club_id == club.id).limit(1)
+    )
+    if remaining is None:
+        await db.delete(club)
+        await db.commit()
+
+
+@router.delete("/clubs/{club_id}", status_code=204)
+async def delete_club(
+    club_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> None:
+    club = await db.get(Club, club_id)
+    if club is None:
+        raise HTTPException(404, "Ligan finns inte.")
+    mine = _membership(club, user.id)
+    if mine is None or mine.role != "admin":
+        raise HTTPException(403, "Bara ligans administratör kan radera den.")
+    await db.delete(club)
+    await db.commit()
+
+
+@router.get("/clubs/{club_id}")
+async def club_detail(
+    club_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    club = await db.get(Club, club_id)
+    if club is None or _membership(club, user.id) is None:
+        raise HTTPException(404, "Ligan finns inte.")
+
+    members = []
+    for m in club.members:
+        u = await db.get(User, m.user_id)
+        if u is None:
+            continue
+        members.append(
+            {
+                "user_id": str(u.id),
+                "name": u.display_name or u.email.split("@")[0],
+                "elo": u.elo_rating,
+                "role": m.role,
+                "is_me": u.id == user.id,
+            }
+        )
+    members.sort(key=lambda m: -m["elo"])
+    for i, m in enumerate(members):
+        m["rank"] = i + 1
+
+    challenges = list(
+        await db.scalars(
+            select(Challenge)
+            .where(Challenge.club_id == club.id)
+            .order_by(Challenge.ends_on.desc())
+        )
+    )
+    return {
+        **_club_out(club, user),
+        "members": members,
+        "challenges": [
+            _challenge_out(c, user, club_name=club.name) for c in challenges
+        ],
+    }
+
+
 # ── Utmaningar ────────────────────────────────────────────────
 
 
@@ -174,6 +414,8 @@ class ChallengeCreate(BaseModel):
     stake: str | None = Field(default=None, max_length=200)
     # Duell: motståndaren bjuds in direkt vid skapandet
     opponent_email: str | None = Field(default=None, max_length=320)
+    # Ligautmaning: alla medlemmar ser den och kan gå med direkt
+    club_id: uuid.UUID | None = None
 
 
 METRIC_LABELS = {
@@ -211,7 +453,10 @@ def _metric_label(challenge: Challenge) -> str:
 
 
 def _challenge_out(
-    challenge: Challenge, me: User, invited: bool = False
+    challenge: Challenge,
+    me: User,
+    invited: bool = False,
+    club_name: str | None = None,
 ) -> dict:
     today = date.today()
     return {
@@ -224,6 +469,8 @@ def _challenge_out(
         "target": challenge.target,
         "is_open": challenge.is_open,
         "stake": challenge.stake,
+        "club_id": str(challenge.club_id) if challenge.club_id else None,
+        "club_name": club_name,
         "starts_on": challenge.starts_on.isoformat(),
         "ends_on": challenge.ends_on.isoformat(),
         "days_left": max((challenge.ends_on - today).days, 0),
@@ -274,6 +521,7 @@ async def list_challenges(
         )
     }
     reachable = joined_ids | invited_ids
+    my_clubs = await _club_ids(db, user)
     rows = list(
         await db.scalars(
             select(Challenge)
@@ -281,6 +529,8 @@ async def list_challenges(
                 or_(
                     Challenge.creator_id.in_(visible_creators),
                     Challenge.id.in_(reachable) if reachable else False,
+                    # Ligautmaningar syns för alla medlemmar i ligan
+                    Challenge.club_id.in_(my_clubs) if my_clubs else False,
                     # Öppna, aktuella utmaningar (t.ex. veckoutmaningarna)
                     # syns för alla så vem som helst kan hoppa på
                     (Challenge.is_open.is_(True))
@@ -290,8 +540,21 @@ async def list_challenges(
             .order_by(Challenge.ends_on.desc())
         )
     )
+    club_names: dict[uuid.UUID, str] = {}
+    club_ids = {c.club_id for c in rows if c.club_id is not None}
+    if club_ids:
+        for club in await db.scalars(
+            select(Club).where(Club.id.in_(club_ids))
+        ):
+            club_names[club.id] = club.name
     return [
-        _challenge_out(c, user, invited=c.id in invited_ids) for c in rows
+        _challenge_out(
+            c,
+            user,
+            invited=c.id in invited_ids,
+            club_name=club_names.get(c.club_id) if c.club_id else None,
+        )
+        for c in rows
     ]
 
 
@@ -325,6 +588,14 @@ async def create_challenge(
         if opponent.id == user.id:
             raise HTTPException(400, "Du kan inte duellera mot dig själv.")
 
+    club: Club | None = None
+    if payload.club_id is not None:
+        if payload.kind == "duel":
+            raise HTTPException(400, "Dueller kan inte kopplas till en liga.")
+        club = await db.get(Club, payload.club_id)
+        if club is None or _membership(club, user.id) is None:
+            raise HTTPException(404, "Ligan finns inte.")
+
     challenge = Challenge(
         creator_id=user.id,
         name=payload.name,
@@ -340,6 +611,7 @@ async def create_challenge(
         ),
         is_open=False if payload.kind == "duel" else payload.is_open,
         stake=(payload.stake or "").strip()[:200] or None,
+        club_id=club.id if club else None,
     )
     baseline = await challenge_service.snapshot_baseline(
         db, user.id, payload.metric
@@ -369,12 +641,28 @@ async def create_challenge(
             url="/social",
         )
 
+    if club is not None:
+        stake_line = f" Insats: {challenge.stake}." if challenge.stake else ""
+        name = user.display_name or user.email.split("@")[0]
+        for member in club.members:
+            if member.user_id != user.id:
+                await push.send_to_user(
+                    db,
+                    member.user_id,
+                    f"🏟 Ny utmaning i {club.name}!",
+                    f"{name} startade \"{challenge.name}\" — "
+                    f"häng på!{stake_line}",
+                    url="/social",
+                )
+
     challenge = await db.scalar(
         select(Challenge)
         .where(Challenge.id == challenge.id)
         .execution_options(populate_existing=True)
     )
-    return _challenge_out(challenge, user)
+    return _challenge_out(
+        challenge, user, club_name=club.name if club else None
+    )
 
 
 @router.post("/challenges/{challenge_id}/join")
@@ -389,11 +677,16 @@ async def join_challenge(
 
     invite = await _invite_for(db, challenge.id, user.id)
     friend_ids = await _friend_ids(db, user)
+    in_club = (
+        challenge.club_id is not None
+        and challenge.club_id in await _club_ids(db, user)
+    )
     if (
         not challenge.is_open
         and challenge.creator_id != user.id
         and challenge.creator_id not in friend_ids
         and invite is None
+        and not in_club
     ):
         raise HTTPException(
             403, "Du kan bara gå med i vänners utmaningar eller via inbjudan."
@@ -511,17 +804,30 @@ async def challenge_detail(
     friend_ids = await _friend_ids(db, user)
     is_participant = any(p.user_id == user.id for p in challenge.participants)
     invite = await _invite_for(db, challenge.id, user.id)
+    in_club = (
+        challenge.club_id is not None
+        and challenge.club_id in await _club_ids(db, user)
+    )
     if (
         not is_participant
         and not challenge.is_open  # öppna utmaningar får granskas före join
         and invite is None
+        and not in_club
         and challenge.creator_id not in friend_ids | {user.id}
     ):
         raise HTTPException(404, "Utmaningen finns inte.")
 
+    club = (
+        await db.get(Club, challenge.club_id) if challenge.club_id else None
+    )
     board = await challenge_service.leaderboard(db, challenge)
     result = {
-        **_challenge_out(challenge, user, invited=invite is not None),
+        **_challenge_out(
+            challenge,
+            user,
+            invited=invite is not None,
+            club_name=club.name if club else None,
+        ),
         "leaderboard": board,
         "history": await challenge_service.history(db, challenge),
         "stages": await challenge_service.stage_results(db, challenge),

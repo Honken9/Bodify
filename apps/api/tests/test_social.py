@@ -724,3 +724,100 @@ async def test_badges_from_data(client, make_token, known_user, db_session):
     ).json()
     earned = {b["key"] for b in badges if b["earned"]}
     assert {"first_10k", "steps_20k"} <= earned
+
+
+async def test_club_create_join_and_league_challenge(
+    client, make_token, known_user, other_user
+):
+    daniel = auth(make_token)
+    anna = auth(make_token, "anna@example.com")
+
+    # Daniel skapar en liga
+    r = await client.post(
+        "/api/social/clubs",
+        headers=daniel,
+        json={"name": "Lunchligan", "description": "Vi som tävlar på lunchen"},
+    )
+    assert r.status_code == 201
+    club = r.json()
+    assert club["is_admin"] is True
+    code = club["invite_code"]
+    assert len(code) == 6
+
+    # Fel kod avvisas
+    r = await client.post(
+        "/api/social/clubs/join", headers=anna, json={"code": "XXXX99"}
+    )
+    assert r.status_code == 404
+
+    # Anna går med via koden (gemener funkar också)
+    r = await client.post(
+        "/api/social/clubs/join", headers=anna, json={"code": code.lower()}
+    )
+    assert r.status_code == 200
+    assert r.json()["member_count"] == 2
+
+    # Daniel startar en ligautmaning
+    today = date.today()
+    r = await client.post(
+        "/api/social/challenges",
+        headers=daniel,
+        json={
+            "name": "Ligans stegkamp",
+            "metric": "steps_total",
+            "starts_on": str(today - timedelta(days=1)),
+            "ends_on": str(today + timedelta(days=5)),
+            "club_id": club["id"],
+        },
+    )
+    assert r.status_code == 201
+    challenge = r.json()
+    assert challenge["club_name"] == "Lunchligan"
+
+    # Anna är INTE vän med Daniel men ser ligautmaningen och kan gå med
+    r = await client.get("/api/social/challenges", headers=anna)
+    assert challenge["id"] in [c["id"] for c in r.json()]
+    r = await client.post(
+        f"/api/social/challenges/{challenge['id']}/join", headers=anna
+    )
+    assert r.status_code == 200
+
+    # Ligadetaljer: medlemmar rankade på Elo + utmaningen listad
+    r = await client.get(f"/api/social/clubs/{club['id']}", headers=anna)
+    assert r.status_code == 200
+    detail = r.json()
+    assert [m["rank"] for m in detail["members"]] == [1, 2]
+    assert detail["challenges"][0]["id"] == challenge["id"]
+
+
+async def test_club_leave_delete_and_outsider_blocked(
+    client, make_token, known_user, other_user
+):
+    daniel = auth(make_token)
+    anna = auth(make_token, "anna@example.com")
+
+    r = await client.post(
+        "/api/social/clubs", headers=daniel, json={"name": "Solo"}
+    )
+    club = r.json()
+
+    # Utomstående ser varken detaljer eller inbjudningskod
+    r = await client.get(f"/api/social/clubs/{club['id']}", headers=anna)
+    assert r.status_code == 404
+
+    # Anna går med, lämnar sedan
+    await client.post(
+        "/api/social/clubs/join",
+        headers=anna,
+        json={"code": club["invite_code"]},
+    )
+    r = await client.post(f"/api/social/clubs/{club['id']}/leave", headers=anna)
+    assert r.status_code == 204
+    r = await client.get("/api/social/clubs", headers=anna)
+    assert r.json() == []
+
+    # Bara admin får radera — Daniel raderar ligan
+    r = await client.delete(f"/api/social/clubs/{club['id']}", headers=daniel)
+    assert r.status_code == 204
+    r = await client.get("/api/social/clubs", headers=daniel)
+    assert r.json() == []

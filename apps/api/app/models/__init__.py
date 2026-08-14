@@ -17,6 +17,8 @@ from app.models.social import (
     ChallengeInvite,
     ChallengeParticipant,
     ChallengeSnapshot,
+    Club,
+    ClubMember,
     Friendship,
 )
 from app.models.training import (
@@ -41,6 +43,8 @@ __all__ = [
     "ChallengeInvite",
     "ChallengeParticipant",
     "ChallengeSnapshot",
+    "Club",
+    "ClubMember",
     "Friendship",
     "Exercise",
     "FoodFavorite",
