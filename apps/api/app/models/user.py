@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, String, Uuid, func
+from sqlalchemy import JSON, Boolean, DateTime, Integer, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -20,6 +20,8 @@ class User(Base):
     # {"city": ..., "fav_workout": ..., "fav_exercise": ..., "goal": ...}
     avatar_path: Mapped[str | None] = mapped_column(String(300))
     profile: Mapped[dict] = mapped_column(JSON, default=dict)
+    # Shapiqo-ligan: Elo-rating som justeras när utmaningar avgörs
+    elo_rating: Mapped[int] = mapped_column(Integer, default=1000)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

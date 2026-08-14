@@ -223,8 +223,63 @@ export default function ProfilePage() {
         </button>
       </section>
 
+      <BadgeWall />
       <TrophyCabinet />
     </main>
+  );
+}
+
+type BadgeInfo = {
+  key: string;
+  emoji: string;
+  title: string;
+  description: string;
+  earned: boolean;
+  earned_at: string | null;
+};
+
+function BadgeWall() {
+  const [badges, setBadges] = useState<BadgeInfo[] | null>(null);
+
+  useEffect(() => {
+    api<BadgeInfo[]>("/api/social/badges").then(setBadges).catch(() => {});
+  }, []);
+
+  if (!badges || badges.length === 0) return null;
+  const earnedCount = badges.filter((b) => b.earned).length;
+
+  return (
+    <section className="rounded-2xl border border-line bg-white p-5 dark:border-night-shell dark:bg-night-card">
+      <div className="flex items-center justify-between">
+        <h2 className="font-bold">🎖 Märken</h2>
+        <span className="text-xs text-faint">
+          {earnedCount} av {badges.length}
+        </span>
+      </div>
+      <ul className="mt-3 grid grid-cols-3 gap-2">
+        {badges.map((b) => (
+          <li
+            key={b.key}
+            title={b.description}
+            className={`flex flex-col items-center rounded-xl px-1 py-3 text-center ${
+              b.earned
+                ? "bg-sand dark:bg-night-shell"
+                : "bg-shell opacity-40 grayscale dark:bg-night-shell/50"
+            }`}
+          >
+            <span className="text-2xl">{b.emoji}</span>
+            <span className="mt-1 text-[11px] font-semibold leading-tight">
+              {b.title}
+            </span>
+            <span className="mt-0.5 text-[10px] leading-tight text-muted dark:text-faint">
+              {b.earned && b.earned_at
+                ? b.earned_at.slice(0, 10)
+                : b.description}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

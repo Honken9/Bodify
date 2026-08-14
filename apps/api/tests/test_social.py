@@ -546,3 +546,181 @@ async def test_cheer_cannot_target_outsider(
         },
     )
     assert resp.status_code == 400
+
+
+async def test_duel_flow_and_elo(
+    client, make_token, known_user, other_user, db_session, monkeypatch
+):
+    """Duell: skapa → motståndaren inbjuds → accepterar → avgörs → Elo."""
+    daniel = auth(make_token)
+    anna = auth(make_token, "anna@example.com")
+    today = date.today()
+
+    duel = (
+        await client.post(
+            "/api/social/challenges",
+            headers=daniel,
+            json={
+                "name": "Duell: steg",
+                "metric": "steps_total",
+                "kind": "duel",
+                "opponent_email": "anna@example.com",
+                "stake": "Förloraren bjuder på lunch",
+                "starts_on": (today - timedelta(days=8)).isoformat(),
+                "ends_on": (today - timedelta(days=1)).isoformat(),
+            },
+        )
+    ).json()
+    assert duel["kind"] == "duel"
+    assert duel["stake"] == "Förloraren bjuder på lunch"
+
+    # Anna ser inbjudan och antar
+    anna_list = (await client.get("/api/social/challenges", headers=anna)).json()
+    assert any(c["id"] == duel["id"] and c["invited"] for c in anna_list)
+    assert (
+        await client.post(
+            f"/api/social/challenges/{duel['id']}/join", headers=anna
+        )
+    ).status_code == 200
+
+    # Steg under perioden: Anna 30 000, Daniel 12 000
+    stamp = (
+        datetime.now(timezone.utc) - timedelta(days=3)
+    ).isoformat()
+    await client.post(
+        "/api/metrics", headers=anna,
+        json={"metric": "steps", "value": 30000, "measured_at": stamp},
+    )
+    await client.post(
+        "/api/metrics", headers=daniel,
+        json={"metric": "steps", "value": 12000, "measured_at": stamp},
+    )
+
+    detail = (
+        await client.get(f"/api/social/challenges/{duel['id']}", headers=daniel)
+    ).json()
+    assert "head_to_head" in detail
+
+    # Elo-jobbet: Anna vinner → +16, Daniel −16 (båda startade på 1000)
+    from app.services.league import rate_finished_challenges
+
+    result = await rate_finished_challenges(db_session)
+    assert result["rated"] == 1
+    league = (await client.get("/api/social/league", headers=daniel)).json()
+    by_name = {r["name"]: r for r in league}
+    assert by_name["Anna"]["elo"] == 1016
+    assert by_name["Daniel"]["elo"] == 984
+    assert by_name["Anna"]["rank"] == 1
+
+    # Idempotent — körs inte om
+    assert (await rate_finished_challenges(db_session))["rated"] == 0
+
+    # Vinnaren fick första vinst-märket
+    anna_badges = (await client.get("/api/social/badges", headers=anna)).json()
+    wins = next(b for b in anna_badges if b["key"] == "wins_1")
+    assert wins["earned"] is True
+
+
+async def test_duel_decline(client, make_token, known_user, other_user):
+    daniel = auth(make_token)
+    anna = auth(make_token, "anna@example.com")
+    today = date.today()
+    duel = (
+        await client.post(
+            "/api/social/challenges",
+            headers=daniel,
+            json={
+                "name": "Duell: pass",
+                "metric": "workout_count",
+                "kind": "duel",
+                "opponent_email": "anna@example.com",
+                "starts_on": today.isoformat(),
+                "ends_on": (today + timedelta(days=6)).isoformat(),
+            },
+        )
+    ).json()
+
+    resp = await client.delete(
+        f"/api/social/challenges/{duel['id']}/invite", headers=anna
+    )
+    assert resp.status_code == 204
+    anna_list = (await client.get("/api/social/challenges", headers=anna)).json()
+    assert not any(c["id"] == duel["id"] and c["invited"] for c in anna_list)
+
+
+async def test_stage_results(
+    client, make_token, known_user, other_user, friends, db_session
+):
+    daniel = auth(make_token)
+    anna = auth(make_token, "anna@example.com")
+    today = date.today()
+    start = today - timedelta(days=13)  # 21 dagar → 3 etapper
+
+    challenge = (
+        await client.post(
+            "/api/social/challenges",
+            headers=daniel,
+            json={
+                "name": "Etapploppet",
+                "metric": "steps_total",
+                "starts_on": start.isoformat(),
+                "ends_on": (start + timedelta(days=20)).isoformat(),
+            },
+        )
+    ).json()
+    await client.post(
+        f"/api/social/challenges/{challenge['id']}/join", headers=anna
+    )
+
+    # Anna vinner etapp 1 (dag 2 i perioden)
+    stamp = datetime.combine(
+        start + timedelta(days=1), datetime.min.time(), tzinfo=timezone.utc
+    ) + timedelta(hours=12)
+    await client.post(
+        "/api/metrics", headers=anna,
+        json={"metric": "steps", "value": 15000, "measured_at": stamp.isoformat()},
+    )
+
+    detail = (
+        await client.get(
+            f"/api/social/challenges/{challenge['id']}", headers=daniel
+        )
+    ).json()
+    stages = detail["stages"]
+    assert len(stages) == 3
+    assert stages[0]["completed"] is True
+    assert stages[0]["winner"] == "Anna"
+    assert stages[1]["current"] is True or stages[1]["completed"] is True
+
+
+async def test_badges_from_data(client, make_token, known_user, db_session):
+    from app.models import CardioActivity
+    from app.services.badges import evaluate_user
+
+    # En mil-runda + 20k-stegdag
+    db_session.add(
+        CardioActivity(
+            user_id=known_user.id,
+            type="run",
+            source="manual",
+            external_id=None,
+            name="Milen",
+            started_at=datetime.now(timezone.utc) - timedelta(days=2),
+            duration_s=3600,
+            distance_m=10500.0,
+        )
+    )
+    await db_session.commit()
+    await client.post(
+        "/api/metrics",
+        headers=auth(make_token),
+        json={"metric": "steps", "value": 21000},
+    )
+
+    new = await evaluate_user(db_session, known_user.id)
+    assert new >= 2
+    badges = (
+        await client.get("/api/social/badges", headers=auth(make_token))
+    ).json()
+    earned = {b["key"] for b in badges if b["earned"]}
+    assert {"first_10k", "steps_20k"} <= earned

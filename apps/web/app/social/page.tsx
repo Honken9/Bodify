@@ -15,6 +15,7 @@ type Challenge = {
   kind: string;
   target: { per_week?: number } | null;
   is_open: boolean;
+  stake: string | null;
   starts_on: string;
   ends_on: string;
   days_left: number;
@@ -27,6 +28,32 @@ type Challenge = {
   leaderboard?: LeaderboardRow[];
   history?: RaceHistory;
   habit?: { completed: number; total: number };
+  stages?: Stage[];
+  head_to_head?: H2H;
+};
+
+type Stage = {
+  index: number;
+  start: string;
+  end: string;
+  completed: boolean;
+  current: boolean;
+  winner: string | null;
+  value: number | null;
+};
+
+type H2H = {
+  a: { user_id: string; wins: number };
+  b: { user_id: string; wins: number };
+  duels: number;
+};
+
+type LeagueRow = {
+  rank: number;
+  user_id: string;
+  name: string;
+  elo: number;
+  is_me: boolean;
 };
 
 type LeaderboardRow = {
@@ -77,6 +104,12 @@ const RACE_COLORS = [
 
 function medal(rank: number): string {
   return rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `${rank}.`;
+}
+
+function nameFor(challenge: Challenge, userId: string): string {
+  return (
+    challenge.leaderboard?.find((r) => r.user_id === userId)?.name ?? "?"
+  );
 }
 
 /** Race-kurvor: en linje per deltagare, från nattliga snapshots. */
@@ -218,6 +251,64 @@ function ChallengeFeed({ challengeId }: { challengeId: string }) {
   );
 }
 
+/** Shapiqo-ligan: Elo-rankning som uppdateras när tävlingar avgörs. */
+function LeagueSection() {
+  const [rows, setRows] = useState<LeagueRow[] | null>(null);
+  const [showAll, setShowAll] = useState(false);
+
+  useEffect(() => {
+    api<LeagueRow[]>("/api/social/league").then(setRows).catch(() => {});
+  }, []);
+
+  if (!rows || rows.length < 2) return null;
+  const myIndex = rows.findIndex((r) => r.is_me);
+  const visible = showAll
+    ? rows
+    : rows.slice(0, Math.max(5, myIndex >= 0 ? myIndex + 1 : 0));
+
+  return (
+    <section className="rounded-2xl border border-line bg-white p-4 dark:border-night-shell dark:bg-night-card">
+      <div className="flex items-center justify-between">
+        <h2 className="font-bold">🏆 Shapiqo-ligan</h2>
+        <span className="text-xs text-faint">Elo-poäng</span>
+      </div>
+      <p className="mt-0.5 text-xs text-muted dark:text-faint">
+        Vinn utmaningar och dueller för att klättra — vinst mot högre rankade
+        ger mer poäng.
+      </p>
+      <ol className="mt-2 space-y-1">
+        {visible.map((r) => (
+          <li
+            key={r.user_id}
+            className={`flex items-center justify-between rounded-lg px-2 py-1 text-sm ${
+              r.is_me
+                ? "bg-navy-soft font-semibold dark:bg-night-shell"
+                : ""
+            }`}
+          >
+            <span>
+              <span className="mr-2 inline-block w-6 font-bold">
+                {medal(r.rank)}
+              </span>
+              {r.name}
+              {r.is_me ? " (du)" : ""}
+            </span>
+            <span className="font-semibold tabular-nums">{r.elo}</span>
+          </li>
+        ))}
+      </ol>
+      {rows.length > visible.length && (
+        <button
+          onClick={() => setShowAll(true)}
+          className="mt-2 text-xs font-semibold text-navy dark:text-lime"
+        >
+          Visa alla {rows.length} →
+        </button>
+      )}
+    </section>
+  );
+}
+
 export default function SocialPage() {
   const [friends, setFriends] = useState<FriendsData | null>(null);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
@@ -225,6 +316,7 @@ export default function SocialPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [detail, setDetail] = useState<Challenge | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [duelTarget, setDuelTarget] = useState<Brief | null>(null);
   const [showFinished, setShowFinished] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -298,6 +390,19 @@ export default function SocialPage() {
     }
   }
 
+  async function decline(challengeId: string) {
+    setError(null);
+    try {
+      await api(`/api/social/challenges/${challengeId}/invite`, {
+        method: "DELETE",
+      });
+      setExpanded(null);
+      refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
   async function startRematch(challengeId: string) {
     setError(null);
     try {
@@ -365,10 +470,17 @@ export default function SocialPage() {
           {friends?.friends.map((f) => (
             <li
               key={f.friendship_id}
-              className="flex items-center justify-between py-1 text-sm"
+              className="flex items-center justify-between gap-2 py-1 text-sm"
             >
-              <span className="font-medium">👤 {f.name}</span>
-              <span className="text-xs text-faint">{f.email}</span>
+              <span className="min-w-0 flex-1 truncate font-medium">
+                👤 {f.name}
+              </span>
+              <button
+                onClick={() => setDuelTarget(f)}
+                className="shrink-0 rounded-full bg-shell px-2.5 py-1 text-xs font-semibold text-navy-deep dark:bg-night-shell dark:text-lime"
+              >
+                ⚔️ Utmana
+              </button>
             </li>
           ))}
           {friends && friends.friends.length === 0 && (
@@ -383,6 +495,8 @@ export default function SocialPage() {
           ))}
         </ul>
       </section>
+
+      <LeagueSection />
 
       <section>
         <div className="mb-2 flex items-center justify-between">
@@ -434,11 +548,17 @@ export default function SocialPage() {
               >
                 <div className="flex items-center justify-between">
                   <p className="font-bold">
-                    {c.finished ? "🏁 " : c.active ? "🔥 " : "📅 "}
+                    {c.kind === "duel"
+                      ? "⚔️ "
+                      : c.finished
+                        ? "🏁 "
+                        : c.active
+                          ? "🔥 "
+                          : "📅 "}
                     {c.name}
                   </p>
                   <span className="shrink-0 text-xs text-faint">
-                    {c.participant_count} deltagare
+                    {c.kind === "duel" ? "duell" : `${c.participant_count} deltagare`}
                   </span>
                 </div>
                 <p className="mt-0.5 text-sm text-muted dark:text-faint">
@@ -448,21 +568,44 @@ export default function SocialPage() {
                     ? ` · ${c.days_left === 0 ? "sista dagen!" : `${c.days_left} d kvar`}`
                     : ` · ${c.starts_on} → ${c.ends_on}`}
                 </p>
+                {c.stake && (
+                  <p className="mt-1 text-xs font-medium text-sand-ink dark:text-lime">
+                    🎁 Insats: {c.stake}
+                  </p>
+                )}
               </button>
+
+              {c.active && c.days_left === 0 && c.is_participant && (
+                <p className="mt-2 animate-pulse rounded-lg bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 dark:bg-red-950 dark:text-red-300">
+                  🏁 Slutspurt — sista dagen, allt kan hända!
+                </p>
+              )}
 
               {c.invited && !c.is_participant && (
                 <p className="mt-2 rounded-lg bg-navy-soft px-3 py-1.5 text-xs font-medium text-navy-deep dark:bg-night-shell dark:text-lime">
-                  🎟 Du är inbjuden till den här utmaningen!
+                  {c.kind === "duel"
+                    ? "⚔️ Du är utmanad till duell!"
+                    : "🎟 Du är inbjuden till den här utmaningen!"}
                 </p>
               )}
 
               {!c.is_participant && !c.finished && (
-                <button
-                  onClick={() => join(c.id)}
-                  className="mt-2 w-full rounded-xl bg-navy py-2 text-sm font-semibold text-white"
-                >
-                  Gå med
-                </button>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    onClick={() => join(c.id)}
+                    className="flex-1 rounded-xl bg-navy py-2 text-sm font-semibold text-white"
+                  >
+                    {c.kind === "duel" ? "⚔️ Anta duellen" : "Gå med"}
+                  </button>
+                  {c.invited && (
+                    <button
+                      onClick={() => decline(c.id)}
+                      className="rounded-xl border border-line-strong px-3 py-2 text-sm font-semibold text-muted dark:border-night-strong dark:text-night-muted"
+                    >
+                      Tacka nej
+                    </button>
+                  )}
+                </div>
               )}
 
               {c.is_participant && !c.finished && (
@@ -493,6 +636,19 @@ export default function SocialPage() {
                     </p>
                   )}
 
+                  {detail.head_to_head && detail.head_to_head.duels > 0 && (
+                    <p className="mb-2 rounded-lg bg-cream-deep px-3 py-2 text-center text-sm dark:bg-night-shell/60">
+                      ⚔️ Inbördes möten:{" "}
+                      <strong>
+                        {nameFor(detail, detail.head_to_head.a.user_id)}{" "}
+                        {detail.head_to_head.a.wins}–
+                        {detail.head_to_head.b.wins}{" "}
+                        {nameFor(detail, detail.head_to_head.b.user_id)}
+                      </strong>{" "}
+                      ({detail.head_to_head.duels} dueller)
+                    </p>
+                  )}
+
                   <ol className="space-y-1">
                     {detail.leaderboard?.map((row) => (
                       <li
@@ -514,6 +670,46 @@ export default function SocialPage() {
 
                   {detail.history && <RaceChart history={detail.history} />}
 
+                  {detail.stages && detail.stages.length > 0 && (
+                    <div className="mt-3">
+                      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-faint">
+                        🏁 Etapper — en vinnare varje vecka
+                      </p>
+                      <ul className="space-y-1">
+                        {detail.stages.map((s) => (
+                          <li
+                            key={s.index}
+                            className={`flex items-center justify-between rounded-lg px-2 py-1 text-sm ${
+                              s.current
+                                ? "bg-navy-soft font-medium dark:bg-night-shell"
+                                : ""
+                            }`}
+                          >
+                            <span>
+                              Etapp {s.index}
+                              {s.current ? " · pågår 🔥" : ""}
+                            </span>
+                            <span className="text-xs">
+                              {s.winner ? (
+                                <>
+                                  {s.completed ? "🥇 " : "leder: "}
+                                  <strong>{s.winner}</strong> · {s.value}{" "}
+                                  {detail.unit}
+                                </>
+                              ) : s.completed || s.current ? (
+                                <span className="text-faint">ingen data</span>
+                              ) : (
+                                <span className="text-faint">
+                                  {s.start.slice(5)} →
+                                </span>
+                              )}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
                   {c.is_participant && <ChallengeFeed challengeId={c.id} />}
 
                   {detail.finished && c.is_participant && (
@@ -531,11 +727,16 @@ export default function SocialPage() {
         </ul>
       </section>
 
-      {showCreate && (
+      {(showCreate || duelTarget) && (
         <CreateChallenge
-          onClose={() => setShowCreate(false)}
+          duelOpponent={duelTarget}
+          onClose={() => {
+            setShowCreate(false);
+            setDuelTarget(null);
+          }}
           onCreated={() => {
             setShowCreate(false);
+            setDuelTarget(null);
             refresh();
           }}
           onError={setError}
@@ -546,10 +747,12 @@ export default function SocialPage() {
 }
 
 function CreateChallenge({
+  duelOpponent,
   onClose,
   onCreated,
   onError,
 }: {
+  duelOpponent: Brief | null;
   onClose: () => void;
   onCreated: () => void;
   onError: (m: string) => void;
@@ -559,9 +762,13 @@ function CreateChallenge({
     "sv-SE"
   );
   const [name, setName] = useState("");
-  const [kind, setKind] = useState<"standard" | "habit">("standard");
+  const [kind, setKind] = useState<"standard" | "habit" | "duel">(
+    duelOpponent ? "duel" : "standard"
+  );
+  const [opponent, setOpponent] = useState(duelOpponent?.email ?? "");
   const [metric, setMetric] = useState("steps_total");
   const [perWeek, setPerWeek] = useState("3");
+  const [stake, setStake] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [start, setStart] = useState(today);
   const [end, setEnd] = useState(monthAhead);
@@ -582,7 +789,9 @@ function CreateChallenge({
           ends_on: end,
           kind,
           target_per_week: kind === "habit" ? Number(perWeek) || 3 : null,
-          is_open: isOpen,
+          is_open: kind === "duel" ? false : isOpen,
+          stake: stake.trim() || null,
+          opponent_email: kind === "duel" ? opponent.trim() : null,
         }),
       });
       onCreated();
@@ -603,12 +812,15 @@ function CreateChallenge({
         className="max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-5 dark:bg-night-card"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="mb-3 text-lg font-bold">Ny utmaning</h3>
+        <h3 className="mb-3 text-lg font-bold">
+          {kind === "duel" ? "⚔️ Ny duell" : "Ny utmaning"}
+        </h3>
         <div className="space-y-3">
           <div className="flex gap-1.5">
             {(
               [
                 ["standard", "🏆 Tävling"],
+                ["duel", "⚔️ Duell"],
                 ["habit", "✅ Vana"],
               ] as const
             ).map(([key, label]) => (
@@ -626,17 +838,31 @@ function CreateChallenge({
             ))}
           </div>
 
+          {kind === "duel" && (
+            <input
+              type="email"
+              value={opponent}
+              onChange={(e) => setOpponent(e.target.value)}
+              placeholder="motståndarens e-postadress"
+              className={inputCls}
+            />
+          )}
+
           <input
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={
-              kind === "habit" ? "Namn, t.ex. Träningsvanan" : "Namn, t.ex. Sommarslaget"
+              kind === "habit"
+                ? "Namn, t.ex. Träningsvanan"
+                : kind === "duel"
+                  ? "Namn, t.ex. Stegduellen"
+                  : "Namn, t.ex. Sommarslaget"
             }
             className={inputCls}
           />
 
-          {kind === "standard" ? (
+          {kind !== "habit" ? (
             <select
               value={metric}
               onChange={(e) => setMetric(e.target.value)}
@@ -684,22 +910,41 @@ function CreateChallenge({
             </label>
           </div>
 
-          <label className="flex items-center gap-2 text-sm">
+          <label className="block">
+            <span className="text-xs text-faint">
+              🎁 Insats (valfritt) — vad vinnaren får
+            </span>
             <input
-              type="checkbox"
-              checked={isOpen}
-              onChange={(e) => setIsOpen(e.target.checked)}
-              className="h-4 w-4 accent-[#23588a]"
+              value={stake}
+              onChange={(e) => setStake(e.target.value)}
+              maxLength={200}
+              placeholder="t.ex. förloraren bjuder på lunch"
+              className={inputCls}
             />
-            Öppen för alla på Shapiqo (ingen inbjudan behövs)
           </label>
 
+          {kind !== "duel" && (
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={isOpen}
+                onChange={(e) => setIsOpen(e.target.checked)}
+                className="h-4 w-4 accent-[#23588a]"
+              />
+              Öppen för alla på Shapiqo (ingen inbjudan behövs)
+            </label>
+          )}
+
           <button
-            disabled={saving || !name.trim()}
+            disabled={
+              saving ||
+              !name.trim() ||
+              (kind === "duel" && !opponent.includes("@"))
+            }
             onClick={save}
             className="w-full rounded-xl bg-navy py-3 font-semibold text-white disabled:opacity-40"
           >
-            Skapa utmaning
+            {kind === "duel" ? "⚔️ Skicka utmaningen" : "Skapa utmaning"}
           </button>
         </div>
       </div>

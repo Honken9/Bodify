@@ -168,9 +168,12 @@ class ChallengeCreate(BaseModel):
     metric: str
     starts_on: date
     ends_on: date
-    kind: str = Field(default="standard", pattern="^(standard|habit)$")
+    kind: str = Field(default="standard", pattern="^(standard|habit|duel)$")
     target_per_week: int | None = Field(default=None, ge=1, le=7)
     is_open: bool = False
+    stake: str | None = Field(default=None, max_length=200)
+    # Duell: motståndaren bjuds in direkt vid skapandet
+    opponent_email: str | None = Field(default=None, max_length=320)
 
 
 METRIC_LABELS = {
@@ -220,6 +223,7 @@ def _challenge_out(
         "kind": challenge.kind,
         "target": challenge.target,
         "is_open": challenge.is_open,
+        "stake": challenge.stake,
         "starts_on": challenge.starts_on.isoformat(),
         "ends_on": challenge.ends_on.isoformat(),
         "days_left": max((challenge.ends_on - today).days, 0),
@@ -304,6 +308,23 @@ async def create_challenge(
     if payload.kind == "habit" and not payload.target_per_week:
         raise HTTPException(400, "Vaneutmaning kräver antal pass per vecka.")
 
+    opponent: User | None = None
+    if payload.kind == "duel":
+        if not payload.opponent_email:
+            raise HTTPException(400, "En duell kräver en motståndare.")
+        opponent = await db.scalar(
+            select(User).where(
+                User.email == payload.opponent_email.lower().strip()
+            )
+        )
+        if opponent is None:
+            raise HTTPException(
+                404, "Ingen användare med den adressen — vitlista och be "
+                "personen logga in först."
+            )
+        if opponent.id == user.id:
+            raise HTTPException(400, "Du kan inte duellera mot dig själv.")
+
     challenge = Challenge(
         creator_id=user.id,
         name=payload.name,
@@ -317,7 +338,8 @@ async def create_challenge(
             if payload.kind == "habit"
             else None
         ),
-        is_open=payload.is_open,
+        is_open=False if payload.kind == "duel" else payload.is_open,
+        stake=(payload.stake or "").strip()[:200] or None,
     )
     baseline = await challenge_service.snapshot_baseline(
         db, user.id, payload.metric
@@ -327,6 +349,26 @@ async def create_challenge(
     )
     db.add(challenge)
     await db.commit()
+
+    if opponent is not None:
+        db.add(
+            ChallengeInvite(
+                challenge_id=challenge.id,
+                user_id=opponent.id,
+                invited_by=user.id,
+            )
+        )
+        await db.commit()
+        stake_line = f" Insats: {challenge.stake}." if challenge.stake else ""
+        await push.send_to_user(
+            db,
+            opponent.id,
+            "⚔️ Du är utmanad till duell!",
+            f"{user.display_name or user.email.split('@')[0]} utmanar dig: "
+            f"\"{challenge.name}\".{stake_line} Antar du?",
+            url="/social",
+        )
+
     challenge = await db.scalar(
         select(Challenge)
         .where(Challenge.id == challenge.id)
@@ -482,6 +524,7 @@ async def challenge_detail(
         **_challenge_out(challenge, user, invited=invite is not None),
         "leaderboard": board,
         "history": await challenge_service.history(db, challenge),
+        "stages": await challenge_service.stage_results(db, challenge),
     }
     if challenge.kind == "habit" and any(
         p.user_id == user.id for p in challenge.participants
@@ -490,6 +533,16 @@ async def challenge_detail(
             db, challenge, user.id
         )
         result["habit"] = {"completed": completed, "total": total}
+    if challenge.kind == "duel" and len(challenge.participants) == 2:
+        from app.services import league as league_service
+
+        a, b = challenge.participants
+        h2h = await league_service.head_to_head(db, a.user_id, b.user_id)
+        result["head_to_head"] = {
+            "a": {"user_id": str(a.user_id), "wins": h2h["wins_a"]},
+            "b": {"user_id": str(b.user_id), "wins": h2h["wins_b"]},
+            "duels": h2h["duels"],
+        }
     return result
 
 
@@ -711,6 +764,61 @@ async def cheer(
             url="/social",
         )
     return {"ok": True, "cheered": True}
+
+
+@router.delete("/challenges/{challenge_id}/invite", status_code=204)
+async def decline_invite(
+    challenge_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> None:
+    """Tacka nej till en inbjudan (t.ex. en duell)."""
+    invite = await _invite_for(db, challenge_id, user.id)
+    if invite is None:
+        raise HTTPException(404, "Ingen inbjudan att tacka nej till.")
+    challenge = await db.get(Challenge, challenge_id)
+    await db.delete(invite)
+    await db.commit()
+    if challenge is not None:
+        await push.send_to_user(
+            db,
+            challenge.creator_id,
+            "Duellen avböjdes" if challenge.kind == "duel" else "Inbjudan avböjdes",
+            f"{user.display_name or user.email.split('@')[0]} tackade nej "
+            f"till \"{challenge.name}\".",
+            url="/social",
+        )
+
+
+@router.get("/league")
+async def league(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> list[dict]:
+    """Shapiqo-ligan: alla användare rankade på Elo."""
+    rows = list(
+        await db.scalars(select(User).order_by(User.elo_rating.desc()))
+    )
+    return [
+        {
+            "rank": i + 1,
+            "user_id": str(u.id),
+            "name": u.display_name or u.email.split("@")[0],
+            "elo": u.elo_rating,
+            "is_me": u.id == user.id,
+        }
+        for i, u in enumerate(rows)
+    ]
+
+
+@router.get("/badges")
+async def my_badges(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> list[dict]:
+    from app.services import badges as badge_service
+
+    return await badge_service.user_badges(db, user.id)
 
 
 # ── Troféer & revansch ────────────────────────────────────────

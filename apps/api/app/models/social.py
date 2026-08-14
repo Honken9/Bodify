@@ -65,9 +65,13 @@ class Challenge(Base):
     # is_open: vem som helst kan gå med (veckoutmaningar m.m.)
     is_open: Mapped[bool] = mapped_column(Boolean, default=False)
     # standard = tävling, weekly = automatisk veckoutmaning,
-    # habit = vana ("X pass/vecka" — alla som klarar kravet vinner)
+    # habit = vana ("X pass/vecka"), duel = 1 mot 1
     kind: Mapped[str] = mapped_column(String(20), default="standard")
     target: Mapped[dict | None] = mapped_column(JSON)  # habit: {"per_week": 3}
+    # Insatsen — "förloraren bjuder på lunch" (ren psykologi, ingen logik)
+    stake: Mapped[str | None] = mapped_column(String(200))
+    # True när Elo-jobbet räknat in resultatet (körs aldrig om)
+    rated: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -137,6 +141,20 @@ class ChallengeCheer(Base):
         Uuid, ForeignKey("users.id", ondelete="CASCADE")
     )
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class Badge(Base):
+    """Prestationsmärke — låses upp en gång och sitter för alltid."""
+
+    __tablename__ = "badges"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    key: Mapped[str] = mapped_column(String(40), primary_key=True)
+    earned_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 

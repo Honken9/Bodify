@@ -62,7 +62,27 @@ async def participant_value(
         completed, _total = await habit_weeks_completed(db, challenge, uid)
         return float(completed)
 
-    if challenge.metric == "workout_count":
+    if challenge.metric == "weight_loss_kg":
+        baseline = participant.baseline.get("weight")
+        current = await _latest_metric_in_period(db, uid, "weight", start, end)
+        if baseline is None or current is None:
+            return 0.0
+        return round(float(baseline) - current, 2)
+
+    if challenge.metric == "fat_loss_percent":
+        baseline = participant.baseline.get("fat_percent")
+        current = await _latest_metric_in_period(db, uid, "fat_percent", start, end)
+        if baseline is None or current is None:
+            return 0.0
+        return round(float(baseline) - current, 2)
+
+    return await value_between(db, challenge.metric, uid, start, end)
+
+
+async def value_between(db: AsyncSession, metric_key, uid, start, end) -> float:
+    """Värdet för ett mätetal i ett tidsfönster — delas av leaderboard
+    (hela perioden) och etappberäkningen (en vecka i taget)."""
+    if metric_key == "workout_count":
         strength = await db.scalar(
             select(func.count(WorkoutSession.id)).where(
                 WorkoutSession.user_id == uid,
@@ -80,7 +100,7 @@ async def participant_value(
         )
         return float((strength or 0) + (cardio or 0))
 
-    if challenge.metric == "distance_km":
+    if metric_key == "distance_km":
         distance = await db.scalar(
             select(func.coalesce(func.sum(CardioActivity.distance_m), 0)).where(
                 CardioActivity.user_id == uid,
@@ -90,21 +110,7 @@ async def participant_value(
         )
         return round(float(distance or 0) / 1000, 2)
 
-    if challenge.metric == "weight_loss_kg":
-        baseline = participant.baseline.get("weight")
-        current = await _latest_metric_in_period(db, uid, "weight", start, end)
-        if baseline is None or current is None:
-            return 0.0
-        return round(float(baseline) - current, 2)
-
-    if challenge.metric == "fat_loss_percent":
-        baseline = participant.baseline.get("fat_percent")
-        current = await _latest_metric_in_period(db, uid, "fat_percent", start, end)
-        if baseline is None or current is None:
-            return 0.0
-        return round(float(baseline) - current, 2)
-
-    if challenge.metric == "steps_total":
+    if metric_key == "steps_total":
         # Bästa källan vinner per dag (samma logik som stegkortet) — summera
         rows = await db.execute(
             select(BodyMetric.measured_at, BodyMetric.value).where(
@@ -120,9 +126,9 @@ async def participant_value(
             by_day[key] = max(by_day.get(key, 0.0), float(value))
         return float(round(sum(by_day.values())))
 
-    if challenge.metric in ("sleep_score_avg", "sleep_hours_avg"):
+    if metric_key in ("sleep_score_avg", "sleep_hours_avg"):
         metric = (
-            "sleep_score" if challenge.metric == "sleep_score_avg" else "sleep_duration"
+            "sleep_score" if metric_key == "sleep_score_avg" else "sleep_duration"
         )
         rows = list(
             await db.scalars(
@@ -138,7 +144,7 @@ async def participant_value(
             return 0.0
         return round(sum(float(v) for v in rows) / len(rows), 2)
 
-    if challenge.metric == "active_days":
+    if metric_key == "active_days":
         days: set = set()
         for row in await db.scalars(
             select(WorkoutSession.started_at).where(
@@ -159,7 +165,7 @@ async def participant_value(
             days.add(row.date())
         return float(len(days))
 
-    if challenge.metric == "workout_minutes":
+    if metric_key == "workout_minutes":
         sessions = list(
             await db.scalars(
                 select(WorkoutSession).where(
@@ -184,12 +190,12 @@ async def participant_value(
         )
         return float(round((strength_s + float(cardio_s or 0)) / 60))
 
-    if challenge.metric == "logged_days":
+    if metric_key == "logged_days":
         count = await db.scalar(
             select(func.count(func.distinct(MealEntry.eaten_on))).where(
                 MealEntry.user_id == uid,
-                MealEntry.eaten_on >= challenge.starts_on,
-                MealEntry.eaten_on <= challenge.ends_on,
+                MealEntry.eaten_on >= start.date(),
+                MealEntry.eaten_on < end.date(),
             )
         )
         return float(count or 0)
@@ -302,6 +308,76 @@ async def history(db: AsyncSession, challenge: Challenge) -> dict:
             aligned.append(last)
         series.append({"user_id": uid, "name": names.get(uid, "?"), "values": aligned})
     return {"days": [d.isoformat() for d in days], "series": series}
+
+
+# Mätetal där en veckoetapp är meningsfull (summor/snitt i fönster)
+STAGEABLE_METRICS = {
+    "steps_total",
+    "workout_count",
+    "distance_km",
+    "workout_minutes",
+    "active_days",
+    "logged_days",
+    "sleep_score_avg",
+    "sleep_hours_avg",
+}
+
+
+async def stage_results(db: AsyncSession, challenge: Challenge) -> list[dict]:
+    """Etapper: 7-dagarsblock i utmaningar ≥ 14 dagar — varje vecka har
+    en egen vinnare så det alltid finns något att slåss om just nu."""
+    duration = (challenge.ends_on - challenge.starts_on).days + 1
+    if (
+        duration < 14
+        or challenge.kind == "habit"
+        or challenge.metric not in STAGEABLE_METRICS
+        or len(challenge.participants) < 2
+    ):
+        return []
+
+    names = {}
+    for p in challenge.participants:
+        u = await db.get(User, p.user_id)
+        names[p.user_id] = (
+            (u.display_name or u.email.split("@")[0]) if u else "?"
+        )
+
+    today = date.today()
+    stages = []
+    stage_start = challenge.starts_on
+    index = 0
+    while stage_start <= challenge.ends_on and index < 12:
+        index += 1
+        stage_end = min(stage_start + timedelta(days=6), challenge.ends_on)
+        entry = {
+            "index": index,
+            "start": stage_start.isoformat(),
+            "end": stage_end.isoformat(),
+            "completed": stage_end < today,
+            "current": stage_start <= today <= stage_end,
+            "winner": None,
+            "value": None,
+        }
+        if stage_start <= today:
+            start_dt = datetime.combine(
+                stage_start, time.min, tzinfo=timezone.utc
+            )
+            end_dt = datetime.combine(
+                stage_end + timedelta(days=1), time.min, tzinfo=timezone.utc
+            )
+            best = None
+            for p in challenge.participants:
+                value = await value_between(
+                    db, challenge.metric, p.user_id, start_dt, end_dt
+                )
+                if best is None or value > best[1]:
+                    best = (p.user_id, value)
+            if best is not None and best[1] > 0:
+                entry["winner"] = names.get(best[0], "?")
+                entry["value"] = best[1]
+        stages.append(entry)
+        stage_start += timedelta(days=7)
+    return stages
 
 
 async def trophies(db: AsyncSession, user_id) -> list[dict]:
@@ -457,6 +533,42 @@ async def run_daily_snapshots(db: AsyncSession) -> dict:
                         url="/social",
                     )
 
+        # Ledarbyte — dramat pushas till ALLA deltagare
+        if len(board) > 1 and prev_ranking:
+            old_leader = prev_ranking[0]
+            new_leader = board[0]
+            if new_leader["user_id"] != old_leader and new_leader["value"] > 0:
+                for row in board:
+                    if row["user_id"] == new_leader["user_id"]:
+                        title, text = (
+                            "🥇 Du tog ledningen!",
+                            f"Du toppar nu \"{challenge.name}\" — försvara den!",
+                        )
+                    else:
+                        title = f"🔥 {new_leader['name']} tog ledningen!"
+                        text = f"Nytt läge i \"{challenge.name}\" — jaga!"
+                    notified += await push.send_to_user(
+                        db, uuid.UUID(row["user_id"]), title, text, url="/social"
+                    )
+
+        # Etappavgörande: i går var sista dagen på en veckoetapp
+        days_in = (yesterday - challenge.starts_on).days
+        if days_in >= 6 and days_in % 7 == 6:
+            stages = await stage_results(db, challenge)
+            stage_idx = days_in // 7  # 0-baserat → etappen som just avslutats
+            if stage_idx < len(stages):
+                stage = stages[stage_idx]
+                if stage["completed"] and stage["winner"]:
+                    for p in challenge.participants:
+                        notified += await push.send_to_user(
+                            db,
+                            p.user_id,
+                            f"🏁 Etapp {stage['index']} avgjord!",
+                            f"{stage['winner']} tog veckan i "
+                            f"\"{challenge.name}\" med {stage['value']:g}.",
+                            url="/social",
+                        )
+
         # Sista dagen — hinn påverka!
         if challenge.ends_on == today and len(board) > 1:
             for row in board:
@@ -505,9 +617,14 @@ async def run_daily_snapshots(db: AsyncSession) -> dict:
                         f"Du klarade {completed} av {total} veckor — ny chans i nästa!",
                     )
             elif row["rank"] == 1:
+                stake_line = (
+                    f" Insatsen är din: {challenge.stake}."
+                    if challenge.stake
+                    else " Trofén finns på din profil."
+                )
                 title, text = (
                     f"🏆 Du vann \"{challenge.name}\"!",
-                    f"Slutresultat: {row['value']:g}. Trofén finns på din profil.",
+                    f"Slutresultat: {row['value']:g}.{stake_line}",
                 )
             else:
                 medal = {2: "🥈", 3: "🥉"}.get(row["rank"], "🎖")
@@ -521,8 +638,18 @@ async def run_daily_snapshots(db: AsyncSession) -> dict:
             )
 
     await db.commit()
+
+    # Ligan: betygsätt nyavgjorda tävlingar (Elo + vinst-/comeback-märken)
+    from app.services import badges as badge_service
+    from app.services import league as league_service
+
+    rating = await league_service.rate_finished_challenges(db)
+    new_badges = await badge_service.evaluate_all(db)
+
     return {
         "snapshots": snapshots,
         "notifications": notified,
         "weekly_created": weekly_created,
+        "rated": rating["rated"],
+        "new_badges": new_badges,
     }
