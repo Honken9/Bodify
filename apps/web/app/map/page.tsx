@@ -45,6 +45,17 @@ const PERIODS: [string, string][] = [
   ["year", "År"],
 ];
 
+// Modulnivå: skapas en gång, inte vid varje rendering
+const fmtDate = new Intl.DateTimeFormat("sv-SE", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
+// Så många listrader renderas åt gången — hela historiken som DOM
+// (tusentals rader) gör varje kartrörelse trög
+const LIST_CHUNK = 80;
+
 function isoWeek(date: Date): number {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   const dayNum = d.getUTCDay() || 7;
@@ -65,6 +76,7 @@ export default function MapPage() {
   const [viewport, setViewport] = useState<Viewport | null>(null);
   const [zoomOutKey, setZoomOutKey] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [visibleCount, setVisibleCount] = useState(LIST_CHUNK);
   const [bulkPicker, setBulkPicker] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
@@ -82,6 +94,11 @@ export default function MapPage() {
   useEffect(() => {
     load().catch((e: Error) => setError(e.message));
   }, []);
+
+  // Nytt filter/period → börja om från toppen av listan
+  useEffect(() => {
+    setVisibleCount(LIST_CHUNK);
+  }, [filter, period, periodOffset]);
 
   async function syncHistory() {
     setSyncing(true);
@@ -225,12 +242,7 @@ export default function MapPage() {
     ];
   }, [allFiltered, geoById, filter, geo, range]);
   const routes = mapActivities.filter((a) => a.polyline).length;
-
-  const fmtDate = new Intl.DateTimeFormat("sv-SE", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  const shownItems = listItems.slice(0, visibleCount);
 
   const focusIdx = mapActivities.findIndex((a) => a.id === focusId);
 
@@ -521,7 +533,7 @@ export default function MapPage() {
                   Inga pass i den här vyn.
                 </p>
               )}
-              {listItems.map((a) => {
+              {shownItems.map((a) => {
                 const g = geoById.get(a.id);
                 const active = focusId === a.id;
                 return (
@@ -588,6 +600,16 @@ export default function MapPage() {
                   </li>
                 );
               })}
+              {listItems.length > visibleCount && (
+                <li>
+                  <button
+                    onClick={() => setVisibleCount((c) => c + 200)}
+                    className="w-full rounded-xl border border-dashed border-line-strong py-2.5 text-sm font-semibold text-navy dark:border-night-strong dark:text-lime"
+                  >
+                    Visa fler ({listItems.length - visibleCount} kvar)
+                  </button>
+                </li>
+              )}
             </ul>
           </section>
         </div>

@@ -153,9 +153,14 @@ export default function ActivityMap({
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
+      updateWhenIdle: true, // hämta tiles först när rörelsen stannat
       attribution:
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(map);
+
+    // Stor historik: hoppa över dekorativa startprickar och förenkla
+    // linjerna hårdare — halverar antalet lager och ritpunkter
+    const manyLayers = activities.length > 300;
 
     const bounds = L.latLngBounds([]);
     const fmtDate = new Intl.DateTimeFormat("sv-SE", {
@@ -183,20 +188,23 @@ export default function ActivityMap({
             color: "#23588a",
             weight: 3,
             opacity: 0.85,
+            smoothFactor: manyLayers ? 2.5 : 1,
           })
             .bindPopup(label)
             .addTo(map);
           layersRef.current.set(a.id, { layer: line, isRoute: true });
           bounds.extend(line.getBounds());
-          L.circleMarker(coords[0], {
-            radius: 5,
-            color: "#7fc22b",
-            fillColor: "#a1e645",
-            fillOpacity: 1,
-            weight: 2,
-          })
-            .bindPopup(label)
-            .addTo(map);
+          if (!manyLayers) {
+            L.circleMarker(coords[0], {
+              radius: 5,
+              color: "#7fc22b",
+              fillColor: "#a1e645",
+              fillOpacity: 1,
+              weight: 2,
+            })
+              .bindPopup(label)
+              .addTo(map);
+          }
           continue;
         }
       }

@@ -16,6 +16,10 @@
 		max_size 25MB
 	}
 
+	# Komprimera svaren — kartans geo-JSON (tusentals polylines) krymper
+	# till en bråkdel genom tunneln
+	encode zstd gzip
+
 	handle /api/* {
 		reverse_proxy api:8000
 	}
