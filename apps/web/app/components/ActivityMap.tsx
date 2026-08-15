@@ -67,6 +67,9 @@ export default function ActivityMap({
     Map<string, { layer: L.Polyline | L.CircleMarker; isRoute: boolean }>
   >(new Map());
   const focusRef = useRef<string | null>(focusId);
+  // Senaste vyn — överlever ombygge av kartan (nya data ska inte
+  // kasta användaren tillbaka till utzoomat läge)
+  const viewRef = useRef<{ center: L.LatLng; zoom: number } | null>(null);
   const myPosRef = useRef<{ dot: L.CircleMarker; ring: L.Circle } | null>(null);
   const [locating, setLocating] = useState(false);
   // Callback i ref så kartan inte byggs om när föräldern re-renderar
@@ -217,16 +220,19 @@ export default function ActivityMap({
     const focused = focusRef.current && layersRef.current.get(focusRef.current);
     if (focused) styleEntry(focused, true);
 
-    if (bounds.isValid()) {
-      allBoundsRef.current = bounds;
+    allBoundsRef.current = bounds.isValid() ? bounds : null;
+    if (viewRef.current) {
+      // Ombygge (nya data) — stanna kvar där användaren var
+      map.setView(viewRef.current.center, viewRef.current.zoom);
+    } else if (bounds.isValid()) {
       map.fitBounds(bounds, { padding: [30, 30] });
     } else {
-      allBoundsRef.current = null;
       map.setView([59.334, 18.063], 5); // Sverige som utgångsvy
     }
 
     // Rapportera kartutsnittet vid zoom/panorering (och startläget)
     const reportViewport = () => {
+      viewRef.current = { center: map.getCenter(), zoom: map.getZoom() };
       const b = map.getBounds();
       onViewportRef.current?.({
         south: b.getSouth(),

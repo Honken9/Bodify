@@ -114,7 +114,10 @@ export default function MapPage() {
     }
   }
 
-  const geoById = new Map(geo.map((g) => [g.id, g]));
+  const geoById = useMemo(
+    () => new Map(geo.map((g) => [g.id, g])),
+    [geo]
+  );
 
   // Representativ punkt per aktivitet (startpunkt eller ruttens första)
   // — beräknas en gång per datahämtning, inte varje kartrörelse
@@ -142,8 +145,10 @@ export default function MapPage() {
     );
   };
 
-  // Vald tidsperiod → [start, slut) att filtrera på; null = allt
-  function periodRange(): [Date, Date] | null {
+  // Vald tidsperiod → [start, slut) att filtrera på; null = allt.
+  // Memoiseras så att range (och allt nedströms) behåller identitet
+  // mellan renderingar — annars byggs kartan om vid varje kartrörelse.
+  const range = useMemo((): [Date, Date] | null => {
     if (period === "all") return null;
     const now = new Date();
     if (period === "year") {
@@ -163,8 +168,7 @@ export default function MapPage() {
     const end = new Date(monday);
     end.setDate(end.getDate() + 7);
     return [monday, end];
-  }
-  const range = periodRange();
+  }, [period, periodOffset]);
 
   function periodLabel(): string {
     if (!range) return "";
@@ -183,36 +187,43 @@ export default function MapPage() {
   }
 
   // Listan: alla pass (typ- + tidsfilter), "nogps" = bara de utan GPS
-  const allFiltered = (all ?? []).filter((a) => {
-    if (range) {
-      const t = new Date(a.started_at);
-      if (t < range[0] || t >= range[1]) return false;
-    }
-    if (filter === "nogps") return !geoById.has(a.id);
-    return filter === "all" || a.type === filter;
-  });
+  const allFiltered = useMemo(
+    () =>
+      (all ?? []).filter((a) => {
+        if (range) {
+          const t = new Date(a.started_at);
+          if (t < range[0] || t >= range[1]) return false;
+        }
+        if (filter === "nogps") return !geoById.has(a.id);
+        return filter === "all" || a.type === filter;
+      }),
+    [all, range, filter, geoById]
+  );
   // Kartvyn styr listan: bara pass i det synliga utsnittet visas
   const listItems =
     filter === "nogps"
       ? allFiltered
       : allFiltered.filter((a) => !geoById.has(a.id) || inViewport(a.id));
   const hiddenByViewport = allFiltered.length - listItems.length;
-  // Kartan: de av listans pass som har GPS + styrkepass med position
-  const inRange = (iso: string) => {
-    if (!range) return true;
-    const t = new Date(iso);
-    return t >= range[0] && t < range[1];
-  };
   // Kartan ritar ALLT (annars flyttar kartinnehållet sig när man zoomar
-  // — bara listan under följer utsnittet)
-  const mapActivities = [
-    ...allFiltered
-      .map((a) => geoById.get(a.id))
-      .filter((g): g is GeoActivity => !!g),
-    ...(filter === "all"
-      ? geo.filter((g) => g.type === "strength" && inRange(g.started_at))
-      : []),
-  ];
+  // — bara listan under följer utsnittet). VIKTIGT: memoiserad så att
+  // arrayen behåller identitet när bara viewport-statet ändras — annars
+  // rivs och ombyggs Leaflet-kartan vid varje zoom (oändlig loop).
+  const mapActivities = useMemo(() => {
+    const inRange = (iso: string) => {
+      if (!range) return true;
+      const t = new Date(iso);
+      return t >= range[0] && t < range[1];
+    };
+    return [
+      ...allFiltered
+        .map((a) => geoById.get(a.id))
+        .filter((g): g is GeoActivity => !!g),
+      ...(filter === "all"
+        ? geo.filter((g) => g.type === "strength" && inRange(g.started_at))
+        : []),
+    ];
+  }, [allFiltered, geoById, filter, geo, range]);
   const routes = mapActivities.filter((a) => a.polyline).length;
 
   const fmtDate = new Intl.DateTimeFormat("sv-SE", {
