@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
-import { healthKit, type HealthKitCounts } from "../lib/native";
+import {
+  healthKit,
+  type HealthKitCounts,
+  type HealthKitPlugin,
+} from "../lib/native";
 
 type IntegrationsStatus = {
   providers: {
@@ -39,11 +43,17 @@ function urlBase64ToUint8Array(base64: string): Uint8Array {
 /** Visas bara inne i Shapiqo-appen: HealthKit-synk direkt från iPhonen,
  * utan Health Auto Export som mellansteg. */
 function NativeHealthSection({ onError }: { onError: (m: string) => void }) {
-  const plugin = healthKit();
+  // Pluginet läses först efter mount — annars renderar servern null men
+  // appens första klientrender sektionen, och hydreringen spricker
+  const [plugin, setPlugin] = useState<HealthKitPlugin | null>(null);
   const [configured, setConfigured] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPlugin(healthKit());
+  }, []);
 
   const refreshStatus = useCallback(() => {
     plugin

@@ -1,5 +1,6 @@
 import Foundation
 import Capacitor
+import CoreLocation
 import HealthKit
 
 /// Synkar Apple Health direkt till Shapiqo-servern — samma payloadformat
@@ -278,7 +279,7 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
     private func fetchWorkouts(start: Date, end: Date) async -> [[String: Any]] {
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: [])
         let workouts: [HKWorkout] = await withCheckedContinuation { cont in
-            let query = HKSampleQuery(sampleType: .workoutType(), predicate: predicate,
+            let query = HKSampleQuery(sampleType: HKObjectType.workoutType(), predicate: predicate,
                                       limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, result, _ in
                 cont.resume(returning: (result as? [HKWorkout]) ?? [])
             }
