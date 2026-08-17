@@ -1,0 +1,19 @@
+{
+  "appId": "com.shapiqo.app",
+  "appName": "Shapiqo",
+  "webDir": "www",
+  "server": {
+    "url": "https://shapiqo.com",
+    "allowNavigation": [
+      "shapiqo.com",
+      "*.cloudflareaccess.com",
+      "*.strava.com",
+      "strava.com",
+      "*.withings.com"
+    ]
+  },
+  "ios": {
+    "contentInset": "automatic",
+    "backgroundColor": "#faf6ef"
+  }
+}

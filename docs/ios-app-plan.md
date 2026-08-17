@@ -15,16 +15,17 @@ sedan publik App Store-listning.
 - [ ] App-ikon: en 1024×1024-bild behövs. Underlag kan genereras från
       befintlig PWA-ikon.
 
-## Fas 1 — Capacitor-skal (Claude bygger i repot)
+## Fas 1 — Capacitor-skal (Claude bygger i repot) — ✅ KLAR
 
-- [ ] Nytt paket `apps/ios` med Capacitor: iOS-projekt som laddar
-      `https://shapiqo.com` i en native webbvy (remote-läge = appen visar
-      alltid senaste deployen, UI-ändringar kräver aldrig app-uppdatering).
-- [ ] Persistenta cookies i WKWebView så Cloudflare Access-sessionen
-      överlever appomstarter (ingen ny OTP varje gång).
-- [ ] Safe areas/notch, statusfärg, splashskärm, appikon i alla storlekar.
-- [ ] Extern-länk-hantering (Strava/Withings-OAuth öppnas korrekt och
-      studsar tillbaka in i appen).
+- [x] Nytt paket `apps/ios` med Capacitor 7 (SPM, inga CocoaPods):
+      iOS-projekt som laddar `https://shapiqo.com` i en native webbvy.
+- [x] Persistenta cookies i WKWebView (standard i Capacitor) så
+      Cloudflare Access-sessionen överlever appomstarter.
+- [x] Safe areas, bakgrundsfärg, standardsplash (egen ikon återstår).
+- [x] OAuth-domäner vitlistade i `allowNavigation` så Strava/Withings-
+      flöden stannar i appen.
+
+Se `docs/ios-bygga.md` för bygginstruktionerna.
 
 **Beslutspunkt inloggning:** på sikt bör appen autentisera direkt mot API:t
 med egen långlivad token (t.ex. QR/engångskod från webbvyn) i stället för
@@ -33,14 +34,14 @@ vardagsanvändningen enklare. Kan byggas i fas 2 eller senare.
 
 ## Fas 2 — Native mervärde (Claude bygger, Daniel testar på sin iPhone)
 
-- [ ] **HealthKit-synk**: appen begär läsrättigheter för steg, puls, sömn,
-      träningspass, VO₂max, SpO₂, trappor, aktiv energi och GPS-rutter och
-      postar till befintliga `/api/apple-health`-endpoints med ingest-token
-      (samma väg som Health Auto Export använder i dag — servern behöver
-      knappt röras). Health Auto Export blir därmed onödig för iPhone-
-      användare.
-- [ ] Bakgrundssynk med HealthKit observer queries + background delivery,
-      så data flyter in utan att appen öppnas.
+- [x] **HealthKit-synk**: `HealthKitSync.swift` läser steg, vilopuls, HRV,
+      VO₂max, SpO₂, trappor, träningsminuter, aktiv energi, vikt,
+      kroppsfett, sömnfaser och pass (puls + GPS-rutt) och postar
+      HAE-kompatibel payload till `/api/webhooks/apple-health` med
+      ingest-token — noll serverändringar. Aktiveras från Kopplingar-sidan
+      i appen.
+- [x] Bakgrundssynk med HealthKit observer queries + background delivery
+      (nya pass/steg väcker appen som synkar tyst).
 - [ ] **APNs-push**: webbpush når inte in i en WKWebView, så appen
       registrerar en APNs-token. Backend: ny kolumn/tabell för APNs-tokens
       bredvid webbpush-prenumerationerna, sändning med token-baserad

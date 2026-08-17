@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
+import { healthKit, type HealthKitCounts } from "../lib/native";
 
 type IntegrationsStatus = {
   providers: {
@@ -33,6 +34,157 @@ function urlBase64ToUint8Array(base64: string): Uint8Array {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
   const raw = atob((base64 + padding).replace(/-/g, "+").replace(/_/g, "/"));
   return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+}
+
+/** Visas bara inne i Shapiqo-appen: HealthKit-synk direkt från iPhonen,
+ * utan Health Auto Export som mellansteg. */
+function NativeHealthSection({ onError }: { onError: (m: string) => void }) {
+  const plugin = healthKit();
+  const [configured, setConfigured] = useState(false);
+  const [lastSync, setLastSync] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const refreshStatus = useCallback(() => {
+    plugin
+      ?.status()
+      .then((s) => {
+        setConfigured(s.configured);
+        setLastSync(s.lastSync ?? null);
+      })
+      .catch(() => {});
+  }, [plugin]);
+  useEffect(refreshStatus, [refreshStatus]);
+
+  if (!plugin) return null;
+
+  function describe(counts: HealthKitCounts): string {
+    return (
+      `✅ Synkat: ${counts.metrics} mätvärden, ${counts.sleep} nätter, ` +
+      `${counts.workouts} pass.`
+    );
+  }
+
+  async function activate() {
+    setBusy("activate");
+    setMessage(null);
+    try {
+      const available = await plugin!.isAvailable();
+      if (!available.available) {
+        onError("Hälsodata är inte tillgängligt på den här enheten.");
+        return;
+      }
+      const created = await api<{ token: string; endpoint: string }>(
+        "/api/integrations/apple-health/tokens",
+        { method: "POST", body: JSON.stringify({ label: "Shapiqo-appen" }) }
+      );
+      await plugin!.configure({
+        endpoint: `${window.location.origin}/api/webhooks/apple-health`,
+        token: created.token,
+      });
+      const auth = await plugin!.requestAuthorization();
+      if (!auth.granted) {
+        onError(
+          "Hälsobehörigheten nekades — öppna Inställningar → Integritet → " +
+            "Hälsa → Shapiqo och slå på det du vill dela."
+        );
+      }
+      setMessage("⏳ Hämtar de senaste 90 dagarna…");
+      const counts = await plugin!.sync({ days: 90 });
+      setMessage(describe(counts));
+      refreshStatus();
+    } catch (e) {
+      onError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function syncNow(days: number, label: string) {
+    setBusy(label);
+    setMessage(days > 365 ? "⏳ Hämtar hela historiken — kan ta en stund…" : null);
+    try {
+      const counts = await plugin!.sync({ days });
+      setMessage(describe(counts));
+      refreshStatus();
+    } catch (e) {
+      onError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function turnOff() {
+    if (!window.confirm("Stänga av HealthKit-synken i appen?")) return;
+    await plugin!.disable().catch(() => {});
+    setMessage(
+      "Avstängd. Ta även bort token ”Shapiqo-appen” i listan under " +
+        "Apple Health nedan."
+    );
+    refreshStatus();
+  }
+
+  return (
+    <section className="rounded-2xl border-2 border-navy-line bg-white p-5 dark:border-night-strong dark:bg-night-card">
+      <div className="flex items-center justify-between">
+        <h2 className="font-bold">📱 Apple Health i appen</h2>
+        {configured && (
+          <span className="rounded-full bg-navy-soft px-2.5 py-0.5 text-xs font-semibold text-navy-deep dark:bg-night-shell dark:text-lime">
+            Aktiv
+          </span>
+        )}
+      </div>
+      <p className="mt-1 text-sm text-muted dark:text-faint">
+        Appen läser hälsodatan direkt ur iPhonen — steg, puls, sömn, VO₂max,
+        pass med GPS — och synkar automatiskt i bakgrunden. Ingen extra app
+        behövs.
+      </p>
+      {lastSync && (
+        <p className="mt-1 text-xs text-faint">Senaste synk: {lastSync}</p>
+      )}
+      {message && (
+        <p className="mt-2 rounded-xl bg-sand p-3 text-sm text-sand-ink dark:bg-night-shell dark:text-lime">
+          {message}
+        </p>
+      )}
+
+      {!configured ? (
+        <button
+          disabled={busy !== null}
+          onClick={activate}
+          className="mt-3 w-full rounded-xl bg-navy py-2.5 font-semibold text-white disabled:opacity-50"
+        >
+          {busy === "activate" ? "Aktiverar…" : "🍎 Aktivera Apple Health-synk"}
+        </button>
+      ) : (
+        <div className="mt-3 space-y-2">
+          <div className="flex gap-2">
+            <button
+              disabled={busy !== null}
+              onClick={() => syncNow(7, "week")}
+              className="flex-1 rounded-xl bg-navy py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {busy === "week" ? "Synkar…" : "🔄 Synka nu"}
+            </button>
+            <button
+              disabled={busy !== null}
+              onClick={() => syncNow(3650, "all")}
+              className="flex-1 rounded-xl border border-navy-line py-2.5 text-sm font-semibold text-navy-deep disabled:opacity-50 dark:border-night-strong dark:text-lime"
+            >
+              {busy === "all" ? "Hämtar…" : "📚 Hela historiken"}
+            </button>
+          </div>
+          <button
+            disabled={busy !== null}
+            onClick={turnOff}
+            className="w-full text-center text-xs text-muted underline dark:text-night-muted"
+          >
+            Stäng av synken
+          </button>
+        </div>
+      )}
+    </section>
+  );
 }
 
 function PushSection({ onError }: { onError: (m: string) => void }) {
@@ -331,6 +483,8 @@ export default function SettingsPage() {
           </button>
         </div>
       </section>
+
+      <NativeHealthSection onError={setError} />
 
       <section className="rounded-2xl border border-line bg-white p-5 dark:border-night-shell dark:bg-night-card">
         <h2 className="font-bold">Apple Health</h2>

@@ -1,0 +1,12 @@
+App/build
+App/Pods
+App/output
+DerivedData
+xcuserdata
+
+# Cordova plugins for Capacitor
+capacitor-cordova-ios-plugins
+
+# OBS: App/App/public, capacitor.config.json och config.xml är genererade
+# av `npx cap sync ios` men committas med flit — då kan appen byggas i
+# Xcode direkt utan att Node finns på Macen.

@@ -1,0 +1,14 @@
+{
+  "name": "shapiqo-ios",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Shapiqo iOS-app (Capacitor-skal med HealthKit-synk)",
+  "scripts": {
+    "sync": "cap sync ios"
+  },
+  "dependencies": {
+    "@capacitor/cli": "^7.6.8",
+    "@capacitor/core": "^7.6.8",
+    "@capacitor/ios": "^7.6.8"
+  }
+}
