@@ -41,7 +41,7 @@ jobba klart, tar en minut).
    **Signing & Capabilities**.
 2. Bocka i **Automatically manage signing**.
 3. Välj ditt **Team** (ditt utvecklarkonto) i rullistan.
-4. Kontrollera att **Bundle Identifier** är `com.shapiqo.app`.
+4. Kontrollera att **Bundle Identifier** är `se.vintermist.Shapiqo`.
    Xcode registrerar App ID:t åt dig första gången.
 5. Kontrollera att **HealthKit** syns som capability (entitlements-filen
    är redan kopplad — syns den inte: klicka **+ Capability** → HealthKit).
@@ -64,7 +64,7 @@ jobba klart, tar en minut).
 1. Skapa appen i App Store Connect (en gång):
    [appstoreconnect.apple.com](https://appstoreconnect.apple.com) → Mina
    appar → **+** → Ny app → plattform iOS, namn **Shapiqo**, bundle-ID
-   `com.shapiqo.app`, SKU t.ex. `shapiqo-1`.
+   `se.vintermist.Shapiqo`, SKU t.ex. `shapiqo-1`.
 2. I Xcode: välj **Any iOS Device (arm64)** som mål →
    **Product → Archive**.
 3. När arkivet är klart öppnas Organizer → **Distribute App** →

@@ -11,7 +11,7 @@ sedan publik App Store-listning.
 - [ ] Registrera Apple Developer Program på developer.apple.com (99 USD/år).
       Verifieringen tar ibland 1–2 dagar — starta den först av allt.
 - [ ] Installera Xcode från Mac App Store (~15 GB, låt den stå och ladda).
-- [ ] Bestäm bundle-ID, förslag: `com.shapiqo.app`.
+- [ ] Bestäm bundle-ID, förslag: `se.vintermist.Shapiqo`.
 - [ ] App-ikon: en 1024×1024-bild behövs. Underlag kan genereras från
       befintlig PWA-ikon.
 
