@@ -1,29 +1,18 @@
 import Foundation
-import Capacitor
 import CoreLocation
 import HealthKit
 
-/// Synkar Apple Health direkt till Shapiqo-servern — samma payloadformat
-/// och endpoint som Health Auto Export använder, så backend är oförändrad.
-/// Webben (i appens webbvy) konfigurerar modulen med endpoint + ingest-token
-/// och triggar synk; bakgrundsleverans håller datan färsk däremellan.
-@objc(HealthKitSyncPlugin)
-public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
-    public let identifier = "HealthKitSyncPlugin"
-    public let jsName = "HealthKitSync"
-    public let pluginMethods: [CAPPluginMethod] = [
-        CAPPluginMethod(name: "isAvailable", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "configure", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "requestAuthorization", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "sync", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "status", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "disable", returnType: CAPPluginReturnPromise),
-    ]
+/// Läser Apple Health och synkar till Shapiqo-servern med samma
+/// payloadformat och endpoint som Health Auto Export — backend orörd.
+/// Konfigureras med ingest-token (Keychain) och håller sig färsk via
+/// HealthKits bakgrundsleverans.
+final class HealthKitService {
+    static let shared = HealthKitService()
 
     private let store = HKHealthStore()
-    private static var syncing = false
+    private var syncing = false
 
-    // Serverns parser förväntar sig HAE:s datumformat: "2026-08-16 07:30:00 +0200"
+    // Serverns parser förväntar sig HAE:s datumformat
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd HH:mm:ss Z"
@@ -33,9 +22,9 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
 
     private struct MetricSpec {
         let id: HKQuantityTypeIdentifier
-        let haeName: String   // namnet METRIC_MAP i backend känner igen
+        let haeName: String
         let unit: HKUnit
-        let cumulative: Bool  // summa per dag (annars snitt per dag)
+        let cumulative: Bool
         let scale: Double
     }
 
@@ -66,90 +55,71 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         return types
     }
 
-    public override func load() {
-        // Om synk redan är aktiverad: väck observatörerna vid varje appstart
-        if SyncSettings.load() != nil {
-            startObservers()
-        }
+    // MARK: - Publikt API
+
+    var isAvailable: Bool { HKHealthStore.isHealthDataAvailable() }
+
+    var isConfigured: Bool { loadSettings() != nil }
+
+    var lastSync: Date? {
+        UserDefaults.standard.object(forKey: "shapiqo.lastSync") as? Date
     }
 
-    // MARK: - JS-metoder
-
-    @objc func isAvailable(_ call: CAPPluginCall) {
-        call.resolve(["available": HKHealthStore.isHealthDataAvailable()])
+    func configure(endpoint: String, token: String) {
+        guard endpoint.hasPrefix("https://") else { return }
+        guard let data = try? JSONSerialization.data(
+            withJSONObject: ["endpoint": endpoint, "token": token]
+        ), let json = String(data: data, encoding: .utf8) else { return }
+        KeychainStore.write("shapiqo.healthkit.sync", value: json)
     }
 
-    @objc func configure(_ call: CAPPluginCall) {
-        guard let endpoint = call.getString("endpoint"), let token = call.getString("token"),
-              endpoint.hasPrefix("https://") else {
-            call.reject("endpoint (https) och token krävs.")
-            return
-        }
-        SyncSettings.save(endpoint: endpoint, token: token)
-        call.resolve()
-    }
-
-    @objc func requestAuthorization(_ call: CAPPluginCall) {
-        guard HKHealthStore.isHealthDataAvailable() else {
-            call.reject("Hälsodata är inte tillgängligt på den här enheten.")
-            return
-        }
-        store.requestAuthorization(toShare: nil, read: readTypes) { [weak self] granted, error in
-            if let error = error {
-                call.reject("Behörighetsfrågan misslyckades: \(error.localizedDescription)")
-                return
-            }
-            self?.startObservers()
-            call.resolve(["granted": granted])
-        }
-    }
-
-    @objc func sync(_ call: CAPPluginCall) {
-        let days = call.getInt("days") ?? 7
-        guard SyncSettings.load() != nil else {
-            call.reject("Synken är inte konfigurerad ännu.")
-            return
-        }
-        Task {
-            do {
-                let counts = try await self.runSync(days: days)
-                call.resolve(counts)
-            } catch {
-                call.reject("Synk misslyckades: \(error.localizedDescription)")
+    func requestAuthorization() async -> Bool {
+        guard isAvailable else { return false }
+        return await withCheckedContinuation { cont in
+            store.requestAuthorization(toShare: nil, read: readTypes) { granted, _ in
+                cont.resume(returning: granted)
             }
         }
     }
 
-    @objc func status(_ call: CAPPluginCall) {
-        let configured = SyncSettings.load() != nil
-        var result: [String: Any] = ["configured": configured]
-        if let last = UserDefaults.standard.object(forKey: "shapiqo.lastSync") as? Date {
-            result["lastSync"] = Self.dateFormatter.string(from: last)
-        }
-        call.resolve(result)
-    }
-
-    @objc func disable(_ call: CAPPluginCall) {
+    func disable() {
         store.disableAllBackgroundDelivery { _, _ in }
-        SyncSettings.clear()
+        KeychainStore.delete("shapiqo.healthkit.sync")
         UserDefaults.standard.removeObject(forKey: "shapiqo.lastSync")
-        call.resolve()
     }
 
-    // MARK: - Synkmotorn
-
-    /// Hämtar allt ur HealthKit för fönstret och POST:ar till servern.
-    /// Långa fönster delas i 90-dagarsblock så payloaden hålls rimlig.
-    private func runSync(days: Int) async throws -> [String: Int] {
-        guard let settings = SyncSettings.load() else {
-            throw NSError(domain: "HealthKitSync", code: 1,
-                          userInfo: [NSLocalizedDescriptionKey: "Inte konfigurerad."])
+    /// Registreras vid appstart och efter aktivering — nya pass/steg i
+    /// HealthKit väcker appen som synkar tyst i bakgrunden.
+    func startObserversIfConfigured() {
+        guard isConfigured else { return }
+        var types: [HKSampleType] = [HKObjectType.workoutType()]
+        if let steps = HKQuantityType.quantityType(forIdentifier: .stepCount) {
+            types.append(steps)
         }
-        if Self.syncing { return ["metrics": 0, "sleep": 0, "workouts": 0, "skipped": 0] }
-        Self.syncing = true
-        defer { Self.syncing = false }
+        for type in types {
+            let query = HKObserverQuery(sampleType: type, predicate: nil) { [weak self] _, completion, _ in
+                Task {
+                    _ = try? await self?.sync(days: 3)
+                    completion()
+                }
+            }
+            store.execute(query)
+            store.enableBackgroundDelivery(for: type, frequency: .hourly) { _, _ in }
+        }
+    }
 
-        var totals: [String: Int] = ["metrics": 0, "sleep": 0, "workouts": 0, "skipped": 0]
+    /// Hämtar fönstret ur HealthKit och POST:ar till servern.
+    /// Långa fönster delas i 90-dagarsblock.
+    func sync(days: Int) async throws -> [String: Int] {
+        guard let settings = loadSettings() else {
+            throw NSError(domain: "HealthKitService", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "Synken är inte aktiverad."])
+        }
+        if syncing { return [:] }
+        syncing = true
+        defer { syncing = false }
+
+        var totals: [String: Int] = ["metrics": 0, "sleep": 0, "workouts": 0]
         var remaining = max(days, 1)
         var end = Date()
         while remaining > 0 {
@@ -158,13 +128,33 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
             let payload = await buildPayload(start: start, end: end)
             let counts = try await upload(payload: payload, settings: settings)
             for (key, value) in counts {
-                if let n = value as? Int { totals[key] = (totals[key] ?? 0) + n }
+                if let n = value as? Int, totals[key] != nil {
+                    totals[key] = (totals[key] ?? 0) + n
+                }
             }
             remaining -= chunk
             end = start
         }
         UserDefaults.standard.set(Date(), forKey: "shapiqo.lastSync")
         return totals
+    }
+
+    // MARK: - Intern motor
+
+    private struct Settings {
+        let endpoint: String
+        let token: String
+    }
+
+    private func loadSettings() -> Settings? {
+        guard let json = KeychainStore.read("shapiqo.healthkit.sync"),
+              let dict = (try? JSONSerialization.jsonObject(
+                  with: Data(json.utf8)
+              )) as? [String: String],
+              let endpoint = dict["endpoint"], let token = dict["token"] else {
+            return nil
+        }
+        return Settings(endpoint: endpoint, token: token)
     }
 
     private func buildPayload(start: Date, end: Date) async -> [String: Any] {
@@ -187,8 +177,6 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         return ["data": ["metrics": metrics, "workouts": workouts]]
     }
 
-    /// Dagsvärden: summa för räknare (steg, kcal…), snitt för mätvärden
-    /// (vilopuls, VO₂max…) — samma upplösning som HAE levererar.
     private func dailyStats(_ spec: MetricSpec, start: Date, end: Date) async -> [[String: Any]] {
         guard let type = HKQuantityType.quantityType(forIdentifier: spec.id) else { return [] }
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
@@ -220,8 +208,6 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
-    /// Sömnpass grupperade till nätter (nytt block vid > 3 h gap), med
-    /// timmar per fas — nycklarna matchar backendens _ingest_sleep.
     private func fetchSleep(start: Date, end: Date) async -> [[String: Any]] {
         guard let type = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) else { return [] }
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: [])
@@ -340,8 +326,6 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
-    /// GPS-rutten för ett pass, glesad till max 500 punkter (samma tak
-    /// som backendens _route_points).
     private func workoutRoute(_ workout: HKWorkout) async -> [[String: Double]] {
         let predicate = HKQuery.predicateForObjects(from: workout)
         let routes: [HKWorkoutRoute] = await withCheckedContinuation { cont in
@@ -396,31 +380,9 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
-    // MARK: - Bakgrundsleverans
-
-    /// Nya pass/steg i HealthKit väcker appen → tyst synk av senaste dagarna.
-    private func startObservers() {
-        var types: [HKSampleType] = [HKObjectType.workoutType()]
-        if let steps = HKQuantityType.quantityType(forIdentifier: .stepCount) {
-            types.append(steps)
-        }
-        for type in types {
-            let query = HKObserverQuery(sampleType: type, predicate: nil) { [weak self] _, completion, _ in
-                Task {
-                    _ = try? await self?.runSync(days: 3)
-                    completion()
-                }
-            }
-            store.execute(query)
-            store.enableBackgroundDelivery(for: type, frequency: .hourly) { _, _ in }
-        }
-    }
-
-    // MARK: - Uppladdning
-
-    private func upload(payload: [String: Any], settings: SyncSettings) async throws -> [String: Any] {
+    private func upload(payload: [String: Any], settings: Settings) async throws -> [String: Any] {
         guard let url = URL(string: settings.endpoint) else {
-            throw NSError(domain: "HealthKitSync", code: 2,
+            throw NSError(domain: "HealthKitService", code: 2,
                           userInfo: [NSLocalizedDescriptionKey: "Ogiltig endpoint."])
         }
         var request = URLRequest(url: url)
@@ -430,72 +392,12 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
         request.timeoutInterval = 60
 
-        let (data, response): (Data, URLResponse) = try await withCheckedThrowingContinuation { cont in
-            URLSession.shared.dataTask(with: request) { data, response, error in
-                if let error = error {
-                    cont.resume(throwing: error)
-                } else if let data = data, let response = response {
-                    cont.resume(returning: (data, response))
-                } else {
-                    cont.resume(throwing: NSError(domain: "HealthKitSync", code: 3))
-                }
-            }.resume()
-        }
+        let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             let code = (response as? HTTPURLResponse)?.statusCode ?? 0
-            throw NSError(domain: "HealthKitSync", code: 4,
+            throw NSError(domain: "HealthKitService", code: 4,
                           userInfo: [NSLocalizedDescriptionKey: "Servern svarade \(code)."])
         }
         return (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
-    }
-}
-
-// MARK: - Nyckelringen
-
-/// Endpoint + ingest-token lagras i Keychain — aldrig i UserDefaults.
-private struct SyncSettings {
-    let endpoint: String
-    let token: String
-
-    private static let account = "shapiqo-healthkit-sync"
-
-    static func save(endpoint: String, token: String) {
-        guard let data = try? JSONSerialization.data(
-            withJSONObject: ["endpoint": endpoint, "token": token]
-        ) else { return }
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: account,
-        ]
-        SecItemDelete(query as CFDictionary)
-        var attrs = query
-        attrs[kSecValueData as String] = data
-        attrs[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-        SecItemAdd(attrs as CFDictionary, nil)
-    }
-
-    static func load() -> SyncSettings? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: account,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-        ]
-        var item: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
-              let data = item as? Data,
-              let dict = (try? JSONSerialization.jsonObject(with: data)) as? [String: String],
-              let endpoint = dict["endpoint"], let token = dict["token"] else {
-            return nil
-        }
-        return SyncSettings(endpoint: endpoint, token: token)
-    }
-
-    static func clear() {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: account,
-        ]
-        SecItemDelete(query as CFDictionary)
     }
 }

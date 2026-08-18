@@ -11,8 +11,14 @@
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
-		AA10000000000000000000B1 /* HealthKitSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10000000000000000000A1 /* HealthKitSync.swift */; };
-		AA10000000000000000000B2 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10000000000000000000A2 /* MainViewController.swift */; };
+		AA10000000000000000000B1 /* API.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10000000000000000000A1 /* API.swift */; };
+		AA10000000000000000000B2 /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10000000000000000000A2 /* AuthView.swift */; };
+		AA10000000000000000000B4 /* HealthKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10000000000000000000A4 /* HealthKitService.swift */; };
+		AA10000000000000000000B5 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10000000000000000000A5 /* RootView.swift */; };
+		AA10000000000000000000B6 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10000000000000000000A6 /* HomeView.swift */; };
+		AA10000000000000000000B7 /* MealsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10000000000000000000A7 /* MealsView.swift */; };
+		AA10000000000000000000B8 /* WorkoutsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10000000000000000000A8 /* WorkoutsView.swift */; };
+		AA10000000000000000000B9 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10000000000000000000A9 /* ProfileView.swift */; };
 		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
@@ -24,8 +30,14 @@
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		504EC3071FED79650016851F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		AA10000000000000000000A1 /* HealthKitSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSync.swift; sourceTree = "<group>"; };
-		AA10000000000000000000A2 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
+		AA10000000000000000000A1 /* API.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = API.swift; sourceTree = "<group>"; };
+		AA10000000000000000000A2 /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
+		AA10000000000000000000A4 /* HealthKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitService.swift; sourceTree = "<group>"; };
+		AA10000000000000000000A5 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		AA10000000000000000000A6 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		AA10000000000000000000A7 /* MealsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealsView.swift; sourceTree = "<group>"; };
+		AA10000000000000000000A8 /* WorkoutsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutsView.swift; sourceTree = "<group>"; };
+		AA10000000000000000000A9 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		AA10000000000000000000A3 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		504EC30C1FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		504EC30E1FED79650016851F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -69,8 +81,14 @@
 			children = (
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
-				AA10000000000000000000A1 /* HealthKitSync.swift */,
-				AA10000000000000000000A2 /* MainViewController.swift */,
+				AA10000000000000000000A1 /* API.swift */,
+				AA10000000000000000000A2 /* AuthView.swift */,
+				AA10000000000000000000A4 /* HealthKitService.swift */,
+				AA10000000000000000000A5 /* RootView.swift */,
+				AA10000000000000000000A6 /* HomeView.swift */,
+				AA10000000000000000000A7 /* MealsView.swift */,
+				AA10000000000000000000A8 /* WorkoutsView.swift */,
+				AA10000000000000000000A9 /* ProfileView.swift */,
 				AA10000000000000000000A3 /* App.entitlements */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
@@ -164,8 +182,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
-				AA10000000000000000000B1 /* HealthKitSync.swift in Sources */,
-				AA10000000000000000000B2 /* MainViewController.swift in Sources */,
+				AA10000000000000000000B1 /* API.swift in Sources */,
+				AA10000000000000000000B2 /* AuthView.swift in Sources */,
+				AA10000000000000000000B4 /* HealthKitService.swift in Sources */,
+				AA10000000000000000000B5 /* RootView.swift in Sources */,
+				AA10000000000000000000B6 /* HomeView.swift in Sources */,
+				AA10000000000000000000B7 /* MealsView.swift in Sources */,
+				AA10000000000000000000B8 /* WorkoutsView.swift in Sources */,
+				AA10000000000000000000B9 /* ProfileView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
