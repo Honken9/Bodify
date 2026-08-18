@@ -28,6 +28,8 @@
 	<true/>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Shapiqo läser din tränings-, sömn- och hälsodata för att synka den till ditt eget Shapiqo-konto. Datan skickas bara till din egen server och delas aldrig med tredje part.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Shapiqo skriver inte hälsodata i dag, men Apple kräver den här beskrivningen när HealthKit används. Om skrivning införs blir det bara data du själv loggat i Shapiqo.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
