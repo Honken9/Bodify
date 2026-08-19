@@ -88,8 +88,11 @@ final class APIClient {
         return decoded
     }
 
-    func post<T: Decodable>(_ path: String, body: [String: Any]) async throws -> T {
-        let request = try makeRequest(path, method: "POST", body: body)
+    func post<T: Decodable>(
+        _ path: String, body: [String: Any], timeout: Double = 30
+    ) async throws -> T {
+        var request = try makeRequest(path, method: "POST", body: body)
+        request.timeoutInterval = timeout
         let (data, response) = try await URLSession.shared.data(for: request)
         try validate(data, response)
         guard let decoded = try? JSONDecoder().decode(T.self, from: data) else {

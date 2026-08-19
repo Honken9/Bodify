@@ -6,6 +6,7 @@ struct TrainingTab: View {
     @ObservedObject var session: SessionStore
     @State private var mode = 0
     @State private var showLog = false
+    @State private var showBuilder = false
     @State private var reloadKey = 0
 
     var body: some View {
@@ -30,10 +31,17 @@ struct TrainingTab: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showLog = true
-                    } label: {
-                        Image(systemName: "plus")
+                    HStack(spacing: 16) {
+                        Button {
+                            showBuilder = true
+                        } label: {
+                            Image(systemName: "sparkles")
+                        }
+                        Button {
+                            showLog = true
+                        } label: {
+                            Image(systemName: "plus")
+                        }
                     }
                 }
             }
@@ -42,6 +50,11 @@ struct TrainingTab: View {
                     showLog = false
                     reloadKey += 1
                     mode = 0
+                }
+            }
+            .sheet(isPresented: $showBuilder) {
+                WorkoutBuilderSheet(session: session) {
+                    showBuilder = false
                 }
             }
         }
