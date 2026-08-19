@@ -58,6 +58,25 @@ struct HabitProgress: Decodable {
     let total: Int
 }
 
+struct FeedItem: Decodable, Identifiable {
+    var id: String { "\(kind)-\(itemId)" }
+    let kind: String
+    let itemId: String
+    let user_id: String
+    let user_name: String
+    let title: String
+    let when: String
+    let detail: String?
+    let cheers: Int
+    let cheered_by_me: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case kind
+        case itemId = "id"
+        case user_id, user_name, title, when, detail, cheers, cheered_by_me
+    }
+}
+
 struct LeagueEntry: Decodable, Identifiable {
     var id: String { user_id }
     let rank: Int
@@ -311,6 +330,7 @@ struct ChallengeDetailSheet: View {
     let onChanged: () -> Void
 
     @State private var detail: ChallengeItem?
+    @State private var feed: [FeedItem] = []
     @State private var busy = false
     @State private var errorMessage: String?
 
@@ -364,6 +384,36 @@ struct ChallengeDetailSheet: View {
                         }
                     }
 
+                    if !feed.isEmpty {
+                        Section("Senaste passen — heja på! 👏") {
+                            ForEach(feed.prefix(8)) { item in
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("\(item.user_name) · \(item.title)")
+                                            .font(.subheadline)
+                                        Text(String(item.when.prefix(10))
+                                             + (item.detail.map { " · \($0)" } ?? ""))
+                                            .font(.caption).foregroundColor(.secondary)
+                                    }
+                                    Spacer()
+                                    Button {
+                                        Task { await cheer(item) }
+                                    } label: {
+                                        Text("👏 \(item.cheers > 0 ? String(item.cheers) : "")")
+                                            .font(.caption).bold()
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 6)
+                                            .background(item.cheered_by_me
+                                                        ? Color.green.opacity(0.25)
+                                                        : Color(.secondarySystemBackground))
+                                            .cornerRadius(14)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+                    }
+
                     if !detail.is_participant && !detail.finished {
                         Button(busy ? "…" : (detail.kind == "duel" ? "⚔️ Anta duellen" : "Gå med")) {
                             Task { await join() }
@@ -403,6 +453,23 @@ struct ChallengeDetailSheet: View {
         } catch {
             handleAPIError(error, session: session, message: &errorMessage)
         }
+        if detail?.is_participant == true {
+            feed = (try? await APIClient.shared.get(
+                "api/social/challenges/\(challengeId)/feed"
+            )) ?? []
+        }
+    }
+
+    private func cheer(_ item: FeedItem) async {
+        struct OK: Decodable { let ok: Bool? }
+        let _: OK? = try? await APIClient.shared.post(
+            "api/social/challenges/\(challengeId)/cheer",
+            body: ["item_kind": item.kind, "item_id": item.itemId,
+                   "owner_id": item.user_id]
+        )
+        feed = (try? await APIClient.shared.get(
+            "api/social/challenges/\(challengeId)/feed"
+        )) ?? feed
     }
 
     private func join() async {

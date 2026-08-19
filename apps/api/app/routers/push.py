@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import get_current_user
 from app.config import get_settings
 from app.db import get_session
-from app.models import PushSubscription, User
+from app.models import ApnsToken, PushSubscription, User
 
 router = APIRouter(prefix="/api/push", tags=["push"])
 
@@ -77,4 +77,48 @@ async def unsubscribe(
     )
     if sub is not None:
         await db.delete(sub)
+        await db.commit()
+
+
+# ── iOS-appen (APNs) ──────────────────────────────────────────
+
+
+class ApnsTokenIn(BaseModel):
+    token: str = Field(min_length=32, max_length=200, pattern="^[0-9a-fA-F]+$")
+
+
+@router.post("/apns-token", status_code=201)
+async def register_apns_token(
+    payload: ApnsTokenIn,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    """Appen registrerar sin enhetstoken efter notistillstånd. Token kan
+    rotera och enheten byta ägare — upsert på token."""
+    token = payload.token.lower()
+    existing = await db.scalar(
+        select(ApnsToken).where(ApnsToken.token == token)
+    )
+    if existing is not None:
+        existing.user_id = user.id
+    else:
+        db.add(ApnsToken(user_id=user.id, token=token))
+    await db.commit()
+    return {"ok": True}
+
+
+@router.delete("/apns-token/{token}", status_code=204)
+async def remove_apns_token(
+    token: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> None:
+    row = await db.scalar(
+        select(ApnsToken).where(
+            ApnsToken.token == token.lower(),
+            ApnsToken.user_id == user.id,
+        )
+    )
+    if row is not None:
+        await db.delete(row)
         await db.commit()

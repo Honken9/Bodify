@@ -24,6 +24,22 @@ class ProgressPhoto(Base):
     content_type: Mapped[str] = mapped_column(String(64), default="image/jpeg")
 
 
+class ApnsToken(Base):
+    """iOS-appens push-token — registreras av appen efter notistillstånd.
+    Ogiltiga tokens (avinstallerad app) rensas när APNs svarar 410."""
+
+    __tablename__ = "apns_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    token: Mapped[str] = mapped_column(String(200), unique=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 class PushSubscription(Base):
     __tablename__ = "push_subscriptions"
 

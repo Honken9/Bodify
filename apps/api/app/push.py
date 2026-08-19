@@ -27,16 +27,21 @@ async def send_to_user(
 ) -> int:
     """Skicka en push-notis till användarens alla enheter. Returnerar antal."""
     settings = get_settings()
+
+    # iOS-appen (APNs) — oberoende av webbpush-konfigurationen
+    from app import apns
+
+    sent = await apns.send_to_user(db, user_id, title, body, url)
+
     if not settings.vapid_private_key:
-        logger.debug("VAPID-nycklar saknas — hoppar över push.")
-        return 0
+        logger.debug("VAPID-nycklar saknas — hoppar över webbpush.")
+        return sent
 
     subscriptions = list(
         await db.scalars(
             select(PushSubscription).where(PushSubscription.user_id == user_id)
         )
     )
-    sent = 0
     for sub in subscriptions:
         try:
             webpush(

@@ -62,6 +62,18 @@ struct ProfileView: View {
                     }
                 }
 
+                Section("🔔 Notiser") {
+                    if UserDefaults.standard.bool(forKey: "shapiqo.push.enabled") {
+                        Text("Notiser är på — dueller, etappsegrar, märken och "
+                             + "påminnelser landar direkt i appen.")
+                            .font(.footnote).foregroundColor(.secondary)
+                    } else {
+                        Button("Aktivera notiser") {
+                            AppDelegate.enablePush()
+                        }
+                    }
+                }
+
                 Section("🎖 Märken (\(badges.filter { $0.earned }.count) av \(badges.count))") {
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                         ForEach(badges) { badge in

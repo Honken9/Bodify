@@ -10,3 +10,5 @@ python-multipart>=0.0.9
 arq>=0.26
 httpx>=0.27
 pywebpush>=2.0
+pyjwt>=2.8
+h2>=4

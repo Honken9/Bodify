@@ -1,4 +1,4 @@
-from app.models.engagement import ProgressPhoto, PushSubscription
+from app.models.engagement import ApnsToken, ProgressPhoto, PushSubscription
 from app.models.health import (
     METRICS,
     BodyMetric,
@@ -33,6 +33,7 @@ from app.models.training import (
 from app.models.user import User
 
 __all__ = [
+    "ApnsToken",
     "CHALLENGE_METRICS",
     "METRICS",
     "BodyMetric",

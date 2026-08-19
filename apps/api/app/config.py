@@ -58,6 +58,14 @@ class Settings(BaseSettings):
     vapid_private_key: str = ""
     vapid_subject: str = "mailto:admin@example.com"
 
+    # APNs — push till iOS-appen (token-baserad auth med .p8-nyckel).
+    # Skapa nyckeln under developer.apple.com -> Keys, lägg filen i
+    # ./secrets/ (monteras som /app/secrets) och fyll i värdena i .env.
+    apns_key_path: str = ""
+    apns_key_id: str = ""
+    apns_team_id: str = ""
+    apns_bundle_id: str = "se.vintermist.Shapiqo"
+
     # Endast lokal utveckling: hoppar över Cloudflare-verifieringen helt
     # och agerar som denna e-postadress. Får ALDRIG sättas i produktion.
     dev_auth_email: str | None = None

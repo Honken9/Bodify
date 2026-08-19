@@ -54,6 +54,7 @@ services:
       OLLAMA_VISION_MODEL: ${OLLAMA_VISION_MODEL:-qwen2.5vl}
     volumes:
       - appdata:/srv/data
+      - ./secrets:/app/secrets:ro
     depends_on:
       db:
         condition: service_healthy
@@ -67,6 +68,7 @@ services:
     environment: *api-env
     volumes:
       - appdata:/srv/data
+      - ./secrets:/app/secrets:ro
     depends_on:
       db:
         condition: service_healthy
