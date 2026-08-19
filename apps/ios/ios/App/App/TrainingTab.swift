@@ -8,6 +8,7 @@ struct TrainingTab: View {
     @State private var showLog = false
     @State private var showBuilder = false
     @State private var reloadKey = 0
+    @State private var mapFocus: String?
 
     var body: some View {
         NavigationView {
@@ -21,10 +22,13 @@ struct TrainingTab: View {
                 .padding(.vertical, 6)
 
                 if mode == 0 {
-                    WorkoutsView(session: session)
-                        .id(reloadKey)
+                    WorkoutsView(session: session, onShowMap: { id in
+                        mapFocus = id
+                        mode = 1
+                    })
+                    .id(reloadKey)
                 } else {
-                    MapView(session: session)
+                    MapView(session: session, focusId: $mapFocus)
                 }
             }
             .navigationTitle("Träning")

@@ -55,10 +55,10 @@ func decodePolyline(_ encoded: String) -> [CLLocationCoordinate2D] {
 
 struct MapView: View {
     @ObservedObject var session: SessionStore
+    @Binding var focusId: String?
 
     @State private var activities: [GeoActivity] = []
     @State private var filter = "all"
-    @State private var focusId: String?
     @State private var showList = false
     @State private var errorMessage: String?
 
@@ -71,10 +71,19 @@ struct MapView: View {
         filter == "all" ? activities : activities.filter { $0.type == filter }
     }
 
+    @State private var detailId: String?
+
     var body: some View {
         ZStack(alignment: .top) {
-            MapContainer(activities: filtered, focusId: focusId)
-                .ignoresSafeArea(edges: .bottom)
+            MapContainer(
+                activities: filtered,
+                focusId: focusId,
+                onSelect: { id in
+                    focusId = id
+                    detailId = id
+                }
+            )
+            .ignoresSafeArea(edges: .bottom)
             VStack(spacing: 8) {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
@@ -123,6 +132,13 @@ struct MapView: View {
                     showList = false
                 }
             )
+        }
+        .sheet(item: Binding(
+            get: { detailId.map { WorkoutDetailRef(id: $0) } },
+            set: { detailId = $0?.id }
+        )) { ref in
+            WorkoutDetailSheet(session: session, activityId: ref.id,
+                               onShowMap: nil)
         }
         .onAppear { Task { await load() } }
     }
@@ -182,10 +198,12 @@ struct ActivityListSheet: View {
     }
 }
 
-/// MKMapView-wrapper: ritar polylines + prickar, hanterar fokus och 🧭
+/// MKMapView-wrapper: ritar polylines + prickar, hanterar fokus, 🧭
+/// och tryck på en rutt/nål (→ detaljer)
 struct MapContainer: UIViewRepresentable {
     let activities: [GeoActivity]
     let focusId: String?
+    var onSelect: ((String) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -193,6 +211,12 @@ struct MapContainer: UIViewRepresentable {
         let map = MKMapView()
         map.delegate = context.coordinator
         map.showsUserLocation = true
+        context.coordinator.onSelect = onSelect
+        let tap = UITapGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.handleTap(_:))
+        )
+        map.addGestureRecognizer(tap)
         context.coordinator.locationManager.requestWhenInUseAuthorization()
         let tracking = MKUserTrackingButton(mapView: map)
         tracking.translatesAutoresizingMaskIntoConstraints = false
@@ -214,6 +238,7 @@ struct MapContainer: UIViewRepresentable {
             map.removeOverlays(map.overlays)
             map.removeAnnotations(map.annotations.filter { !($0 is MKUserLocation) })
             coordinator.routes = [:]
+            coordinator.points = [:]
             coordinator.focused = nil
 
             var boundingRect = MKMapRect.null
@@ -230,11 +255,13 @@ struct MapContainer: UIViewRepresentable {
                     }
                 }
                 if let start = activity.start, start.count == 2 {
-                    let pin = MKPointAnnotation()
+                    let pin = ActivityAnnotation()
+                    pin.activityId = activity.id
                     pin.coordinate = CLLocationCoordinate2D(latitude: start[0], longitude: start[1])
                     pin.title = activity.name ?? "Träning"
                     pin.subtitle = String(activity.started_at.prefix(10))
                     map.addAnnotation(pin)
+                    coordinator.points[activity.id] = pin.coordinate
                     boundingRect = boundingRect.union(
                         MKMapRect(origin: MKMapPoint(pin.coordinate), size: MKMapSize(width: 1, height: 1))
                     )
@@ -267,6 +294,14 @@ struct MapContainer: UIViewRepresentable {
                     edgePadding: UIEdgeInsets(top: 100, left: 50, bottom: 50, right: 50),
                     animated: true
                 )
+            } else if let id = focusId, let coordinate = coordinator.points[id] {
+                map.setRegion(
+                    MKCoordinateRegion(
+                        center: coordinate,
+                        latitudinalMeters: 1200, longitudinalMeters: 1200
+                    ),
+                    animated: true
+                )
             }
         }
     }
@@ -275,14 +310,22 @@ struct MapContainer: UIViewRepresentable {
         var activityId: String = ""
     }
 
+    final class ActivityAnnotation: MKPointAnnotation {
+        var activityId: String = ""
+    }
+
     final class Coordinator: NSObject, MKMapViewDelegate {
-        static let navy = UIColor(red: 0.137, green: 0.345, blue: 0.541, alpha: 0.85)
+        // Klarblå med vit känsla mot kartan — syns även utzoomad;
+        // vald rutt lyser röd och tjockare
+        static let route = UIColor(red: 0.15, green: 0.35, blue: 0.90, alpha: 0.9)
         static let red = UIColor(red: 0.882, green: 0.114, blue: 0.282, alpha: 1.0)
 
         let locationManager = CLLocationManager()
         var renderedIds: [String] = []
         var routes: [String: ActivityPolyline] = [:]
+        var points: [String: CLLocationCoordinate2D] = [:]
         var focused: String?
+        var onSelect: ((String) -> Void)?
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
             guard let line = overlay as? ActivityPolyline else {
@@ -290,9 +333,50 @@ struct MapContainer: UIViewRepresentable {
             }
             let renderer = MKPolylineRenderer(polyline: line)
             let isFocused = line.activityId == focused
-            renderer.strokeColor = isFocused ? Self.red : Self.navy
-            renderer.lineWidth = isFocused ? 5 : 3
+            renderer.strokeColor = isFocused ? Self.red : Self.route
+            renderer.lineWidth = isFocused ? 6 : 4.5
+            renderer.lineCap = .round
             return renderer
+        }
+
+        func mapView(_ mapView: MKMapView, didSelect view: MKAnnotationView) {
+            if let annotation = view.annotation as? ActivityAnnotation {
+                onSelect?(annotation.activityId)
+            }
+        }
+
+        /// Tryck på kartan → hitta närmaste rutt inom ~24 punkter tolerans
+        @objc func handleTap(_ gesture: UITapGestureRecognizer) {
+            guard let map = gesture.view as? MKMapView, !routes.isEmpty else { return }
+            let point = gesture.location(in: map)
+            let coordinate = map.convert(point, toCoordinateFrom: map)
+            let tapPoint = MKMapPoint(coordinate)
+            let edge = map.convert(
+                CGPoint(x: point.x + 24, y: point.y), toCoordinateFrom: map
+            )
+            let tolerance = tapPoint.distance(to: MKMapPoint(edge))
+
+            let padding = tolerance
+                * MKMapPointsPerMeterAtLatitude(coordinate.latitude) * 3
+            var best: (id: String, distance: Double)?
+            for (id, line) in routes {
+                // Grovfilter: hoppa över rutter långt utanför trycket
+                let paddedRect = line.boundingMapRect.insetBy(
+                    dx: -padding, dy: -padding
+                )
+                guard paddedRect.contains(tapPoint) else { continue }
+                let vertices = line.points()
+                for index in 0..<line.pointCount {
+                    let distance = tapPoint.distance(to: vertices[index])
+                    if distance <= tolerance,
+                       best == nil || distance < best!.distance {
+                        best = (id, distance)
+                    }
+                }
+            }
+            if let hit = best {
+                onSelect?(hit.id)
+            }
         }
     }
 }
