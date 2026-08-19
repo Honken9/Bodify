@@ -26,6 +26,10 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Kameran används för att fota måltider till AI-analysen och skanna streckkoder på livsmedel.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Bildbiblioteket används för att välja ett måltidsfoto till AI-analysen.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Positionen används för att visa var du är på träningskartan.</string>
 	<key>NSHealthShareUsageDescription</key>

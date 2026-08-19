@@ -101,6 +101,40 @@ final class APIClient {
         return decoded
     }
 
+    /// Multipart-uppladdning (foton till AI-analysen)
+    func upload<T: Decodable>(
+        _ path: String, imageData: Data, timeout: Double = 120
+    ) async throws -> T {
+        let boundary = "shapiqo-\(UUID().uuidString)"
+        var request = URLRequest(url: base.appendingPathComponent(path))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let cookies = cookieHeader {
+            request.setValue(cookies, forHTTPHeaderField: "Cookie")
+        }
+        request.setValue(
+            "multipart/form-data; boundary=\(boundary)",
+            forHTTPHeaderField: "Content-Type"
+        )
+        var body = Data()
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append(
+            "Content-Disposition: form-data; name=\"file\"; filename=\"meal.jpg\"\r\n"
+                .data(using: .utf8)!
+        )
+        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+        body.append(imageData)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        request.httpBody = body
+        request.timeoutInterval = timeout
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try validate(data, response)
+        guard let decoded = try? JSONDecoder().decode(T.self, from: data) else {
+            throw APIError.decoding
+        }
+        return decoded
+    }
+
     func delete(_ path: String) async throws {
         let request = try makeRequest(path, method: "DELETE", body: nil)
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -151,11 +185,49 @@ struct NutritionTargets: Decodable {
     let fat_g: Int
 }
 
+struct MicroModel: Decodable, Identifiable {
+    var id: String { key }
+    let key: String
+    let label: String
+    let unit: String
+    let amount: Double
+    let percent: Double
+    let kind: String
+}
+
 struct DayLog: Decodable {
     let day: String
     let entries: [MealEntryModel]
     let totals: MacroTotals
     let targets: NutritionTargets
+    let micros: [MicroModel]?
+}
+
+struct DaySummaryModel: Decodable, Identifiable {
+    var id: String { day }
+    let day: String
+    let kcal: Double
+    let entry_count: Int
+}
+
+struct FoodItemFull: Decodable, Identifiable {
+    let id: String
+    let name: String
+    let brand: String?
+    let source: String
+    let per_100g: [String: Double]
+    let serving_g: Double?
+    let unit: String
+}
+
+struct VisionItem: Decodable {
+    let name: String
+    let grams: Double
+    let per_100g: [String: Double]
+}
+
+struct VisionResult: Decodable {
+    let items: [VisionItem]
 }
 
 struct WorkoutModel: Decodable, Identifiable {

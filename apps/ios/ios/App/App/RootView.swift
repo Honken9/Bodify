@@ -23,7 +23,7 @@ struct RootView: View {
                 HomeView(session: session)
                     .tabItem { Label("Hem", systemImage: "house.fill") }
                 MealsView(session: session)
-                    .tabItem { Label("Måltider", systemImage: "fork.knife") }
+                    .tabItem { Label("Kost", systemImage: "fork.knife") }
                 TrainingTab(session: session)
                     .tabItem { Label("Träning", systemImage: "figure.run") }
                 SocialView(session: session)
