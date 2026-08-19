@@ -67,3 +67,67 @@ struct LoginScreen: View {
         }
     }
 }
+
+struct ConnectRef: Identifiable {
+    var id: String { provider }
+    let provider: String
+}
+
+/// OAuth-koppling (Strava/Withings) inne i appen: webbvyn delar
+/// inloggningssessionen, användaren godkänner hos leverantören och
+/// studsar tillbaka — då stängs arket och statusen laddas om.
+struct ConnectProviderSheet: View {
+    let provider: String
+    let onDone: () -> Void
+
+    var body: some View {
+        NavigationView {
+            ConnectWebView(provider: provider, onDone: onDone)
+                .navigationTitle(provider == "strava" ? "Koppla Strava" : "Koppla Withings")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Stäng") { onDone() }
+                    }
+                }
+        }
+    }
+}
+
+struct ConnectWebView: UIViewRepresentable {
+    let provider: String
+    let onDone: () -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(onDone: onDone) }
+
+    func makeUIView(context: Context) -> WKWebView {
+        let config = WKWebViewConfiguration()
+        config.websiteDataStore = .default()  // samma session som inloggningen
+        let webView = WKWebView(frame: .zero, configuration: config)
+        webView.navigationDelegate = context.coordinator
+        let url = URL(string: "https://shapiqo.com/api/integrations/\(provider)/connect")!
+        webView.load(URLRequest(url: url))
+        return webView
+    }
+
+    func updateUIView(_ uiView: WKWebView, context: Context) {}
+
+    final class Coordinator: NSObject, WKNavigationDelegate {
+        let onDone: () -> Void
+        private var leftSite = false
+
+        init(onDone: @escaping () -> Void) {
+            self.onDone = onDone
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            guard let host = webView.url?.host else { return }
+            if !host.contains("shapiqo.com") {
+                leftSite = true  // hos leverantören (Strava/Withings)
+            } else if leftSite {
+                // Tillbaka på shapiqo.com efter OAuth = kopplingen klar
+                onDone()
+            }
+        }
+    }
+}

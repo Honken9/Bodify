@@ -10,6 +10,7 @@ struct ProfileView: View {
     @State private var providers: [ProviderStatus] = []
     @State private var syncing: String?
     @State private var syncMessage: String?
+    @State private var connectProvider: String?
     @State private var healthConfigured = HealthKitService.shared.isConfigured
     @State private var busy: String?
     @State private var healthMessage: String?
@@ -82,14 +83,18 @@ struct ProfileView: View {
                                 .buttonStyle(.bordered)
                                 .font(.caption)
                                 .disabled(syncing != nil)
+                            } else {
+                                Button("Koppla") {
+                                    connectProvider = provider.provider
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .font(.caption)
                             }
                         }
                     }
                     if let message = syncMessage {
                         Text(message).font(.footnote).foregroundColor(.secondary)
                     }
-                    Text("Nya kopplingar görs på shapiqo.com → Kopplingar.")
-                        .font(.caption2).foregroundColor(.secondary)
                 }
 
                 Section("🔔 Notiser") {
@@ -126,6 +131,15 @@ struct ProfileView: View {
             }
             .navigationTitle("Profil")
             .refreshable { await load() }
+            .sheet(item: Binding(
+                get: { connectProvider.map { ConnectRef(provider: $0) } },
+                set: { connectProvider = $0?.provider }
+            )) { ref in
+                ConnectProviderSheet(provider: ref.provider) {
+                    connectProvider = nil
+                    Task { await load() }
+                }
+            }
         }
         .navigationViewStyle(.stack)
         .onAppear { Task { await load() } }
