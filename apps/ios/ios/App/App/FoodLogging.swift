@@ -56,7 +56,7 @@ struct PhotoMealSheet: View {
                         ForEach($items) { $item in
                             VStack(alignment: .leading, spacing: 4) {
                                 TextField("Namn", text: $item.name)
-                                    .font(.subheadline).bold()
+                                    .font(.subheadline.weight(.bold))
                                 HStack {
                                     Slider(value: $item.grams, in: 5...800, step: 5)
                                     Text("\(Int(item.grams)) g")
@@ -494,8 +494,17 @@ struct FoodSearchSheet: View {
         NavigationView {
             Group {
                 if let food = selected {
-                    PortionForm(session: session, food: food,
-                                dayString: dayString, onLogged: onDone)
+                    VStack(spacing: 0) {
+                        HStack {
+                            Button("‹ Tillbaka till sökningen") { selected = nil }
+                                .font(.subheadline)
+                            Spacer()
+                        }
+                        .padding(.horizontal)
+                        .padding(.top, 10)
+                        PortionForm(session: session, food: food,
+                                    dayString: dayString, onLogged: onDone)
+                    }
                 } else {
                     List {
                         TextField("Sök: kycklingfilé, Big Mac, kvarg…", text: $query)
@@ -519,11 +528,6 @@ struct FoodSearchSheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Klar") { onDone() }
-                }
-                if selected != nil {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button("‹ Sök") { selected = nil }
-                    }
                 }
             }
         }
