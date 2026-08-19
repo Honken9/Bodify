@@ -280,8 +280,8 @@ struct MapContainer: UIViewRepresentable {
         if coordinator.focused != focusId {
             if let previous = coordinator.focused, let line = coordinator.routes[previous],
                let renderer = map.renderer(for: line) as? MKPolylineRenderer {
-                renderer.strokeColor = Coordinator.navy
-                renderer.lineWidth = 3
+                renderer.strokeColor = Coordinator.route
+                renderer.lineWidth = 4.5
             }
             coordinator.focused = focusId
             if let id = focusId, let line = coordinator.routes[id] {
