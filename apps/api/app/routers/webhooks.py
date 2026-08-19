@@ -6,14 +6,24 @@ import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Form, Header, HTTPException, Query, Request
+from pydantic import BaseModel, Field
 from fastapi.responses import PlainTextResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db import get_session
-from app.integrations import apple_health, strava, withings
-from app.models import BodyMetric, CardioActivity, IngestToken, OAuthConnection, User
+from app.integrations import apple_health, cloudflare, strava, withings
+from app.integrations.cloudflare import CloudflareError
+from app.models import (
+    BodyMetric,
+    CardioActivity,
+    Club,
+    ClubMember,
+    IngestToken,
+    OAuthConnection,
+    User,
+)
 from app.security import hash_token
 
 logger = logging.getLogger(__name__)
@@ -311,3 +321,100 @@ async def apple_health_ingest(
     ingest_token.last_seen_at = datetime.now(timezone.utc)
     await db.commit()
     return {"ok": True, **counts}
+
+
+# ── Självregistrering med inbjudningskod ─────────────────────
+# Publik (Access-undantagen) men kräver giltig kod: en ligas
+# inbjudningskod eller den globala SIGNUP_CODE. Vitlistar i Cloudflare
+# och skapar kontot — ligakod ger dessutom medlemskap direkt.
+
+_signup_hits: dict[str, list[float]] = {}
+
+
+class SignupIn(BaseModel):
+    email: str = Field(max_length=320)
+    display_name: str | None = Field(default=None, max_length=120)
+    code: str = Field(min_length=4, max_length=16)
+
+
+@router.post("/signup", status_code=201)
+async def signup(
+    payload: SignupIn,
+    request: Request,
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    import time as _time
+
+    ip = request.client.host if request.client else "?"
+    now = _time.monotonic()
+    hits = [t for t in _signup_hits.get(ip, []) if now - t < 3600]
+    if len(hits) >= 5:
+        raise HTTPException(429, "För många försök — vänta en stund.")
+    hits.append(now)
+    if len(_signup_hits) > 10_000:
+        _signup_hits.clear()
+    _signup_hits[ip] = hits
+
+    email = payload.email.lower().strip()
+    if "@" not in email or "." not in email.split("@")[-1]:
+        raise HTTPException(400, "Ogiltig e-postadress.")
+
+    code = payload.code.upper().strip()
+    club = await db.scalar(select(Club).where(Club.invite_code == code))
+    settings = get_settings()
+    global_ok = bool(settings.signup_code) and code == settings.signup_code.upper()
+    if club is None and not global_ok:
+        raise HTTPException(404, "Ogiltig inbjudningskod.")
+
+    user = await db.scalar(select(User).where(User.email == email))
+    created = False
+    if user is None:
+        user = User(
+            email=email,
+            display_name=(payload.display_name or "").strip() or None,
+        )
+        db.add(user)
+        await db.flush()
+        created = True
+
+    joined_club = None
+    if club is not None:
+        member = await db.scalar(
+            select(ClubMember).where(
+                ClubMember.club_id == club.id, ClubMember.user_id == user.id
+            )
+        )
+        if member is None:
+            club.members.append(ClubMember(user_id=user.id))
+        joined_club = club.name
+    await db.commit()
+
+    whitelisted = False
+    if cloudflare.is_configured():
+        try:
+            await cloudflare.add_email(email)
+            whitelisted = True
+        except CloudflareError:
+            logger.warning("Signup: kunde inte vitlista %s i Cloudflare.", email)
+
+    if created:
+        from app import push
+
+        admins = await db.scalars(select(User).where(User.is_admin.is_(True)))
+        for admin_user in admins:
+            await push.send_to_user(
+                db,
+                admin_user.id,
+                "🆕 Ny användare",
+                f"{email} registrerade sig"
+                + (f" via ligan {joined_club}" if joined_club else "")
+                + ".",
+                url="/admin",
+            )
+
+    return {
+        "ok": True,
+        "created": created,
+        "whitelisted": whitelisted,
+        "club": joined_club,
+    }

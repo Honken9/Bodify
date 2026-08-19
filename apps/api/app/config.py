@@ -66,6 +66,10 @@ class Settings(BaseSettings):
     apns_team_id: str = ""
     apns_bundle_id: str = "se.vintermist.Shapiqo"
 
+    # Global inbjudningskod för självregistrering (utöver ligakoder).
+    # Tomt = bara ligakoder fungerar.
+    signup_code: str = ""
+
     # Endast lokal utveckling: hoppar över Cloudflare-verifieringen helt
     # och agerar som denna e-postadress. Får ALDRIG sättas i produktion.
     dev_auth_email: str | None = None

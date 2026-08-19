@@ -57,13 +57,115 @@ struct AuthView: UIViewRepresentable {
 
 struct LoginScreen: View {
     let onLoggedIn: () -> Void
+    @State private var showSignup = false
 
     var body: some View {
         VStack(spacing: 0) {
-            Text("Logga in på Shapiqo")
-                .font(.headline)
-                .padding(.vertical, 12)
+            HStack {
+                Text("Logga in på Shapiqo")
+                    .font(.headline)
+                Spacer()
+                Button("Ny? Registrera dig") {
+                    showSignup = true
+                }
+                .font(.subheadline)
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 12)
             AuthView(onLoggedIn: onLoggedIn)
+        }
+        .sheet(isPresented: $showSignup) {
+            SignupSheet { showSignup = false }
+        }
+    }
+}
+
+/// Självregistrering: mejl + inbjudningskod (ligakod eller allmän kod)
+/// → kontot skapas och vitlistas automatiskt, sedan är det bara att
+/// logga in med engångskoden som vanligt.
+struct SignupSheet: View {
+    let onDone: () -> Void
+
+    @State private var email = ""
+    @State private var name = ""
+    @State private var code = ""
+    @State private var busy = false
+    @State private var message: String?
+    @State private var succeeded = false
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(footer: Text("Koden får du av den som bjudit in dig — en ligakod från Shapiqo eller en allmän inbjudningskod.")) {
+                    TextField("Din e-postadress", text: $email)
+                        .keyboardType(.emailAddress)
+                        .autocapitalization(.none)
+                    TextField("Namn (valfritt)", text: $name)
+                    TextField("Inbjudningskod", text: $code)
+                        .autocapitalization(.allCharacters)
+                        .disableAutocorrection(true)
+                }
+                if let message = message {
+                    Text(message)
+                        .font(.footnote)
+                        .foregroundColor(succeeded ? .green : .red)
+                }
+                if succeeded {
+                    Button("Till inloggningen") { onDone() }
+                } else {
+                    Button(busy ? "Registrerar…" : "Registrera") {
+                        Task { await signup() }
+                    }
+                    .disabled(busy || !email.contains("@")
+                              || code.trimmingCharacters(in: .whitespaces).count < 4)
+                }
+            }
+            .navigationTitle("Registrera dig")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Avbryt") { onDone() }
+                }
+            }
+        }
+    }
+
+    private func signup() async {
+        busy = true
+        message = nil
+        defer { busy = false }
+        struct SignupResult: Decodable {
+            let created: Bool
+            let whitelisted: Bool
+            let club: String?
+        }
+        do {
+            let result: SignupResult = try await APIClient.shared.post(
+                "api/webhooks/signup",
+                body: [
+                    "email": email.trimmingCharacters(in: .whitespaces),
+                    "display_name": name.trimmingCharacters(in: .whitespaces),
+                    "code": code.trimmingCharacters(in: .whitespaces),
+                ]
+            )
+            succeeded = true
+            var text = result.created
+                ? "✅ Klart! Kontot är skapat"
+                : "✅ Kontot fanns redan"
+            if result.whitelisted { text += " och vitlistat" }
+            if let club = result.club { text += " — du är med i \(club)" }
+            text += ". Logga in med din e-post så får du en engångskod."
+            message = text
+        } catch {
+            if let apiError = error as? APIError, case .server(let statusCode) = apiError {
+                message = statusCode == 404
+                    ? "Ogiltig inbjudningskod."
+                    : statusCode == 429
+                        ? "För många försök — vänta en stund."
+                        : "Servern svarade \(statusCode)."
+            } else {
+                message = error.localizedDescription
+            }
         }
     }
 }
