@@ -17,7 +17,7 @@ from app.models import (
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
-PERIODS = {"week": 7, "month": 30, "year": 365}
+PERIODS = {"week": 7, "month": 30, "quarter": 90, "year": 365}
 
 
 @router.get("")

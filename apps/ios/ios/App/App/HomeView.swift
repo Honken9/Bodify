@@ -30,16 +30,42 @@ struct HomeView: View {
         return f.string(from: day)
     }
 
+    @State private var period = 0  // 0 = dag, sedan vecka/månad/kvartal/år
+
+    private static let periods: [(String, Int, String)] = [
+        ("Dag", 1, "day"),
+        ("Vecka", 7, "week"),
+        ("Månad", 30, "month"),
+        ("Kvartal", 90, "quarter"),
+        ("År", 365, "year"),
+    ]
+
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 12) {
-                    dayPicker
-                    if let message = errorMessage {
-                        ErrorBanner(message: message)
+                    Picker("Period", selection: $period) {
+                        ForEach(0..<Self.periods.count, id: \.self) { index in
+                            Text(Self.periods[index].0).tag(index)
+                        }
                     }
-                    calorieCard
-                    metricsGrid
+                    .pickerStyle(.segmented)
+
+                    if period == 0 {
+                        dayPicker
+                        if let message = errorMessage {
+                            ErrorBanner(message: message)
+                        }
+                        calorieCard
+                        metricsGrid
+                    } else {
+                        TrendsView(
+                            session: session,
+                            days: Self.periods[period].1,
+                            periodKey: Self.periods[period].2
+                        )
+                        .id(period)
+                    }
                 }
                 .padding()
             }

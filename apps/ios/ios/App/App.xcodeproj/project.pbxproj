@@ -24,6 +24,7 @@
 		AA10000000000000000000D3 /* TrainingTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10000000000000000000C3 /* TrainingTab.swift */; };
 		AA10000000000000000000D4 /* WorkoutBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10000000000000000000C4 /* WorkoutBuilder.swift */; };
 		AA10000000000000000000D5 /* FoodLogging.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10000000000000000000C5 /* FoodLogging.swift */; };
+		AA10000000000000000000D6 /* TrendsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10000000000000000000C6 /* TrendsView.swift */; };
 		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
@@ -48,6 +49,7 @@
 		AA10000000000000000000C3 /* TrainingTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingTab.swift; sourceTree = "<group>"; };
 		AA10000000000000000000C4 /* WorkoutBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutBuilder.swift; sourceTree = "<group>"; };
 		AA10000000000000000000C5 /* FoodLogging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodLogging.swift; sourceTree = "<group>"; };
+		AA10000000000000000000C6 /* TrendsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrendsView.swift; sourceTree = "<group>"; };
 		AA10000000000000000000A3 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		504EC30C1FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		504EC30E1FED79650016851F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -104,6 +106,7 @@
 				AA10000000000000000000C3 /* TrainingTab.swift */,
 				AA10000000000000000000C4 /* WorkoutBuilder.swift */,
 				AA10000000000000000000C5 /* FoodLogging.swift */,
+				AA10000000000000000000C6 /* TrendsView.swift */,
 				AA10000000000000000000A3 /* App.entitlements */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
@@ -210,6 +213,7 @@
 				AA10000000000000000000D3 /* TrainingTab.swift in Sources */,
 				AA10000000000000000000D4 /* WorkoutBuilder.swift in Sources */,
 				AA10000000000000000000D5 /* FoodLogging.swift in Sources */,
+				AA10000000000000000000D6 /* TrendsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -284,7 +288,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
@@ -335,7 +339,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
@@ -354,7 +358,7 @@
 				DEVELOPMENT_TEAM = J9Q9SER3ME;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = App/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -378,7 +382,7 @@
 				DEVELOPMENT_TEAM = J9Q9SER3ME;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = App/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
