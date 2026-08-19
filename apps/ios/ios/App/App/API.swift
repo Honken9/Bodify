@@ -192,6 +192,16 @@ struct IngestTokenOut: Decodable {
     let endpoint: String
 }
 
+struct ProviderStatus: Decodable {
+    let provider: String
+    let connected: Bool
+    let status: String?
+}
+
+struct IntegrationsStatus: Decodable {
+    let providers: [ProviderStatus]
+}
+
 // MARK: - Keychain-hjälpare (generisk sträng-lagring)
 
 enum KeychainStore {

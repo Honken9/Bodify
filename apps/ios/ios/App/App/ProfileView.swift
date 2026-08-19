@@ -7,6 +7,9 @@ struct ProfileView: View {
 
     @State private var me: Me?
     @State private var badges: [BadgeModel] = []
+    @State private var providers: [ProviderStatus] = []
+    @State private var syncing: String?
+    @State private var syncMessage: String?
     @State private var healthConfigured = HealthKitService.shared.isConfigured
     @State private var busy: String?
     @State private var healthMessage: String?
@@ -62,6 +65,33 @@ struct ProfileView: View {
                     }
                 }
 
+                Section("🔗 Kopplingar") {
+                    ForEach(providers, id: \.provider) { provider in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(providerName(provider.provider)).bold()
+                                Text(provider.connected ? "Kopplad — synkar automatiskt" : "Inte kopplad")
+                                    .font(.caption)
+                                    .foregroundColor(provider.connected ? .green : .secondary)
+                            }
+                            Spacer()
+                            if provider.connected {
+                                Button(syncing == provider.provider ? "Synkar…" : "🔄 Synka") {
+                                    Task { await syncProvider(provider.provider) }
+                                }
+                                .buttonStyle(.bordered)
+                                .font(.caption)
+                                .disabled(syncing != nil)
+                            }
+                        }
+                    }
+                    if let message = syncMessage {
+                        Text(message).font(.footnote).foregroundColor(.secondary)
+                    }
+                    Text("Nya kopplingar görs på shapiqo.com → Kopplingar.")
+                        .font(.caption2).foregroundColor(.secondary)
+                }
+
                 Section("🔔 Notiser") {
                     if UserDefaults.standard.bool(forKey: "shapiqo.push.enabled") {
                         Text("Notiser är på — dueller, etappsegrar, märken och "
@@ -113,10 +143,49 @@ struct ProfileView: View {
         do {
             me = try await APIClient.shared.get("api/me")
             badges = try await APIClient.shared.get("api/social/badges")
+            let integrations: IntegrationsStatus =
+                try await APIClient.shared.get("api/integrations")
+            providers = integrations.providers
         } catch {
             handleAPIError(error, session: session, message: &errorMessage)
         }
         healthConfigured = HealthKitService.shared.isConfigured
+    }
+
+    private func providerName(_ key: String) -> String {
+        key == "strava" ? "Strava" : key == "withings" ? "Withings" : key
+    }
+
+    private func syncProvider(_ provider: String) async {
+        syncing = provider
+        syncMessage = nil
+        defer { syncing = nil }
+        do {
+            struct SyncResult: Decodable {
+                let imported: Int?
+                let paused: Bool?
+                let queued: Bool?
+            }
+            let result: SyncResult = try await APIClient.shared.post(
+                "api/integrations/\(provider)/sync", body: [:]
+            )
+            if result.queued == true {
+                syncMessage = "⏳ Full historikhämtning körs i bakgrunden."
+            } else if result.paused == true {
+                syncMessage = "⏸ Kvoten nådd — tryck igen om ca 15 min så fortsätter hämtningen."
+            } else if let imported = result.imported, imported > 0 {
+                syncMessage = "✅ \(imported) nya hämtade från \(providerName(provider))."
+            } else {
+                syncMessage = "✅ Redan i kapp — inget nytt hos \(providerName(provider))."
+            }
+            await load()
+        } catch {
+            if let apiError = error as? APIError, case .server(404) = apiError {
+                syncMessage = "\(providerName(provider)) är inte kopplat ännu."
+            } else {
+                handleAPIError(error, session: session, message: &errorMessage)
+            }
+        }
     }
 
     private func activate() async {
