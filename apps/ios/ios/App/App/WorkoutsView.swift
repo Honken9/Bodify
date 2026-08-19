@@ -20,33 +20,29 @@ struct WorkoutsView: View {
     ]
 
     var body: some View {
-        NavigationView {
-            List {
-                if let message = errorMessage {
-                    ErrorBanner(message: message)
-                }
-                ForEach(workouts) { workout in
-                    HStack(alignment: .top, spacing: 10) {
-                        Text(Self.icons[workout.type] ?? "💪")
-                            .font(.title3)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(workout.name ?? "Träning")
-                                .font(.subheadline).bold()
-                            Text(subtitle(for: workout))
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    .padding(.vertical, 2)
-                }
-                if workouts.isEmpty && errorMessage == nil {
-                    Text("Inga pass ännu.").foregroundColor(.secondary)
-                }
+        List {
+            if let message = errorMessage {
+                ErrorBanner(message: message)
             }
-            .navigationTitle("Träning")
-            .refreshable { await load() }
+            ForEach(workouts) { workout in
+                HStack(alignment: .top, spacing: 10) {
+                    Text(Self.icons[workout.type] ?? "💪")
+                        .font(.title3)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(workout.name ?? "Träning")
+                            .font(.subheadline).bold()
+                        Text(subtitle(for: workout))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+            if workouts.isEmpty && errorMessage == nil {
+                Text("Inga pass ännu.").foregroundColor(.secondary)
+            }
         }
-        .navigationViewStyle(.stack)
+        .refreshable { await load() }
         .onAppear { Task { await load() } }
     }
 

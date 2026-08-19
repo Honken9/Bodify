@@ -14,15 +14,21 @@ som pratar direkt med API:t på shapiqo.com.
 - **Måltider** — dagens logg per måltid med radering, totaler mot mål,
   och fritextloggning ("Big Mac, mellan pommes, cola zero") via samma
   AI-tolkning som webben.
-- **Träning** — senaste passen från alla källor med distans, tid, puls.
+- **Träning** — passlistan + **native karta (MapKit)**: alla rutter
+  ritas som linjer (vald i rött), platspass som prickar, typfilter,
+  lista som zoomar till valt pass och 🧭 din position.
+- **Socialt** — utmaningar med ställning/etapper/inbördes möten, gå
+  med/tacka nej, skapa tävling/duell/vana med insats, Shapiqo-ligan
+  (Elo), vänner med ⚔️ Utmana, egna ligor med inbjudningskod och
+  ligatabell.
 - **Profil** — konto, märkesväggen och **Apple Health-synk direkt i
   appen** (HealthKit: steg, puls, HRV, VO₂max, SpO₂, sömnfaser, pass med
   GPS-rutt — postas till samma endpoint som Health Auto Export använde,
   med bakgrundssynk). Health Auto Export behövs inte.
 
-**Etapp 2 (senare):** karta (MapKit), socialt (utmaningar/dueller/ligor),
-utmaningsskapande, adminvyer, APNs-push. Tills dess finns allt det på
-shapiqo.com i webbläsaren.
+**Kvar till etapp 3:** APNs-push (kräver APNs-nyckel från
+utvecklarportalen + backend-sändare), heja-flöde, träningsprogram/
+passloggning, adminvyer (medvetet kvar på webben).
 
 ## Steg 1 — Öppna projektet
 

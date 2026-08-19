@@ -24,8 +24,10 @@ struct RootView: View {
                     .tabItem { Label("Hem", systemImage: "house.fill") }
                 MealsView(session: session)
                     .tabItem { Label("Måltider", systemImage: "fork.knife") }
-                WorkoutsView(session: session)
+                TrainingTab(session: session)
                     .tabItem { Label("Träning", systemImage: "figure.run") }
+                SocialView(session: session)
+                    .tabItem { Label("Socialt", systemImage: "trophy.fill") }
                 ProfileView(session: session)
                     .tabItem { Label("Profil", systemImage: "person.crop.circle") }
             }

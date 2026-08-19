@@ -26,6 +26,8 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Positionen används för att visa var du är på träningskartan.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Shapiqo läser din tränings-, sömn- och hälsodata för att synka den till ditt eget Shapiqo-konto. Datan skickas bara till din egen server och delas aldrig med tredje part.</string>
 	<key>NSHealthUpdateUsageDescription</key>
