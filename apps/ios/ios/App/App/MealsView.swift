@@ -46,17 +46,32 @@ struct MealsView: View {
         mealNames.first { $0.0 == key }?.1 ?? key
     }
 
+    @State private var mode = 0  // 0 = idag, 1 = historik
+
     var body: some View {
         NavigationView {
-            List {
-                daySection
-                compareSection
-                ringSection
-                logButtons
-                entriesSection
-                microsSection
+            Group {
+                if mode == 0 {
+                    List {
+                        modePicker
+                        daySection
+                        compareSection
+                        ringSection
+                        logButtons
+                        entriesSection
+                        microsSection
+                    }
+                    .listStyle(.insetGrouped)
+                } else {
+                    ScrollView {
+                        VStack(spacing: 12) {
+                            modePicker
+                            KostHistoryView(session: session)
+                        }
+                        .padding()
+                    }
+                }
             }
-            .listStyle(.insetGrouped)
             .navigationTitle("Kost")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -105,6 +120,15 @@ struct MealsView: View {
     }
 
     // MARK: Sektioner
+
+    private var modePicker: some View {
+        Picker("Vy", selection: $mode) {
+            Text("Idag").tag(0)
+            Text("📊 Historik").tag(1)
+        }
+        .pickerStyle(.segmented)
+        .listRowSeparator(.hidden)
+    }
 
     private var daySection: some View {
         HStack {

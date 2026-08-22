@@ -207,6 +207,9 @@ struct DaySummaryModel: Decodable, Identifiable {
     var id: String { day }
     let day: String
     let kcal: Double
+    let protein_g: Double
+    let carbs_g: Double
+    let fat_g: Double
     let entry_count: Int
 }
 
